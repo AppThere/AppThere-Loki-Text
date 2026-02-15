@@ -1,0 +1,458 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1628C287FC57FAF37D570E42 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = AD8298AFF94E4E2FD0C444D3 /* main.mm */; };
+		35BAAE33673B8203F4A1B089 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9953742F8DE5BB4628B8400C /* LaunchScreen.storyboard */; };
+		39B029E45FA70ACF5F30B3E5 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 75DCF98B2995D57772BC802C /* MetalKit.framework */; };
+		5DB58751CB731582027D41B8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3B39CE4D2259C693AC0D31C /* WebKit.framework */; };
+		7999A6C9AEC80C4996B28811 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D709DACF0E7496E314A21A9 /* Assets.xcassets */; };
+		7AFC59820EDC9FB34FEB7EFC /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D25C7A29CA7AF9B5A42762A6 /* QuartzCore.framework */; };
+		84357AADD28FB307AAFEDD9F /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9687B5DD995BCF235580A96 /* Metal.framework */; };
+		B5546D6C75736118A8893999 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4959D348CC1139E077F3411E /* Security.framework */; };
+		BC49F4060EE366392B587253 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC437FE914043311B028E8A0 /* CoreGraphics.framework */; };
+		C4D89101EC92C1E20AC5A7B5 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAF9B29C2476043511E99535 /* UIKit.framework */; };
+		D5B9DAA025C7A1BFA992E0AB /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 54804A7149F6932A111B29A6 /* libapp.a */; };
+		E9814D3AF19E44154F423A0F /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 478C6E6EC0E8B488231D4B31 /* assets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		29AFB089AFF6EF7224E99D67 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		2D709DACF0E7496E314A21A9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		31AA83F68AF6D9107CFF6C6D /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		478C6E6EC0E8B488231D4B31 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		4959D348CC1139E077F3411E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		51721CF57E856F433143E97C /* appthere-loki_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "appthere-loki_iOS.entitlements"; sourceTree = "<group>"; };
+		54804A7149F6932A111B29A6 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		5808A6FD3D6F0E2790A950A0 /* appthere-loki_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "appthere-loki_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		75DCF98B2995D57772BC802C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		906B508C883CE334466F83F3 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		9953742F8DE5BB4628B8400C /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A3B39CE4D2259C693AC0D31C /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		A9687B5DD995BCF235580A96 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		AD8298AFF94E4E2FD0C444D3 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		BC437FE914043311B028E8A0 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		CB44012E1D5BB3E30DA8759E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D25C7A29CA7AF9B5A42762A6 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		FAF9B29C2476043511E99535 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		669D50B00EE256976FD72463 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5B9DAA025C7A1BFA992E0AB /* libapp.a in Frameworks */,
+				BC49F4060EE366392B587253 /* CoreGraphics.framework in Frameworks */,
+				84357AADD28FB307AAFEDD9F /* Metal.framework in Frameworks */,
+				39B029E45FA70ACF5F30B3E5 /* MetalKit.framework in Frameworks */,
+				7AFC59820EDC9FB34FEB7EFC /* QuartzCore.framework in Frameworks */,
+				B5546D6C75736118A8893999 /* Security.framework in Frameworks */,
+				C4D89101EC92C1E20AC5A7B5 /* UIKit.framework in Frameworks */,
+				5DB58751CB731582027D41B8 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		01397E35684F2D2D20C573CA /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				D7813B076A86D38BAF9F566A /* appthere-loki */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		1C82627ADA02DE52E03F37C5 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		3983EA96D051641553384936 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				29AFB089AFF6EF7224E99D67 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		5B711ECEAA7593A15D72310F /* src */ = {
+			isa = PBXGroup;
+			children = (
+				906B508C883CE334466F83F3 /* lib.rs */,
+				31AA83F68AF6D9107CFF6C6D /* main.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		64A5487FB69E1B6A136699EF = {
+			isa = PBXGroup;
+			children = (
+				478C6E6EC0E8B488231D4B31 /* assets */,
+				2D709DACF0E7496E314A21A9 /* Assets.xcassets */,
+				9953742F8DE5BB4628B8400C /* LaunchScreen.storyboard */,
+				93807B7A15992D27677B4DA8 /* appthere-loki_iOS */,
+				1C82627ADA02DE52E03F37C5 /* Externals */,
+				01397E35684F2D2D20C573CA /* Sources */,
+				5B711ECEAA7593A15D72310F /* src */,
+				C1C022349E4C8E54D5CE6ABC /* Frameworks */,
+				B59583560CB0520FF07EDC1E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		93807B7A15992D27677B4DA8 /* appthere-loki_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				51721CF57E856F433143E97C /* appthere-loki_iOS.entitlements */,
+				CB44012E1D5BB3E30DA8759E /* Info.plist */,
+			);
+			path = "appthere-loki_iOS";
+			sourceTree = "<group>";
+		};
+		B59583560CB0520FF07EDC1E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5808A6FD3D6F0E2790A950A0 /* appthere-loki_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C1C022349E4C8E54D5CE6ABC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BC437FE914043311B028E8A0 /* CoreGraphics.framework */,
+				54804A7149F6932A111B29A6 /* libapp.a */,
+				A9687B5DD995BCF235580A96 /* Metal.framework */,
+				75DCF98B2995D57772BC802C /* MetalKit.framework */,
+				D25C7A29CA7AF9B5A42762A6 /* QuartzCore.framework */,
+				4959D348CC1139E077F3411E /* Security.framework */,
+				FAF9B29C2476043511E99535 /* UIKit.framework */,
+				A3B39CE4D2259C693AC0D31C /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D7813B076A86D38BAF9F566A /* appthere-loki */ = {
+			isa = PBXGroup;
+			children = (
+				AD8298AFF94E4E2FD0C444D3 /* main.mm */,
+				3983EA96D051641553384936 /* bindings */,
+			);
+			path = "appthere-loki";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8DCF41769B63510E218F6ADC /* appthere-loki_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 734761618DB27903DAE632D8 /* Build configuration list for PBXNativeTarget "appthere-loki_iOS" */;
+			buildPhases = (
+				16239750DB0068EBCED8F931 /* Build Rust Code */,
+				67D916950EBABF2173AD4CFC /* Sources */,
+				FE53894A7AFA552294D1E6EE /* Resources */,
+				669D50B00EE256976FD72463 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "appthere-loki_iOS";
+			packageProductDependencies = (
+			);
+			productName = "appthere-loki_iOS";
+			productReference = 5808A6FD3D6F0E2790A950A0 /* appthere-loki_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8E8028310F83B5C0E66FC25C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 4A8B337CA1B0B78ECF6DF25E /* Build configuration list for PBXProject "appthere-loki" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 64A5487FB69E1B6A136699EF;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DCF41769B63510E218F6ADC /* appthere-loki_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FE53894A7AFA552294D1E6EE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7999A6C9AEC80C4996B28811 /* Assets.xcassets in Resources */,
+				35BAAE33673B8203F4A1B089 /* LaunchScreen.storyboard in Resources */,
+				E9814D3AF19E44154F423A0F /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		16239750DB0068EBCED8F931 /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		67D916950EBABF2173AD4CFC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1628C287FC57FAF37D570E42 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		290A714F8B9C3AD6F69C08D6 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "appthere-loki_iOS/appthere-loki_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "appthere-loki_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.appthere.loki;
+				PRODUCT_NAME = "appthere-loki";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		D26B7163B8B8B42F6A46946D /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "appthere-loki_iOS/appthere-loki_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "appthere-loki_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.appthere.loki;
+				PRODUCT_NAME = "appthere-loki";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+		EDA968F6A8403A2CD3E19EEA /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		F06AFE1577178D2D6836BBD7 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4A8B337CA1B0B78ECF6DF25E /* Build configuration list for PBXProject "appthere-loki" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EDA968F6A8403A2CD3E19EEA /* debug */,
+				F06AFE1577178D2D6836BBD7 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		734761618DB27903DAE632D8 /* Build configuration list for PBXNativeTarget "appthere-loki_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D26B7163B8B8B42F6A46946D /* debug */,
+				290A714F8B9C3AD6F69C08D6 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8E8028310F83B5C0E66FC25C /* Project object */;
+}

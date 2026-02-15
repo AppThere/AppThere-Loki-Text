@@ -1,10 +1,26 @@
 <script lang="ts">
   import Editor from "$lib/Editor.svelte";
   import StyleSelect from "$lib/StyleSelect.svelte";
+  import InsertMenu from "$lib/InsertMenu.svelte";
   import MetadataDialog from "$lib/MetadataDialog.svelte";
   import { save, open } from "@tauri-apps/plugin-dialog";
   import { invoke } from "@tauri-apps/api/core";
-  import { FolderOpen, Save, Info } from "lucide-svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import {
+    FolderOpen,
+    Save,
+    Info,
+    Undo,
+    Redo,
+    Clipboard,
+    Image,
+    Table,
+    List,
+    ListOrdered,
+    IndentIncrease,
+    IndentDecrease,
+    Quote,
+  } from "lucide-svelte";
 
   let editorComponent: any = $state();
   let syncStatus = $state("Ready");
@@ -24,6 +40,13 @@
 
   // Derived title for the banner
   let displayTitle = $derived(metadata.title || "Untitled Document");
+
+  $effect(() => {
+    const title = metadata.title
+      ? `${metadata.title} - AppThere Loki Text`
+      : "AppThere Loki Text";
+    getCurrentWindow().setTitle(title);
+  });
 
   async function handleSave() {
     if (!editorComponent) return;
@@ -133,14 +156,84 @@
   />
 
   <div class="bottom-toolbar">
-    <div class="toolbar-controls">
-      <StyleSelect
-        bind:currentStyleId
-        onSelect={(id: string) => editorComponent?.applyStyle(id)}
-        onEdit={() => editorComponent?.openStyles()}
-      />
-      <div class="divider"></div>
-      <!-- Future formatting buttons -->
+    <div class="toolbar-scroll-container">
+      <div class="toolbar-controls">
+        <div class="history-controls">
+          <button
+            class="icon-btn"
+            onclick={() => editorComponent?.undo()}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+          >
+            <Undo size={18} />
+          </button>
+          <button
+            class="icon-btn"
+            onclick={() => editorComponent?.redo()}
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+          >
+            <Redo size={18} />
+          </button>
+        </div>
+        <div class="divider"></div>
+        <button
+          class="icon-btn"
+          onclick={() => editorComponent?.paste()}
+          title="Paste (Ctrl+V)"
+          aria-label="Paste"
+        >
+          <Clipboard size={18} />
+        </button>
+
+        <StyleSelect
+          bind:currentStyleId
+          onSelect={(id: string) => editorComponent?.applyStyle(id)}
+          onEdit={() => editorComponent?.openStyles()}
+        />
+
+        <div class="divider"></div>
+
+        <InsertMenu
+          onInsertImage={() => editorComponent?.insertImage()}
+          onInsertTable={() => editorComponent?.insertTable()}
+        />
+
+        <div class="group-spacer"></div>
+
+        <button
+          class="icon-btn"
+          onclick={() => editorComponent?.toggleBulletList()}
+          title="Bulleted List"
+        >
+          <List size={18} />
+        </button>
+        <button
+          class="icon-btn"
+          onclick={() => editorComponent?.toggleOrderedList()}
+          title="Numbered List"
+        >
+          <ListOrdered size={18} />
+        </button>
+        <!-- Blockquote removed as requested -->
+
+        <div class="mini-divider"></div>
+
+        <button
+          class="icon-btn"
+          onclick={() => editorComponent?.indent()}
+          title="Increase Indent"
+        >
+          <IndentIncrease size={18} />
+        </button>
+        <button
+          class="icon-btn"
+          onclick={() => editorComponent?.outdent()}
+          title="Decrease Indent"
+        >
+          <IndentDecrease size={18} />
+        </button>
+      </div>
     </div>
   </div>
 
@@ -249,6 +342,12 @@
     background-color: var(--bg-color);
   }
 
+  @media (prefers-color-scheme: dark) {
+    .content-view {
+      background-color: var(--document-bg);
+    }
+  }
+
   .bottom-toolbar {
     height: var(--toolbar-height);
     background: var(--header-bg);
@@ -260,13 +359,47 @@
     box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
   }
 
+  .toolbar-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
   .toolbar-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px; /* Slightly tighter gap */
     max-width: 800px;
     margin: 0 auto;
-    width: 100%;
+    width: max-content; /* Allow growing beyond container width */
+    min-width: 100%; /* But take full width if smaller */
+    padding: 0 4px; /* Minimal padding */
+  }
+
+  /* Adjust gap/margin specifically for larger screens to center better if needed */
+  @media (min-width: 850px) {
+    .toolbar-controls {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .group-spacer {
+    display: inline-block;
+    width: 12px;
+  }
+
+  .mini-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border-color);
+    margin: 0 4px;
   }
 
   .divider {
@@ -300,22 +433,6 @@
     ); /* Or a specific color like orange/red if preferred */
     font-size: 1.2rem;
     line-height: 0.5;
-  }
-  .status-indicator.syncing {
-    color: var(--primary-color);
-  }
-
-  .file-path {
-    font-size: 0.85rem;
-    color: var(--icon-color);
-    font-weight: 500;
-    background: var(--hover-bg);
-    padding: 4px 12px;
-    border-radius: 20px;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /* Shared button styles */
@@ -369,9 +486,7 @@
       width: 36px;
       height: 36px;
     }
-    .file-path {
-      max-width: 120px;
-    }
+
     .content-view {
       padding: 0;
     }
@@ -381,5 +496,34 @@
     .bottom-toolbar {
       padding: 0 12px;
     }
+  }
+
+  .history-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--icon-color);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .icon-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text-color);
+  }
+
+  .icon-btn:active {
+    background: var(--border-color);
   }
 </style>

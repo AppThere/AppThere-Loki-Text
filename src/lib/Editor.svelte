@@ -4,6 +4,17 @@
     import Link from "@tiptap/extension-link";
     import Superscript from "@tiptap/extension-superscript";
     import Subscript from "@tiptap/extension-subscript";
+    import Image from "@tiptap/extension-image";
+    import { Table } from "@tiptap/extension-table";
+    import TableRow from "@tiptap/extension-table-row";
+    import TableCell from "@tiptap/extension-table-cell";
+    import TableHeader from "@tiptap/extension-table-header";
+    import BulletList from "@tiptap/extension-bullet-list";
+    import OrderedList from "@tiptap/extension-ordered-list";
+    import ListItem from "@tiptap/extension-list-item";
+    import Blockquote from "@tiptap/extension-blockquote";
+    import TextAlign from "@tiptap/extension-text-align";
+
     import { createEditor, EditorContent, BubbleMenu } from "svelte-tiptap";
     import { NamedSpanStyle, NamedBlockStyle } from "./extensions/NamedStyles";
     import { NextParagraphStyle } from "./extensions/NextParagraphStyle";
@@ -22,6 +33,11 @@
         X,
     } from "lucide-svelte";
 
+    import { open } from "@tauri-apps/plugin-dialog";
+    import { readFile } from "@tauri-apps/plugin-fs";
+    import { convertFileSrc } from "@tauri-apps/api/core";
+
+    import PasteDialog from "./PasteDialog.svelte";
     import StyleDialog from "./StyleDialog.svelte";
     import { styleRegistry, resolveStyle } from "./styleStore";
 
@@ -39,119 +55,190 @@
         onChange,
     } = $props();
 
-    // Dynamic style generation
-    let dynamicStyles = $state("");
-    styleRegistry.subscribe((styles) => {
-        let css = "";
-        styles.forEach((style) => {
-            // Use resolved style to apply inheritance
-            const resolved = resolveStyle(style.id, styles);
-            css += `[data-style-name="${style.id}"] {`;
-            if (resolved.fontFamily)
-                css += `font-family: ${resolved.fontFamily} !important;`;
-            if (resolved.fontSize)
-                css += `font-size: ${resolved.fontSize} !important;`;
-            if (resolved.fontWeight)
-                css += `font-weight: ${resolved.fontWeight} !important;`;
-            if (resolved.lineHeight)
-                css += `line-height: ${resolved.lineHeight} !important;`;
-            if (resolved.marginLeft)
-                css += `margin-left: ${resolved.marginLeft} !important;`;
-            if (resolved.marginRight)
-                css += `margin-right: ${resolved.marginRight} !important;`;
-            if (resolved.marginTop)
-                css += `margin-top: ${resolved.marginTop} !important;`;
-            if (resolved.marginBottom)
-                css += `margin-bottom: ${resolved.marginBottom} !important;`;
-            if (resolved.textIndent)
-                css += `text-indent: ${resolved.textIndent} !important;`;
-            if (resolved.textAlign)
-                css += `text-align: ${resolved.textAlign} !important;`;
-            if (resolved.hyphenate !== undefined)
-                css += `hyphens: ${resolved.hyphenate ? "auto" : "none"} !important;`;
-            // orphans/widows are handled by browser/print styles usually, but we can try
-            if (resolved.orphans !== undefined)
-                css += `orphans: ${resolved.orphans} !important;`;
-            if (resolved.widows !== undefined)
-                css += `widows: ${resolved.widows} !important;`;
-
-            css += `}`;
-        });
-        dynamicStyles = css;
-    });
-
-    // Helper function for NextParagraphStyle extension
-    (window as any).__getNextStyle = (currentStyleId: string) => {
-        const styles = styleRegistry.getStyles();
-        const currentStyle = styles.find((s) => s.id === currentStyleId);
-        return currentStyle?.next;
-    };
+    let dynamicStyles = $derived(
+        $styleRegistry
+            .map((style) => {
+                const s = resolveStyle(style.id, $styleRegistry);
+                return `
+                .ProseMirror [data-style-name="${style.id}"] {
+                    ${s.fontFamily ? `font-family: ${s.fontFamily};` : ""}
+                    ${s.fontSize ? `font-size: ${s.fontSize};` : ""}
+                    ${s.fontWeight ? `font-weight: ${s.fontWeight};` : ""}
+                    ${s.lineHeight ? `line-height: ${s.lineHeight};` : ""}
+                    ${s.marginTop ? `margin-top: ${s.marginTop};` : ""}
+                    ${s.marginBottom ? `margin-bottom: ${s.marginBottom};` : ""}
+                    ${s.marginLeft ? `margin-left: ${s.marginLeft};` : ""}
+                    ${s.marginRight ? `margin-right: ${s.marginRight};` : ""}
+                    ${s.textIndent ? `text-indent: ${s.textIndent};` : ""}
+                    ${s.textAlign ? `text-align: ${s.textAlign};` : ""}
+                }
+            `;
+            })
+            .join("\n"),
+    );
 
     const editor = createEditor({
         extensions: [
-            StarterKit,
-            Underline,
+            StarterKit.configure({
+                bulletList: false, // We import separately to configure if needed, or just use StarterKit's
+                orderedList: false,
+                listItem: false,
+                blockquote: false,
+            }),
+            // Underline,
             Superscript,
             Subscript,
-            Link.configure({
-                openOnClick: false,
-                HTMLAttributes: {
-                    class: "text-blue-600 underline",
-                },
+            // Link.configure({
+            //     openOnClick: false,
+            //     HTMLAttributes: {
+            //         class: "text-blue-600 underline",
+            //     },
+            // }),
+            Image,
+            Table.configure({
+                resizable: true,
             }),
-            NamedSpanStyle,
+            TableRow,
+            TableHeader,
+            TableCell,
+            BulletList,
+            OrderedList,
+            ListItem,
+            Blockquote,
+            TextAlign.configure({
+                types: ["heading", "paragraph"],
+            }),
             NamedBlockStyle,
             NextParagraphStyle,
         ],
-        content: "",
-        onUpdate({ editor }) {
-            syncDocument(editor.getJSON());
-            if (onChange) onChange();
+        onCreate({ editor }) {
+            // Apply default style to initial content if needed
+            // This ensures the first paragraph has "Normal Text" style
+            if (editor.isEmpty) {
+                editor
+                    .chain()
+                    .updateAttributes("paragraph", { styleName: "Normal Text" })
+                    .run();
+            }
         },
-        onSelectionUpdate({ editor }) {
-            // Find the parent block and its styleName attribute
-            const selectionFrom = editor.state.selection.$from;
-            const node = selectionFrom.node(selectionFrom.depth);
-            currentStyleId = node.attrs.styleName || "Normal Text";
-        },
-        editorProps: {
-            attributes: {
-                class: "focus:outline-none focus:ring-0 mx-auto",
-            },
-        },
+        // ...
     });
 
-    let isStyleDialogOpen = $state(false);
+    // ...
 
-    export const applyStyle = (styleName: string) => {
-        if (!$editor) return;
-        if (styleName === "Emphasis") {
+    export const insertImage = async () => {
+        try {
+            const selected = await open({
+                multiple: false,
+                filters: [
+                    {
+                        name: "Images",
+                        extensions: ["png", "jpg", "jpeg", "gif", "webp"],
+                    },
+                ],
+            });
+            if (selected) {
+                const path = Array.isArray(selected) ? selected[0] : selected;
+
+                try {
+                    // Strategy: Read file directly and use Data URI to bypass asset:// protocol issues
+                    const contents = await readFile(path);
+
+                    // Determine mime type from extension
+                    const ext = path.split(".").pop()?.toLowerCase() || "png";
+                    const mimeType =
+                        ext === "jpg" || ext === "jpeg"
+                            ? "image/jpeg"
+                            : ext === "gif"
+                              ? "image/gif"
+                              : ext === "webp"
+                                ? "image/webp"
+                                : "image/png";
+
+                    // distinct approach for buffer conversion to avoid stack overflow on large files
+                    const blob = new Blob([contents], { type: mimeType });
+                    const reader = new FileReader();
+
+                    reader.onload = (e) => {
+                        const src = e.target?.result as string;
+                        console.log("Image loaded as Data URI", {
+                            path,
+                            length: src.length,
+                        });
+                        $editor
+                            ?.chain()
+                            .focus()
+                            .setImage({ src, alt: path })
+                            .run();
+                    };
+
+                    reader.readAsDataURL(blob);
+                } catch (readErr) {
+                    console.error("Failed to read image file", readErr);
+                    // Fallback to old method just in case
+                    const src = `asset://localhost${encodeURI(path)}`;
+                    $editor?.chain().focus().setImage({ src, alt: path }).run();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to insert image", e);
+        }
+    };
+
+    export const insertTable = () => {
+        const rows = prompt("Rows:", "3");
+        const cols = prompt("Columns:", "3");
+        if (rows && cols) {
             $editor
-                .chain()
+                ?.chain()
                 .focus()
-                .toggleMark("namedSpanStyle", { styleName })
-                .run();
-        } else {
-            // Apply styleName to all selected blocks (paragraphs and headings)
-            $editor
-                .chain()
-                .focus()
-                .updateAttributes("paragraph", { styleName })
-                .updateAttributes("heading", { styleName })
+                .insertTable({
+                    rows: parseInt(rows),
+                    cols: parseInt(cols),
+                    withHeaderRow: true,
+                })
                 .run();
         }
     };
 
-    export const setContent = (content: any) => {
-        $editor?.commands.setContent(content);
+    export const toggleBulletList = () => {
+        $editor?.chain().focus().toggleBulletList().run();
     };
 
-    export const getJSON = () => {
-        return $editor?.getJSON();
+    export const toggleOrderedList = () => {
+        $editor?.chain().focus().toggleOrderedList().run();
     };
 
-    export const openStyles = () => {
-        isStyleDialogOpen = true;
+    export const toggleBlockquote = () => {
+        $editor?.chain().focus().toggleBlockquote().run();
+    };
+
+    export const indent = () => {
+        // Tiptap doesn't have default indent. Standard is usually sinkListItem for lists.
+        // For paragraphs, we might need a custom indentation extension or just margin-left.
+        // Let's try sinkListItem first as it handles lists which is user's likely intent with these buttons context.
+        // But for paragraphs?
+        if ($editor?.can().sinkListItem("listItem")) {
+            $editor.chain().focus().sinkListItem("listItem").run();
+        } else {
+            // Fallback: Custom indent implementation?
+            // Let's just implement Indent for lists for now as it's standard.
+            // Paragraph indent is harder without extension.
+        }
+    };
+
+    export const outdent = () => {
+        if ($editor?.can().liftListItem("listItem")) {
+            $editor.chain().focus().liftListItem("listItem").run();
+        }
+    };
+
+    export const undo = () => {
+        $editor?.chain().focus().undo().run();
+    };
+
+    export const redo = () => {
+        $editor?.chain().focus().redo().run();
     };
 
     function getStyleDefinitions() {
@@ -256,6 +343,109 @@
         styleRegistry.setStyles(styles);
         metadata = data.metadata;
         $editor.commands.setContent(data.content);
+    };
+
+    let isStyleDialogOpen = $state(false);
+    let isPasteDialogOpen = $state(false);
+    let pendingPasteHtml = $state("");
+    let pendingPasteText = $state("");
+
+    export const applyStyle = (styleName: string) => {
+        if (!$editor) return;
+        if (styleName === "Emphasis") {
+            $editor
+                .chain()
+                .focus()
+                .toggleMark("namedSpanStyle", { styleName })
+                .run();
+        } else {
+            $editor
+                .chain()
+                .focus()
+                .updateAttributes("paragraph", { styleName })
+                .updateAttributes("heading", { styleName })
+                .run();
+        }
+    };
+
+    export const paste = async () => {
+        try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const item of clipboardItems) {
+                if (item.types.includes("text/html")) {
+                    const blob = await item.getType("text/html");
+                    pendingPasteHtml = await blob.text();
+                    // Also get text version for fallback/plain option
+                    if (item.types.includes("text/plain")) {
+                        const textBlob = await item.getType("text/plain");
+                        pendingPasteText = await textBlob.text();
+                    } else {
+                        // Fallback: strip tags roughly or use innerText if we parsed it
+                        pendingPasteText = pendingPasteHtml.replace(
+                            /<[^>]*>?/gm,
+                            "",
+                        );
+                    }
+                    isPasteDialogOpen = true;
+                    return;
+                }
+                if (item.types.includes("text/plain")) {
+                    const blob = await item.getType("text/plain");
+                    const text = await blob.text();
+                    $editor?.commands.insertContent(text);
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error("Failed to read clipboard:", err);
+            // Fallback to simple paste if permission denied or API unavailable
+            // We can try execCommand, or just alert user
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) $editor?.commands.insertContent(text);
+            } catch (e) {
+                console.error("Clipboard API failed completely", e);
+            }
+        }
+    };
+
+    function handlePasteOption(option: "plain" | "structure" | "dirty") {
+        if (!$editor) return;
+
+        if (option === "plain") {
+            $editor.commands.insertContent(pendingPasteText);
+        } else if (option === "dirty") {
+            $editor.commands.insertContent(pendingPasteHtml);
+        } else if (option === "structure") {
+            // Structure: Remove style attributes, classes, and generic divs/spans but keep semantic structure
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(pendingPasteHtml, "text/html");
+
+            // Remove style attributes
+            const elements = doc.body.getElementsByTagName("*");
+            for (let i = 0; i < elements.length; i++) {
+                elements[i].removeAttribute("style");
+                elements[i].removeAttribute("class");
+                // We could also unwrap non-semantic tags like span/div here if we wanted strict structure
+            }
+
+            $editor.commands.insertContent(doc.body.innerHTML);
+        }
+
+        pendingPasteHtml = "";
+        pendingPasteText = "";
+    }
+
+    export const setContent = (content: any) => {
+        $editor?.commands.setContent(content);
+    };
+
+    export const getJSON = () => {
+        return $editor?.getJSON();
+    };
+
+    export const openStyles = () => {
+        isStyleDialogOpen = true;
     };
 
     // Link handling
@@ -447,6 +637,12 @@
     onClose={() => (isStyleDialogOpen = false)}
 />
 
+<PasteDialog
+    isOpen={isPasteDialogOpen}
+    onSelect={handlePasteOption}
+    onClose={() => (isPasteDialogOpen = false)}
+/>
+
 <style>
     .editor-container {
         width: 100%;
@@ -459,7 +655,7 @@
         width: 100%;
         max-width: 800px;
         background: transparent; /* Remove paper background */
-        padding: 60px 24px; /* Ensure horizontal padding exists on all screens */
+        padding: 20px 24px 60px 24px; /* Reduced top padding, ensure bottom padding */
         min-height: 200px;
         height: auto;
         box-shadow: none; /* Remove paper shadow */
@@ -525,6 +721,12 @@
     :global(.ProseMirror strong),
     :global(.ProseMirror b) {
         font-weight: bold !important;
+    }
+
+    :global(.ProseMirror img) {
+        max-width: 100%;
+        height: auto;
+        display: block; /* optional, but good for layout */
     }
 
     .bubble-menu {

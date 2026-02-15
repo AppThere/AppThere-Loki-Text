@@ -8,6 +8,42 @@
     } = $props();
 
     let isOpen = $state(false);
+    let triggerRef: HTMLButtonElement;
+    let dropdownStyle = $state("");
+
+    function updatePosition() {
+        if (triggerRef) {
+            const rect = triggerRef.getBoundingClientRect();
+            // Position above the button
+            dropdownStyle = `
+                position: fixed;
+                bottom: ${window.innerHeight - rect.top + 8}px;
+                left: ${rect.left}px;
+            `;
+        }
+    }
+
+    import { tick, onMount } from "svelte";
+
+    // ...
+
+    $effect(() => {
+        if (isOpen) {
+            window.addEventListener("scroll", updatePosition, true);
+            window.addEventListener("resize", updatePosition);
+            return () => {
+                window.removeEventListener("scroll", updatePosition, true);
+                window.removeEventListener("resize", updatePosition);
+            };
+        }
+    });
+
+    function toggleOpen() {
+        if (!isOpen) {
+            updatePosition();
+        }
+        isOpen = !isOpen;
+    }
 
     function handleSelect(id: string) {
         onSelect(id);
@@ -16,7 +52,7 @@
 </script>
 
 <div class="style-select">
-    <button class="select-trigger" onclick={() => (isOpen = !isOpen)}>
+    <button class="select-trigger" bind:this={triggerRef} onclick={toggleOpen}>
         <span class="current-style"
             >{$styleRegistry.find((s) => s.id === currentStyleId)?.name ||
                 currentStyleId}</span
@@ -25,7 +61,7 @@
     </button>
 
     {#if isOpen}
-        <div class="select-dropdown">
+        <div class="select-dropdown" style={dropdownStyle}>
             <div class="dropdown-header">
                 <span>Block Style</span>
                 <button
@@ -98,9 +134,7 @@
     }
 
     .select-dropdown {
-        position: absolute;
-        bottom: calc(100% + 8px);
-        left: 0;
+        /* position: fixed is applied inline */
         width: 200px;
         background: var(--header-bg);
         border: 1px solid var(--border-color);

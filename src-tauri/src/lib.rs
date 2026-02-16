@@ -46,13 +46,8 @@ async fn save_document(path: String, tiptap_json: TiptapNode, styles: HashMap<St
         zip.write_all(styles_xml.as_bytes()).map_err(|e| e.to_string())?;
 
         // 4. meta.xml (required for valid ODT)
+        let meta_xml = doc.to_meta_xml()?;
         zip.start_file("meta.xml", deflated_options).map_err(|e| e.to_string())?;
-        let meta_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
-<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" office:version="1.3">
-  <office:meta>
-    <meta:generator>Loki 0.1.0</meta:generator>
-  </office:meta>
-</office:document-meta>"#;
         zip.write_all(meta_xml.as_bytes()).map_err(|e| e.to_string())?;
 
         // 5. META-INF/manifest.xml

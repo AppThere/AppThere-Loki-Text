@@ -200,7 +200,9 @@ pub struct ImageAttrs {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Metadata {
+    pub identifier: Option<String>,
     pub title: Option<String>,
+    pub language: Option<String>,
     pub description: Option<String>,
     pub subject: Option<String>,
     pub creator: Option<String>,
@@ -272,6 +274,10 @@ impl Document {
                     metadata.creation_date = child.text().map(|s| s.to_string());
                 } else if child.has_tag_name((ns_meta, "generator")) {
                     metadata.generator = child.text().map(|s| s.to_string());
+                } else if child.has_tag_name((ns_dc, "identifier")) {
+                    metadata.identifier = child.text().map(|s| s.to_string());
+                } else if child.has_tag_name((ns_dc, "language")) {
+                    metadata.language = child.text().map(|s| s.to_string());
                 }
             }
         }
@@ -1002,6 +1008,90 @@ impl Document {
             .write_event(Event::Start(document))
             .map_err(|e| e.to_string())?;
 
+        // Meta
+        writer
+            .write_event(Event::Start(BytesStart::new("office:meta")))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::Start(BytesStart::new("meta:generator")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::Text(BytesText::new(
+                self.metadata
+                    .generator
+                    .as_deref()
+                    .unwrap_or("AppThere Loki"),
+            )))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new("meta:generator")))
+            .map_err(|e| e.to_string())?;
+
+        if let Some(title) = &self.metadata.title {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:title")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(title)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:title")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(creator) = &self.metadata.creator {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:creator")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(creator)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:creator")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(date) = &self.metadata.creation_date {
+            writer
+                .write_event(Event::Start(BytesStart::new("meta:creation-date")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(date)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("meta:creation-date")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(identifier) = &self.metadata.identifier {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:identifier")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(identifier)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:identifier")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(language) = &self.metadata.language {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:language")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(language)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:language")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:meta")))
+            .map_err(|e| e.to_string())?;
+
         writer
             .write_event(Event::Start(BytesStart::new("office:body")))
             .map_err(|e| e.to_string())?;
@@ -1180,6 +1270,147 @@ impl Document {
             .map_err(|e| e.to_string())?;
         writer
             .write_event(Event::End(BytesEnd::new("office:document")))
+            .map_err(|e| e.to_string())?;
+
+        let result = writer.into_inner().into_inner();
+        String::from_utf8(result).map_err(|e| e.to_string())
+    }
+
+    pub fn to_meta_xml(&self) -> Result<String, String> {
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+        use quick_xml::Writer;
+        use std::io::Cursor;
+
+        let mut writer = Writer::new(Cursor::new(Vec::new()));
+        writer
+            .write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))
+            .map_err(|e| e.to_string())?;
+
+        let mut doc_meta = BytesStart::new("office:document-meta");
+        doc_meta.push_attribute((
+            "xmlns:office",
+            "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+        ));
+        doc_meta.push_attribute((
+            "xmlns:meta",
+            "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
+        ));
+        doc_meta.push_attribute(("xmlns:dc", "http://purl.org/dc/elements/1.1/"));
+        doc_meta.push_attribute(("office:version", "1.3"));
+        writer
+            .write_event(Event::Start(doc_meta))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::Start(BytesStart::new("office:meta")))
+            .map_err(|e| e.to_string())?;
+
+        // Generator
+        writer
+            .write_event(Event::Start(BytesStart::new("meta:generator")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::Text(BytesText::new(
+                self.metadata
+                    .generator
+                    .as_deref()
+                    .unwrap_or("AppThere Loki"),
+            )))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new("meta:generator")))
+            .map_err(|e| e.to_string())?;
+
+        if let Some(title) = &self.metadata.title {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:title")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(title)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:title")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(description) = &self.metadata.description {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:description")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(description)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:description")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(subject) = &self.metadata.subject {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:subject")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(subject)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:subject")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(creator) = &self.metadata.creator {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:creator")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(creator)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:creator")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(date) = &self.metadata.creation_date {
+            writer
+                .write_event(Event::Start(BytesStart::new("meta:creation-date")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(date)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("meta:creation-date")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(identifier) = &self.metadata.identifier {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:identifier")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(identifier)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:identifier")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(language) = &self.metadata.language {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:language")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(language)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:language")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:meta")))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:document-meta")))
             .map_err(|e| e.to_string())?;
 
         let result = writer.into_inner().into_inner();

@@ -15,7 +15,9 @@
         onClose,
     } = $props();
 
+    let identifier = $state("");
     let title = $state("");
+    let language = $state("");
     let description = $state("");
     let subject = $state("");
     let creator = $state("");
@@ -23,20 +25,26 @@
     // Sync local state with prop
     run(() => {
         if (isOpen) {
-            title = metadata.title || "";
+            identifier = metadata.identifier || crypto.randomUUID();
+            title = metadata.title || "Untitled Document";
+            language = metadata.language || "en";
             description = metadata.description || "";
             subject = metadata.subject || "";
-            creator = metadata.creator || "";
+            creator = metadata.creator || metadata.author || ""; // Support old 'author' field if present
         }
     });
 
     function handleSave() {
         metadata = {
             ...metadata,
+            identifier,
             title,
+            language,
             description,
             subject,
             creator,
+            generator: metadata.generator || "AppThere Loki",
+            creationDate: metadata.creationDate || new Date().toISOString(),
         };
         onClose();
     }
@@ -63,7 +71,44 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="title">Title</label>
-                    <input type="text" id="title" bind:value={title} />
+                    <input
+                        type="text"
+                        id="title"
+                        bind:value={title}
+                        placeholder="Untitled Document"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label for="creator">Author</label>
+                    <input
+                        type="text"
+                        id="creator"
+                        bind:value={creator}
+                        placeholder="Unknown Author"
+                    />
+                </div>
+
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label for="language">Language</label>
+                        <input
+                            type="text"
+                            id="language"
+                            bind:value={language}
+                            placeholder="en"
+                        />
+                    </div>
+                    <div class="form-group" style="flex: 2;">
+                        <label for="identifier">Unique Identifier</label>
+                        <input
+                            type="text"
+                            id="identifier"
+                            bind:value={identifier}
+                            readonly
+                            class="readonly"
+                        />
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -72,13 +117,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="creator">Author</label>
-                    <input type="text" id="creator" bind:value={creator} />
-                </div>
-
-                <div class="form-group">
                     <label for="description">Description</label>
-                    <textarea id="description" bind:value={description} rows="4"
+                    <textarea id="description" bind:value={description} rows="3"
                     ></textarea>
                 </div>
 
@@ -170,6 +210,23 @@
 
     .form-group {
         margin-bottom: 16px;
+    }
+
+    .form-group-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .form-group-row .form-group {
+        margin-bottom: 0;
+        flex: 1;
+    }
+
+    .readonly {
+        background: var(--hover-bg) !important;
+        opacity: 0.8;
+        cursor: default;
     }
 
     label {

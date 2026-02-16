@@ -40,9 +40,14 @@
   let currentPath = $state<string | null>(null);
 
   let metadata = $state({
+    identifier: crypto.randomUUID(),
     title: "Untitled Document",
-    author: "Unknown Author",
-    created: new Date().toISOString(),
+    language: "en",
+    creator: "Unknown Author",
+    creationDate: new Date().toISOString(),
+    generator: "AppThere Loki",
+    description: "",
+    subject: "",
   });
 
   let isMetadataOpen = $state(false);
@@ -313,9 +318,14 @@
     isDirty = false;
     syncStatus = "Ready";
     metadata = {
+      identifier: crypto.randomUUID(),
       title: "Untitled Document",
-      author: "Unknown Author",
-      created: new Date().toISOString(),
+      language: "en",
+      creator: "Unknown Author",
+      creationDate: new Date().toISOString(),
+      generator: "AppThere Loki",
+      description: "",
+      subject: "",
     };
 
     let initialStyles = [];

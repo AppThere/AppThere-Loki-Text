@@ -281,10 +281,14 @@ impl EpubDocument {
         // Metadata
         opf.push_str("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
 
-        let uuid = format!("urn:uuid:{}", uuid::Uuid::new_v4());
+        let identifier = self
+            .metadata
+            .identifier
+            .clone()
+            .unwrap_or_else(|| format!("urn:uuid:{}", uuid::Uuid::new_v4()));
         opf.push_str(&format!(
             "    <dc:identifier id=\"uuid\">{}</dc:identifier>\n",
-            uuid
+            identifier
         ));
 
         let title = self.metadata.title.as_deref().unwrap_or("Untitled");
@@ -300,7 +304,11 @@ impl EpubDocument {
             ));
         }
 
-        opf.push_str("    <dc:language>en</dc:language>\n");
+        let language = self.metadata.language.as_deref().unwrap_or("en");
+        opf.push_str(&format!(
+            "    <dc:language>{}</dc:language>\n",
+            Self::escape_xml(language)
+        ));
 
         let modified = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
         opf.push_str(&format!(

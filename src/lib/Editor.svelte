@@ -45,12 +45,14 @@
         status = $bindable("Ready"),
         currentStyleId = $bindable("Normal Text"),
         metadata = $bindable({
+            identifier: "",
             title: "",
+            language: "en",
             description: "",
             subject: "",
             creator: "",
             creationDate: "",
-            generator: "",
+            generator: "AppThere Loki",
         }),
         onChange,
     } = $props();

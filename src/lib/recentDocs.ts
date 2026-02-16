@@ -1,4 +1,4 @@
-import { BaseDirectory, readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
+import { BaseDirectory, readTextFile, writeTextFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 
 const RECENT_DOCS_FILE = 'recent-documents.json';
 
@@ -26,6 +26,9 @@ export const recentDocs = {
             if (newList.length > 10) {
                 newList = newList.slice(0, 10);
             }
+
+            // Ensure directory exists
+            await mkdir('', { baseDir: BaseDirectory.AppLocalData, recursive: true });
 
             await writeTextFile(RECENT_DOCS_FILE, JSON.stringify(newList, null, 2), { baseDir: BaseDirectory.AppLocalData });
             return newList;

@@ -63,7 +63,7 @@ pub struct EpubDocument {
 
 impl EpubDocument {
     /// Create a new EPUB document from Tiptap JSON
-    /// Splits content at HorizontalRule blocks into sections
+    /// Splits content at PageBreak blocks into sections
     pub fn from_tiptap(
         root: TiptapNode,
         styles: HashMap<String, StyleDefinition>,
@@ -83,10 +83,30 @@ impl EpubDocument {
             _ => Vec::new(),
         };
 
-        // Split at HorizontalRule
+        // Split at PageBreak or Style Breaks
         for block in blocks {
-            if matches!(block, Block::HorizontalRule) {
-                // Finish current section
+            let mut break_before = false;
+            let mut break_after = false;
+
+            // Check style for page breaks
+            let style_name = match &block {
+                Block::Paragraph { style_name, .. } => style_name.as_deref(),
+                Block::Heading { style_name, .. } => style_name.as_deref(),
+                _ => None,
+            };
+
+            if let Some(name) = style_name {
+                if let Some(style) = styles.get(name) {
+                    if style.attributes.get("fo:break-before").map(|s| s.as_str()) == Some("page") {
+                        break_before = true;
+                    }
+                    if style.attributes.get("fo:break-after").map(|s| s.as_str()) == Some("page") {
+                        break_after = true;
+                    }
+                }
+            }
+
+            if break_before {
                 if !current_blocks.is_empty() {
                     sections.push(ContentSection {
                         id: format!("section-{}", section_counter),
@@ -96,8 +116,34 @@ impl EpubDocument {
                     current_blocks.clear();
                     section_counter += 1;
                 }
-            } else {
-                current_blocks.push(block);
+            }
+
+            if matches!(block, Block::PageBreak) {
+                // Always split at explicit PageBreak
+                if !current_blocks.is_empty() {
+                    sections.push(ContentSection {
+                        id: format!("section-{}", section_counter),
+                        title: Some(format!("Section {}", section_counter)),
+                        blocks: current_blocks.clone(),
+                    });
+                    current_blocks.clear();
+                    section_counter += 1;
+                }
+                continue;
+            }
+
+            current_blocks.push(block.clone());
+
+            if break_after {
+                if !current_blocks.is_empty() {
+                    sections.push(ContentSection {
+                        id: format!("section-{}", section_counter),
+                        title: Some(format!("Section {}", section_counter)),
+                        blocks: current_blocks.clone(),
+                    });
+                    current_blocks.clear();
+                    section_counter += 1;
+                }
             }
         }
 
@@ -234,6 +280,7 @@ impl EpubDocument {
                 html.push_str("  </blockquote>\n");
                 html
             }
+            Block::HorizontalRule => String::from("  <hr/>\n"),
             _ => String::new(),
         }
     }

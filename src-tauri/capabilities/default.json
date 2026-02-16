@@ -11,12 +11,17 @@
     "opener:default",
     "dialog:default",
     "fs:default",
+    "fs:allow-write-text-file",
+    "fs:allow-read-text-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
     "core:image:default",
     {
       "identifier": "fs:scope",
       "allow": [
-        "$HOME/**/*",
-        "/**"
+        "$HOME/**",
+        "**",
+        "$APPLOCALDATA/**"
       ]
     }
   ]

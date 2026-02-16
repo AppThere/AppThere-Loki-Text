@@ -18,6 +18,7 @@
     import { createEditor, EditorContent, BubbleMenu } from "svelte-tiptap";
     import { NamedSpanStyle, NamedBlockStyle } from "./extensions/NamedStyles";
     import { NextParagraphStyle } from "./extensions/NextParagraphStyle";
+    import { PageBreak } from "./extensions/PageBreak";
     import { invoke } from "@tauri-apps/api/core";
     import {
         Bold,
@@ -61,21 +62,77 @@
         $styleRegistry
             .map((style) => {
                 const s = resolveStyle(style.id, $styleRegistry);
-                return `
-                .ProseMirror [data-style-name="${style.id}"] {
-                    ${s.fontFamily ? `font-family: ${s.fontFamily};` : ""}
-                    ${s.fontSize ? `font-size: ${s.fontSize};` : ""}
-                    ${s.fontWeight ? `font-weight: ${s.fontWeight};` : ""}
-                    ${s.lineHeight ? `line-height: ${s.lineHeight};` : ""}
-                    ${s.marginTop ? `margin-top: ${s.marginTop};` : ""}
-                    ${s.marginBottom ? `margin-bottom: ${s.marginBottom};` : ""}
-                    ${s.marginLeft ? `margin-left: ${s.marginLeft};` : ""}
-                    ${s.marginRight ? `margin-right: ${s.marginRight};` : ""}
-                    ${s.textIndent ? `text-indent: ${s.textIndent};` : ""}
-                    ${s.textAlign ? `text-align: ${s.textAlign};` : ""}
-                    ${s.textTransform ? `text-transform: ${s.textTransform};` : ""}
+                const rules = [];
+                if (s.fontFamily) {
+                    const font = s.fontFamily.includes(",")
+                        ? s.fontFamily
+                        : `"${s.fontFamily}"`;
+                    rules.push(`font-family: ${font};`);
                 }
-            `;
+                if (s.fontSize) rules.push(`font-size: ${s.fontSize};`);
+                if (s.fontWeight) rules.push(`font-weight: ${s.fontWeight};`);
+                if (s.lineHeight) rules.push(`line-height: ${s.lineHeight};`);
+                if (s.marginTop) rules.push(`margin-top: ${s.marginTop};`);
+                if (s.marginBottom)
+                    rules.push(`margin-bottom: ${s.marginBottom};`);
+                if (s.marginLeft) rules.push(`margin-left: ${s.marginLeft};`);
+                if (s.marginRight)
+                    rules.push(`margin-right: ${s.marginRight};`);
+                if (s.textIndent) rules.push(`text-indent: ${s.textIndent};`);
+                if (s.textAlign) rules.push(`text-align: ${s.textAlign};`);
+                if (s.textTransform)
+                    rules.push(`text-transform: ${s.textTransform};`);
+
+                if (s.breakBefore === "page") {
+                    rules.push("break-before: page;");
+                    rules.push("margin-top: 3rem;");
+                    rules.push("position: relative;");
+                }
+                if (s.breakAfter === "page") {
+                    rules.push("break-after: page;");
+                    rules.push("margin-bottom: 3rem;");
+                    rules.push("position: relative;");
+                }
+
+                let css = `.ProseMirror [data-style-name="${style.id}"] {\n  ${rules.join("\n  ")}\n}`;
+
+                if (s.breakBefore === "page") {
+                    css += `\n.ProseMirror [data-style-name="${style.id}"]::before {
+                        content: 'Page Break';
+                        display: block;
+                        width: 100%;
+                        border-top: 1px dashed #ccc;
+                        margin-bottom: 2rem;
+                        position: absolute;
+                        top: -1.5rem;
+                        left: 0;
+                        color: #ccc;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                        text-align: center;
+                        pointer-events: none;
+                    }`;
+                }
+
+                if (s.breakAfter === "page") {
+                    css += `\n.ProseMirror [data-style-name="${style.id}"]::after {
+                        content: 'Page Break';
+                        display: block;
+                        width: 100%;
+                        border-top: 1px dashed #ccc;
+                        margin-top: 2rem;
+                        position: absolute;
+                        bottom: -1.5rem;
+                        left: 0;
+                        color: #ccc;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                        text-align: center;
+                        pointer-events: none;
+                    }`;
+                }
+
+                return css;
             })
             .join("\n"),
     );
@@ -84,21 +141,48 @@
         $styleRegistry
             .map((style) => {
                 const s = resolveStyle(style.id, $styleRegistry);
-                if (s.mobileMarginLeft || s.mobileMarginRight) {
-                    return `
-                     .ProseMirror [data-style-name="${style.id}"] {
-                         ${s.mobileMarginLeft ? `margin-left: ${s.mobileMarginLeft} !important;` : ""}
-                         ${s.mobileMarginRight ? `margin-right: ${s.mobileMarginRight} !important;` : ""}
-                     }`;
+                const rules = [];
+                if (s.mobileMarginLeft)
+                    rules.push(`margin-left: ${s.mobileMarginLeft};`);
+                if (s.mobileMarginRight)
+                    rules.push(`margin-right: ${s.mobileMarginRight};`);
+
+                if (rules.length > 0) {
+                    return `.ProseMirror [data-style-name="${style.id}"] {\n  ${rules.join("\n  ")}\n}`;
                 }
                 return "";
             })
+            .filter((css) => css !== "")
             .join("\n"),
     );
 
-    let dynamicStyles = $derived(
-        `${baseStyles}\n@media (max-width: 600px) {\n${mobileStyles}\n}`,
-    );
+    let dynamicStyles = $derived(`
+${baseStyles}
+
+@media (max-width: 600px) {
+${mobileStyles}
+}
+
+hr.page-break {
+    border: none;
+    border-top: 1px dashed #ccc;
+    margin: 2rem 0;
+    position: relative;
+}
+
+hr.page-break::after {
+    content: 'Page Break';
+    position: absolute;
+    top: -0.7em;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-color);
+    padding: 0 0.5rem;
+    color: #ccc;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+`);
 
     const editor = createEditor({
         editorProps: {
@@ -138,6 +222,7 @@
             }),
             NamedBlockStyle,
             NextParagraphStyle,
+            PageBreak,
         ],
         onCreate({ editor }) {
             // Register getNextStyle helper for the extension
@@ -277,6 +362,14 @@
         $editor?.chain().focus().toggleBlockquote().run();
     };
 
+    export const insertPageBreak = () => {
+        $editor?.chain().focus().setPageBreak().run();
+    };
+
+    export const insertHardBreak = () => {
+        $editor?.chain().focus().setHardBreak().run();
+    };
+
     export const indent = () => {
         // Tiptap doesn't have default indent. Standard is usually sinkListItem for lists.
         // For paragraphs, we might need a custom indentation extension or just margin-left.
@@ -328,6 +421,9 @@
                 attributes["fo:orphans"] = String(s.orphans);
             if (s.widows !== undefined)
                 attributes["fo:widows"] = String(s.widows);
+            if (s.breakBefore === "page")
+                attributes["fo:break-before"] = "page";
+            if (s.breakAfter === "page") attributes["fo:break-after"] = "page";
             if (s.basedOn) attributes["style:parent-style-name"] = s.basedOn;
             if (s.next) attributes["style:next-style-name"] = s.next;
 
@@ -344,7 +440,7 @@
         // status = "Syncing..."; // Don't show confusing status to user
         try {
             await invoke("sync_document", {
-                tiptapJson: json,
+                tiptapJson: JSON.stringify(json),
                 styles: getStyleDefinitions(),
                 metadata,
             });
@@ -361,7 +457,7 @@
         try {
             await invoke("save_document", {
                 path,
-                tiptapJson: $editor.getJSON(),
+                tiptapJson: JSON.stringify($editor.getJSON()),
                 styles: getStyleDefinitions(),
                 metadata,
             });
@@ -379,36 +475,57 @@
     }) => {
         if (!$editor) return;
 
-        // Convert ODF attributes back to BlockStyle
+        // Convert styles correctly regardless of source (ODF backend vs direct frontend objects)
         const styles: any[] = Object.values(data.styles).map((s: any) => {
-            const attr = s.attributes;
-            const converted = {
-                id: s.name,
+            const isOdf = !!s.attributes;
+            const attr = isOdf ? s.attributes : s;
+
+            return {
+                id: s.id || s.name,
                 name: s.name,
-                description: "",
-                fontFamily: attr["fo:font-family"],
-                fontSize: attr["fo:font-size"],
-                fontWeight: attr["fo:font-weight"],
-                lineHeight: attr["fo:line-height"],
-                marginLeft: attr["fo:margin-left"] || attr["fo:margin"],
-                marginRight: attr["fo:margin-right"] || attr["fo:margin"],
-                marginTop: attr["fo:margin-top"] || attr["fo:margin"],
-                marginBottom: attr["fo:margin-bottom"] || attr["fo:margin"],
-                textIndent: attr["fo:text-indent"],
-                textAlign: attr["fo:text-align"],
-                textTransform: s.textTransform || attr["fo:text-transform"],
-                hyphenate: attr["fo:hyphenate"] === "true",
-                orphans: attr["fo:orphans"]
-                    ? parseInt(attr["fo:orphans"])
-                    : undefined,
-                widows: attr["fo:widows"]
-                    ? parseInt(attr["fo:widows"])
-                    : undefined,
-                basedOn: s.parent,
+                description: s.description || "",
+                fontFamily: isOdf ? attr["fo:font-family"] : s.fontFamily,
+                fontSize: isOdf ? attr["fo:font-size"] : s.fontSize,
+                fontWeight: isOdf ? attr["fo:font-weight"] : s.fontWeight,
+                lineHeight: isOdf ? attr["fo:line-height"] : s.lineHeight,
+                marginTop: isOdf
+                    ? attr["fo:margin-top"] || attr["fo:margin"]
+                    : s.marginTop,
+                marginBottom: isOdf
+                    ? attr["fo:margin-bottom"] || attr["fo:margin"]
+                    : s.marginBottom,
+                marginLeft: isOdf
+                    ? attr["fo:margin-left"] || attr["fo:margin"]
+                    : s.marginLeft,
+                marginRight: isOdf
+                    ? attr["fo:margin-right"] || attr["fo:margin"]
+                    : s.marginRight,
+                textIndent: isOdf ? attr["fo:text-indent"] : s.textIndent,
+                textAlign: isOdf ? attr["fo:text-align"] : s.textAlign,
+                textTransform: isOdf
+                    ? attr["fo:text-transform"]
+                    : s.textTransform,
+                breakBefore:
+                    (isOdf ? attr["fo:break-before"] : s.breakBefore) || "auto",
+                breakAfter:
+                    (isOdf ? attr["fo:break-after"] : s.breakAfter) || "auto",
+                hyphenate: isOdf
+                    ? attr["fo:hyphenate"] === "true"
+                    : s.hyphenate,
+                orphans: isOdf
+                    ? attr["fo:orphans"]
+                        ? parseInt(attr["fo:orphans"])
+                        : undefined
+                    : s.orphans,
+                widows: isOdf
+                    ? attr["fo:widows"]
+                        ? parseInt(attr["fo:widows"])
+                        : undefined
+                    : s.widows,
+                basedOn: isOdf ? s.parent : s.basedOn,
                 next: s.next,
                 displayName: s.displayName,
             };
-            return converted;
         });
 
         styleRegistry.setStyles(styles);

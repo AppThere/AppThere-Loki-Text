@@ -1,8 +1,15 @@
 <script lang="ts">
-    import { Plus, Image, Table } from "lucide-svelte";
+    import {
+        Plus,
+        Image,
+        Table,
+        FilePlus,
+        CornerDownLeft,
+    } from "lucide-svelte";
     import { onMount } from "svelte";
 
-    let { onInsertImage, onInsertTable } = $props();
+    let { onInsertImage, onInsertTable, onInsertPageBreak, onInsertLineBreak } =
+        $props();
 
     let isOpen = $state(false);
     let triggerRef: HTMLButtonElement;
@@ -74,6 +81,21 @@
             >
                 <Table size={18} />
                 <span>Table</span>
+            </button>
+            <div class="menu-divider"></div>
+            <button
+                onclick={() => handleSelect(onInsertPageBreak)}
+                class="menu-item"
+            >
+                <FilePlus size={18} />
+                <span>Page Break</span>
+            </button>
+            <button
+                onclick={() => handleSelect(onInsertLineBreak)}
+                class="menu-item"
+            >
+                <CornerDownLeft size={18} />
+                <span>Line Break</span>
             </button>
         </div>
         <div

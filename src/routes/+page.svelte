@@ -92,9 +92,43 @@
     syncStatus = "Saving...";
     try {
       await editorComponent.saveWithStyles(path);
+      isDirty = false;
       syncStatus = "Saved to disk";
     } catch (e) {
       console.error("Save failed", e);
+      syncStatus = "Save Error";
+    }
+  }
+
+  async function handleSaveAs() {
+    if (!editorComponent) return;
+
+    const path = await save({
+      filters: [
+        {
+          name: "OpenDocument Text",
+          extensions: ["odt"],
+        },
+        {
+          name: "Flat ODT",
+          extensions: ["fodt"],
+        },
+      ],
+      defaultPath: metadata.title || "Untitled",
+    });
+
+    if (!path) return;
+
+    currentPath = path;
+    syncStatus = "Saving as...";
+
+    try {
+      await editorComponent.saveWithStyles(path);
+      isDirty = false;
+      syncStatus = "Saved to new file";
+      await recentDocs.add(path, metadata.title || "Untitled");
+    } catch (e) {
+      console.error("Save As failed", e);
       syncStatus = "Save Error";
     }
   }
@@ -195,6 +229,8 @@
         if (s.orphans !== undefined)
           attributes["fo:orphans"] = String(s.orphans);
         if (s.widows !== undefined) attributes["fo:widows"] = String(s.widows);
+        if (s.breakBefore === "page") attributes["fo:break-before"] = "page";
+        if (s.breakAfter === "page") attributes["fo:break-after"] = "page";
         if (s.basedOn) attributes["style:parent-style-name"] = s.basedOn;
         if (s.next) attributes["style:next-style-name"] = s.next;
 
@@ -212,7 +248,7 @@
 
       await invoke("save_epub", {
         path,
-        tiptapJson,
+        tiptapJson: JSON.stringify(tiptapJson),
         styles: stylesMap,
         metadata: metadata,
         fontPaths: fontPaths,
@@ -386,8 +422,13 @@
       if (!confirmed) return;
     }
 
+    // Harden path handling: Remove file:// if present (Tauri dialog sometimes returns it)
+    let cleanedPath = path.startsWith("file://")
+      ? decodeURIComponent(path.slice(7))
+      : path;
+
     try {
-      const result = await invoke("open_document", { path });
+      const result = await invoke("open_document", { path: cleanedPath });
       // @ts-ignore
       const { content, styles, metadata: meta } = result;
 
@@ -396,21 +437,21 @@
       await tick();
 
       editorComponent.loadWithStyles({
-        content: JSON.parse(content),
+        content: content,
         styles: styles,
         metadata: metadata,
       });
 
-      currentPath = path;
+      currentPath = cleanedPath;
       syncStatus = "Ready";
       isDirty = false;
-      await recentDocs.add(path, metadata.title);
+      await recentDocs.add(cleanedPath, metadata.title);
     } catch (e) {
       console.error("Failed to open recent:", e);
       await ask(
-        `Failed to open document: ${path}\nIt may have been moved or deleted.`,
+        `Failed to open document: ${cleanedPath}\n\nError: ${e}\n\nIt may have been moved or deleted.`,
         {
-          title: "Error",
+          title: "Error Opening Document",
           kind: "error",
         },
       );
@@ -634,6 +675,10 @@
               role="presentation"
             ></div>
             <div class="menu-dropdown">
+              <button onclick={() => handleNewDocument()} class="menu-item">
+                <Plus size={16} />
+                <span>New Document</span>
+              </button>
               <button onclick={handleOpen} class="menu-item">
                 <FolderOpen size={16} />
                 <span>Open Document</span>
@@ -641,6 +686,10 @@
               <button class="menu-item" onclick={() => handleSave()}>
                 <Save size={18} />
                 <span>Save Document</span>
+              </button>
+              <button class="menu-item" onclick={() => handleSaveAs()}>
+                <Save size={18} />
+                <span>Save As...</span>
               </button>
               <button class="menu-item" onclick={() => handleExportEpub()}>
                 <FileDown size={18} />
@@ -651,10 +700,6 @@
                 <span>Close Document</span>
               </button>
               <div class="menu-divider"></div>
-              <button onclick={() => handleNewDocument()} class="menu-item">
-                <Plus size={16} />
-                <span>New Document</span>
-              </button>
               <button
                 onclick={() => {
                   isSettingsOpen = true;
@@ -739,6 +784,8 @@
           <InsertMenu
             onInsertImage={() => editorComponent?.insertImage()}
             onInsertTable={() => editorComponent?.insertTable()}
+            onInsertPageBreak={() => editorComponent?.insertPageBreak()}
+            onInsertLineBreak={() => editorComponent?.insertHardBreak()}
           />
 
           <div class="group-spacer"></div>

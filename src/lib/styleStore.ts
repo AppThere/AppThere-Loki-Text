@@ -37,6 +37,10 @@ export interface BlockStyle {
 
     // Autocomplete
     autocomplete?: boolean;
+
+    // Page Breaks
+    breakBefore?: 'auto' | 'page';
+    breakAfter?: 'auto' | 'page';
 }
 
 const DEFAULT_STYLES: BlockStyle[] = [

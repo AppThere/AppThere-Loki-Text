@@ -37,6 +37,10 @@
     let nextStyle = $state<string | undefined>(undefined);
     let outlineLevel = $state<number | undefined>(undefined);
     let autocomplete = $state(false);
+    let breakBefore = $state<"auto" | "page">("auto");
+    let breakAfter = $state<"auto" | "page">("auto");
+    let mobileMarginLeft = $state("");
+    let mobileMarginRight = $state("");
 
     // Common Google Fonts & Web Safe Fonts
     // Primary Bundled Fonts and Common Web Fonts
@@ -101,6 +105,10 @@
         nextStyle = style.next;
         outlineLevel = style.outlineLevel;
         autocomplete = style.autocomplete || false;
+        breakBefore = style.breakBefore || "auto";
+        breakAfter = style.breakAfter || "auto";
+        mobileMarginLeft = style.mobileMarginLeft || "";
+        mobileMarginRight = style.mobileMarginRight || "";
     }
     function startCreate() {
         isCreating = true;
@@ -112,17 +120,21 @@
         lineHeight = "1.2";
         marginLeft = "0pt";
         marginRight = "0pt";
-        textIndent = "0pt";
         marginTop = "0pt";
-        marginBottom = "10pt";
+        marginBottom = "8pt";
+        textIndent = "0pt";
         textAlign = "left";
         hyphenate = false;
-        orphans = 2;
-        widows = 2;
+        orphans = undefined;
+        widows = undefined;
         basedOn = "Normal Text";
         nextStyle = undefined;
         outlineLevel = undefined;
         autocomplete = false;
+        breakBefore = "auto";
+        breakAfter = "auto";
+        mobileMarginLeft = "";
+        mobileMarginRight = "";
         activeTab = "general";
     }
 
@@ -133,12 +145,20 @@
     }
 
     function saveStyle() {
-        const styleData: Partial<BlockStyle> = {
+        if (!newName) return;
+
+        const style: BlockStyle = {
+            id: isCreating ? crypto.randomUUID() : selectedStyleId,
             name: newName,
             description: newDesc,
             fontFamily,
             fontSize,
-            fontWeight: fontWeight.toString(),
+            fontWeight:
+                fontWeight === 700
+                    ? "bold"
+                    : fontWeight === 400
+                      ? "normal"
+                      : fontWeight.toString(),
             lineHeight,
             marginLeft,
             marginRight,
@@ -153,19 +173,20 @@
             next: nextStyle,
             outlineLevel,
             autocomplete,
+            breakBefore,
+            breakAfter,
         };
 
         if (isCreating) {
-            const id = `Style-${Date.now()}`;
-            styleRegistry.addStyle({
-                id,
-                ...styleData,
-            } as BlockStyle);
+            styleRegistry.addStyle(style);
             isCreating = false;
-            selectedStyleId = id; // Select new style
+            selectedStyleId = style.id;
         } else {
-            styleRegistry.updateStyle(selectedStyleId, styleData);
+            styleRegistry.updateStyle(selectedStyleId, style);
         }
+
+        onSelect?.(style);
+        onClose?.();
     }
 
     function requestDelete() {
@@ -577,6 +598,25 @@
                                 bind:checked={hyphenate}
                             />
                             <label for="hyphenate">Enable hyphenation</label>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group grow">
+                                <label for="breakBefore">Break Before</label>
+                                <select
+                                    id="breakBefore"
+                                    bind:value={breakBefore}
+                                >
+                                    <option value="auto">Auto</option>
+                                    <option value="page">Page</option>
+                                </select>
+                            </div>
+                            <div class="form-group grow">
+                                <label for="breakAfter">Break After</label>
+                                <select id="breakAfter" bind:value={breakAfter}>
+                                    <option value="auto">Auto</option>
+                                    <option value="page">Page</option>
+                                </select>
+                            </div>
                         </div>
                     {/if}
                 </div>

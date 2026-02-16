@@ -66,6 +66,7 @@ pub enum Block {
         content: Vec<Block>,
     },
     HorizontalRule,
+    PageBreak,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -186,6 +187,7 @@ pub enum TiptapNode {
         content: Vec<TiptapNode>,
     },
     HorizontalRule,
+    PageBreak,
     HardBreak,
 }
 
@@ -558,6 +560,14 @@ impl Document {
                     let style_name = child
                         .attribute((ns_text, "style-name"))
                         .map(|s| s.to_string());
+
+                    if let Some(ref name) = style_name {
+                        if name == "PageBreak" {
+                            blocks.push(Block::PageBreak);
+                            continue;
+                        }
+                    }
+
                     let content = parse_inlines(child, ns_text, ns_xlink, style_map);
                     blocks.push(Block::Paragraph {
                         style_name,
@@ -981,6 +991,13 @@ impl Document {
                             .write_event(Event::Empty(BytesStart::new("text:p")))
                             .map_err(|e| e.to_string())?;
                     }
+                    Block::PageBreak => {
+                        let mut p = BytesStart::new("text:p");
+                        p.push_attribute(("text:style-name", "PageBreak"));
+                        writer
+                            .write_event(Event::Empty(p))
+                            .map_err(|e| e.to_string())?;
+                    }
                     _ => {}
                 }
             }
@@ -1253,6 +1270,7 @@ impl Document {
                         || key.starts_with("fo:orphans")
                         || key.starts_with("fo:widows")
                         || key.starts_with("fo:hyphenate")
+                        || key.starts_with("fo:break-")
                     {
                         para_props.push_attribute((key.as_str(), value.as_str()));
                     } else if key == "fo:line-height" {
@@ -1306,6 +1324,25 @@ impl Document {
                 .write_event(Event::End(BytesEnd::new("style:style")))
                 .map_err(|e| e.to_string())?;
         }
+
+        // Write PageBreak style
+        let mut pb_style = BytesStart::new("style:style");
+        pb_style.push_attribute(("style:name", "PageBreak"));
+        pb_style.push_attribute(("style:family", "paragraph"));
+        pb_style.push_attribute(("style:parent-style-name", "Standard"));
+        writer
+            .write_event(Event::Start(pb_style))
+            .map_err(|e| e.to_string())?;
+
+        let mut pb_props = BytesStart::new("style:paragraph-properties");
+        pb_props.push_attribute(("fo:break-before", "page"));
+        writer
+            .write_event(Event::Empty(pb_props))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("style:style")))
+            .map_err(|e| e.to_string())?;
 
         writer
             .write_event(Event::End(BytesEnd::new("office:styles")))
@@ -1381,6 +1418,13 @@ impl Document {
                             .write_event(Event::End(BytesEnd::new("text:h")))
                             .map_err(|e| e.to_string())?;
                     }
+                    Block::PageBreak => {
+                        let mut p = BytesStart::new("text:p");
+                        p.push_attribute(("text:style-name", "PageBreak"));
+                        writer
+                            .write_event(Event::Empty(p))
+                            .map_err(|e| e.to_string())?;
+                    }
                     Block::BulletList { content } => {
                         writer
                             .write_event(Event::Start(BytesStart::new("text:list")))
@@ -1439,6 +1483,7 @@ impl Document {
                             .write_event(Event::End(BytesEnd::new("table:table-cell")))
                             .map_err(|e| e.to_string())?;
                     }
+
                     Block::Image { src, .. } => {
                         let mut frame = BytesStart::new("draw:frame");
                         frame.push_attribute(("draw:name", "Image"));
@@ -1789,6 +1834,7 @@ impl Document {
                         || key.starts_with("fo:orphans")
                         || key.starts_with("fo:widows")
                         || key.starts_with("fo:hyphenate")
+                        || key.starts_with("fo:break-")
                     {
                         para_props.push_attribute((key.as_str(), value.as_str()));
                     } else if key == "fo:line-height" {
@@ -1841,6 +1887,25 @@ impl Document {
                 .write_event(Event::End(BytesEnd::new("style:style")))
                 .map_err(|e| e.to_string())?;
         }
+
+        // Write PageBreak style
+        let mut pb_style = BytesStart::new("style:style");
+        pb_style.push_attribute(("style:name", "PageBreak"));
+        pb_style.push_attribute(("style:family", "paragraph"));
+        pb_style.push_attribute(("style:parent-style-name", "Standard"));
+        writer
+            .write_event(Event::Start(pb_style))
+            .map_err(|e| e.to_string())?;
+
+        let mut pb_props = BytesStart::new("style:paragraph-properties");
+        pb_props.push_attribute(("fo:break-before", "page"));
+        writer
+            .write_event(Event::Empty(pb_props))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("style:style")))
+            .map_err(|e| e.to_string())?;
 
         writer
             .write_event(Event::End(BytesEnd::new("office:styles")))
@@ -2000,6 +2065,7 @@ impl Document {
                 })
             }
             TiptapNode::HorizontalRule => Some(Block::HorizontalRule),
+            TiptapNode::PageBreak => Some(Block::PageBreak),
             _ => None,
         }
     }
@@ -2102,6 +2168,7 @@ impl Document {
                 content: content.iter().map(Self::block_to_tiptap).collect(),
             },
             Block::HorizontalRule => TiptapNode::HorizontalRule,
+            Block::PageBreak => TiptapNode::PageBreak,
         }
     }
 

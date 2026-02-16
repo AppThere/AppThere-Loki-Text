@@ -8,13 +8,15 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn sync_document(tiptap_json: TiptapNode, styles: HashMap<String, StyleDefinition>, metadata: Metadata) -> Document {
-    Document::from_tiptap(tiptap_json, styles, metadata)
+fn sync_document(tiptap_json: String, styles: HashMap<String, StyleDefinition>, metadata: Metadata) -> Result<Document, String> {
+    let json_node: TiptapNode = serde_json::from_str(&tiptap_json).map_err(|e| e.to_string())?;
+    Ok(Document::from_tiptap(json_node, styles, metadata))
 }
 
 #[tauri::command]
-async fn save_document(path: String, tiptap_json: TiptapNode, styles: HashMap<String, StyleDefinition>, metadata: Metadata    ) -> Result<(), String> {
-    let doc = odt_logic::Document::from_tiptap(tiptap_json, styles, metadata);
+async fn save_document(path: String, tiptap_json: String, styles: HashMap<String, StyleDefinition>, metadata: Metadata    ) -> Result<(), String> {
+    let json_node: TiptapNode = serde_json::from_str(&tiptap_json).map_err(|e| e.to_string())?;
+    let doc = odt_logic::Document::from_tiptap(json_node, styles, metadata);
     
     // ODT (ZIP) vs FODT (flat XML) - use different XML generation methods
     if path.ends_with(".odt") {
@@ -73,14 +75,16 @@ async fn save_document(path: String, tiptap_json: TiptapNode, styles: HashMap<St
 
 #[tauri::command]
 async fn open_document(path: String) -> Result<TiptapResponse, String> {
-    let file = std::fs::File::open(&path).map_err(|e| e.to_string())?;
+    eprintln!("Opening document at: {}", path);
+    let file = std::fs::File::open(&path)
+        .map_err(|e| format!("Failed to open file at '{}': {}", path, e))?;
     
     // Try to open as zip
     let (xml, styles_xml) = if let Ok(mut archive) = zip::ZipArchive::new(&file) {
         let content = if let Ok(mut content_file) = archive.by_name("content.xml") {
             let mut s = String::new();
             use std::io::Read;
-            content_file.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            content_file.read_to_string(&mut s).map_err(|e| format!("Failed to read content.xml: {}", e))?;
             s
         } else {
              return Err("Invalid ODT: content.xml not found".to_string());
@@ -89,7 +93,7 @@ async fn open_document(path: String) -> Result<TiptapResponse, String> {
         let styles = if let Ok(mut styles_file) = archive.by_name("styles.xml") {
             let mut s = String::new();
             use std::io::Read;
-            styles_file.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            styles_file.read_to_string(&mut s).map_err(|e| format!("Failed to read styles.xml: {}", e))?;
             Some(s)
         } else {
             None
@@ -98,10 +102,10 @@ async fn open_document(path: String) -> Result<TiptapResponse, String> {
         (content, styles)
     } else {
         // Not a zip, try reading as raw XML (FODT)
-        (std::fs::read_to_string(&path).map_err(|e| e.to_string())?, None)
+        (std::fs::read_to_string(&path).map_err(|e| format!("Failed to read FODT at '{}': {}", path, e))?, None)
     };
 
-    let mut doc = Document::from_xml(&xml)?;
+    let mut doc = Document::from_xml(&xml).map_err(|e| format!("Failed to parse ODF XML: {}", e))?;
     
     if let Some(styles_content) = styles_xml {
         match doc.add_styles_from_xml(&styles_content) {
@@ -122,11 +126,12 @@ async fn open_document(path: String) -> Result<TiptapResponse, String> {
 #[tauri::command]
 async fn save_epub(
     path: String,
-    tiptap_json: TiptapNode,
+    tiptap_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
     font_paths: Vec<String>,
 ) -> Result<(), String> {
+    let json_node: TiptapNode = serde_json::from_str(&tiptap_json).map_err(|e| e.to_string())?;
     // Load fonts
     let mut fonts = Vec::new();
     for font_path in font_paths {
@@ -157,7 +162,7 @@ async fn save_epub(
     }
     
     // Create EPUB document
-    let epub_doc = epub_logic::EpubDocument::from_tiptap(tiptap_json, styles, metadata, fonts);
+    let epub_doc = epub_logic::EpubDocument::from_tiptap(json_node, styles, metadata, fonts);
     
     // Create ZIP archive
     let file = std::fs::File::create(&path).map_err(|e| e.to_string())?;

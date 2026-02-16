@@ -38,31 +38,28 @@
     let outlineLevel = $state<number | undefined>(undefined);
 
     // Common Google Fonts & Web Safe Fonts
+    // Primary Bundled Fonts and Common Web Fonts
     const COMMON_FONTS = [
+        "Atkinson Hyperlegible Next, sans-serif",
+        "Public Sans, sans-serif",
+        "Geist, sans-serif",
+        "Lexend, sans-serif",
+        "Newsreader, serif",
+        "Cormorant Garamond, serif",
+        "Bodoni Moda, serif",
+        "Bitter, serif",
+        "Courier Prime, monospace",
+        "Caveat, cursive",
+        "Roboto Flex, sans-serif",
         "Arial, sans-serif",
         "Helvetica, sans-serif",
         "Times New Roman, serif",
         "Courier New, monospace",
         "Verdana, sans-serif",
         "Georgia, serif",
-        "Palatino, serif",
-        "Garamond, serif",
-        "Bookman, serif",
-        "Comic Sans MS, cursive",
-        "Trebuchet MS, sans-serif",
-        "Arial Black, sans-serif",
-        "Impact, sans-serif",
         "Roboto, sans-serif",
         "Open Sans, sans-serif",
-        "Lato, sans-serif",
-        "Montserrat, sans-serif",
-        "Oswald, sans-serif",
-        "Source Sans Pro, sans-serif",
-        "Slabo 27px, serif",
-        "Raleway, sans-serif",
-        "PT Sans, sans-serif",
         "Merriweather, serif",
-        "Atkinson Hyperlegible Next, sans-serif",
     ];
 
     $effect(() => {

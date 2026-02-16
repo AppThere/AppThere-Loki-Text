@@ -190,6 +190,16 @@ async fn save_epub(
 </container>"#;
     zip.write_all(container.as_bytes()).map_err(|e| e.to_string())?;
     
+    // 2.1 META-INF/com.apple.ibooks.display-options.xml (Apple Books Font workaround)
+    zip.start_file("META-INF/com.apple.ibooks.display-options.xml", deflated).map_err(|e| e.to_string())?;
+    let apple_options = r#"<?xml version="1.0" encoding="UTF-8"?>
+<display_options>
+  <platform name="*">
+    <option name="specified-fonts">true</option>
+  </platform>
+</display_options>"#;
+    zip.write_all(apple_options.as_bytes()).map_err(|e| e.to_string())?;
+    
     // 3. OEBPS directory structure
     zip.add_directory("OEBPS", options).map_err(|e| e.to_string())?;
     zip.add_directory("OEBPS/Text", options).map_err(|e| e.to_string())?;

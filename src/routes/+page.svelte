@@ -122,24 +122,50 @@
       // Detect which fonts are used in styles
       const fontPaths: string[] = [];
       const styles = $styleRegistry;
+      const fontDir =
+        "/Users/kevin/.gemini/antigravity/scratch/appthere-loki/static/fonts";
 
-      // Check if Courier Prime is used
-      const usesCourierPrime = styles.some(
-        (s) => s.fontFamily && s.fontFamily.includes("Courier Prime"),
-      );
+      const FONT_MAP: Record<string, string[]> = {
+        "Courier Prime": [
+          "CourierPrime-Regular.ttf",
+          "CourierPrime-Bold.ttf",
+          "CourierPrime-Italic.ttf",
+          "CourierPrime-BoldItalic.ttf",
+        ],
+        "Atkinson Hyperlegible Next": [
+          "AtkinsonHyperlegibleNext-Regular.ttf",
+          "AtkinsonHyperlegibleNext-Bold.ttf",
+          "AtkinsonHyperlegibleNext-Italic.ttf",
+          "AtkinsonHyperlegibleNext-BoldItalic.ttf",
+        ],
+        "Public Sans": [
+          "PublicSans-Variable.ttf",
+          "PublicSans-Italic-Variable.ttf",
+        ],
+        Newsreader: [
+          "Newsreader-Variable.ttf",
+          "Newsreader-Italic-Variable.ttf",
+        ],
+        "Cormorant Garamond": [
+          "CormorantGaramond-Variable.ttf",
+          "CormorantGaramond-Italic-Variable.ttf",
+        ],
+        Geist: ["Geist-Variable.ttf"],
+        "Bodoni Moda": [
+          "BodoniModa-Variable.ttf",
+          "BodoniModa-Italic-Variable.ttf",
+        ],
+        Lexend: ["Lexend-Variable.ttf"],
+        Caveat: ["Caveat-Variable.ttf"],
+        "Roboto Flex": ["RobotoFlex-Variable.ttf"],
+        Bitter: ["Bitter-Variable.ttf", "Bitter-Italic-Variable.ttf"],
+      };
 
-      console.log("Uses Courier Prime:", usesCourierPrime);
-
-      if (usesCourierPrime) {
-        // Add all Courier Prime font files
-        // Use absolute paths to the font files in the project
-        const fontDir =
-          "/Users/kevin/.gemini/antigravity/scratch/appthere-loki/static/fonts";
-        fontPaths.push(`${fontDir}/CourierPrime-Regular.ttf`);
-        fontPaths.push(`${fontDir}/CourierPrime-Bold.ttf`);
-        fontPaths.push(`${fontDir}/CourierPrime-Italic.ttf`);
-        fontPaths.push(`${fontDir}/CourierPrime-BoldItalic.ttf`);
-      }
+      Object.entries(FONT_MAP).forEach(([family, files]) => {
+        if (styles.some((s) => s.fontFamily && s.fontFamily.includes(family))) {
+          files.forEach((f) => fontPaths.push(`${fontDir}/${f}`));
+        }
+      });
 
       // Get current document state
       const tiptapJson = editorComponent.getJSON();

@@ -1,0 +1,211 @@
+<script lang="ts">
+    import { X, Moon, Sun } from "lucide-svelte";
+    import { fade, scale } from "svelte/transition";
+
+    let { isOpen = $bindable(), onClose = () => {} } = $props();
+
+    function close() {
+        isOpen = false;
+        onClose?.();
+    }
+</script>
+
+{#if isOpen}
+    <div
+        class="modal-backdrop"
+        transition:fade={{ duration: 200 }}
+        onclick={close}
+        onkeydown={(e) => e.key === "Escape" && close()}
+        role="button"
+        tabindex="-1"
+    >
+        <div
+            class="modal-content"
+            transition:scale={{ duration: 200, start: 0.95 }}
+            onclick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" onclick={close} aria-label="Close">
+                    <X size={20} />
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="setting-item">
+                    <div class="setting-icon">
+                        <Moon size={20} />
+                    </div>
+                    <div class="setting-details">
+                        <div class="setting-title">Appearance</div>
+                        <div class="setting-description">
+                            Dark mode is currently enforced. Light mode coming
+                            soon.
+                        </div>
+                    </div>
+                    <div class="setting-control">
+                        <!-- Placeholder toggle, disabled for now as we are dark-only -->
+                        <div class="toggle disabled"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-details">
+                        <div class="setting-title">Editor Defaults</div>
+                        <div class="setting-description">
+                            Configure default font and styles (Coming soon).
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="primary-btn" onclick={close}>Done</button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<style>
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background: var(--bg-color, #1c1917);
+        border: 1px solid var(--border-color, #44403c);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 450px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color, #44403c);
+    }
+
+    h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color, #f5f5f4);
+    }
+
+    .close-btn {
+        background: transparent;
+        border: none;
+        color: var(--icon-color, #a8a29e);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn:hover {
+        background: var(--hover-bg, #292524);
+        color: var(--text-color, #f5f5f4);
+    }
+
+    .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        color: var(--text-color, #f5f5f4);
+    }
+
+    .setting-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-color, #292524);
+    }
+
+    .setting-item:last-child {
+        border-bottom: none;
+    }
+
+    .setting-icon {
+        margin-right: 16px;
+        color: var(--icon-color, #a8a29e);
+    }
+
+    .setting-details {
+        flex: 1;
+    }
+
+    .setting-title {
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .setting-description {
+        font-size: 0.85rem;
+        color: var(--icon-color, #78716c);
+    }
+
+    .toggle.disabled {
+        width: 40px;
+        height: 24px;
+        background: var(--border-color, #44403c);
+        border-radius: 12px;
+        position: relative;
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .toggle.disabled::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background: #a8a29e;
+        border-radius: 50%;
+    }
+
+    .modal-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--border-color, #44403c);
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .primary-btn {
+        background: #e11d48; /* Rose-600 */
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.2s;
+    }
+
+    .primary-btn:hover {
+        background: #be123c; /* Rose-700 */
+    }
+</style>

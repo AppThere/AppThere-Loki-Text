@@ -1,0 +1,72 @@
+/* Courier Prime */
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/CourierPrime-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/CourierPrime-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/CourierPrime-Italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/CourierPrime-BoldItalic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+
+/* Atkinson Hyperlegible Next */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/AtkinsonHyperlegibleNext-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/AtkinsonHyperlegibleNext-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/AtkinsonHyperlegibleNext-Italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/AtkinsonHyperlegibleNext-BoldItalic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+
+:root {
+  --font-screenplay: 'Courier Prime', 'Courier New', Courier, monospace;
+  --font-sans: 'Atkinson Hyperlegible Next', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  font-family: var(--font-sans);
+}
+
+/* Ensure form elements inherit the font */
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+}

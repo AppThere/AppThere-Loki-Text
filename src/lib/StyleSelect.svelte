@@ -54,8 +54,10 @@
 <div class="style-select">
     <button class="select-trigger" bind:this={triggerRef} onclick={toggleOpen}>
         <span class="current-style"
-            >{$styleRegistry.find((s) => s.id === currentStyleId)?.name ||
-                currentStyleId}</span
+            >{(() => {
+                const s = $styleRegistry.find((s) => s.id === currentStyleId);
+                return s?.displayName || s?.name || currentStyleId;
+            })()}</span
         >
         <span class="chevron">▼</span>
     </button>
@@ -79,7 +81,9 @@
                         class:active={style.id === currentStyleId}
                         onclick={() => handleSelect(style.id)}
                     >
-                        <span class="style-name">{style.name}</span>
+                        <span class="style-name"
+                            >{style.displayName || style.name}</span
+                        >
                     </button>
                 {/each}
             </div>

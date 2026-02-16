@@ -3,14 +3,16 @@
 
     let { isOpen = false, onSelect, onClose } = $props();
 
-    let editingStyle: BlockStyle | null = $state(null);
+    let selectedStyleId = $state("Normal Text");
+    let isCreating = $state(false);
+    let showDeleteConfirm = $state(false);
+
+    // Form fields
     let newName = $state("");
     let newDesc = $state("");
-
-    // Styling properties
     let fontFamily = $state("");
     let fontSize = $state("");
-    let fontWeight = $state("");
+    let fontWeight = $state(400); // Numeric weight
     let lineHeight = $state("");
     let marginLeft = $state("");
     let marginRight = $state("");
@@ -24,13 +26,59 @@
     let basedOn = $state<string | undefined>(undefined);
     let nextStyle = $state<string | undefined>(undefined);
 
-    function startEdit(style: BlockStyle) {
-        editingStyle = style;
+    // Common Google Fonts & Web Safe Fonts
+    const COMMON_FONTS = [
+        "Arial, sans-serif",
+        "Helvetica, sans-serif",
+        "Times New Roman, serif",
+        "Courier New, monospace",
+        "Verdana, sans-serif",
+        "Georgia, serif",
+        "Palatino, serif",
+        "Garamond, serif",
+        "Bookman, serif",
+        "Comic Sans MS, cursive",
+        "Trebuchet MS, sans-serif",
+        "Arial Black, sans-serif",
+        "Impact, sans-serif",
+        // Popular Google Fonts (assuming likely available or linked elsewhere, or just semantic names)
+        "Roboto, sans-serif",
+        "Open Sans, sans-serif",
+        "Lato, sans-serif",
+        "Montserrat, sans-serif",
+        "Oswald, sans-serif",
+        "Source Sans Pro, sans-serif",
+        "Slabo 27px, serif",
+        "Raleway, sans-serif",
+        "PT Sans, sans-serif",
+        "Merriweather, serif",
+    ];
+
+    $effect(() => {
+        if (isOpen && !isCreating) {
+            // Load selected style data
+            const style = $styleRegistry.find((s) => s.id === selectedStyleId);
+            if (style) {
+                loadStyle(style);
+            } else {
+                // Fallback if selected style was deleted
+                selectedStyleId = "Normal Text";
+            }
+        }
+    });
+
+    function loadStyle(style: BlockStyle) {
         newName = style.name;
         newDesc = style.description;
         fontFamily = style.fontFamily || "";
         fontSize = style.fontSize || "";
-        fontWeight = style.fontWeight || "";
+        // Parse weight to number if possible, default 400
+        const weight = parseInt(style.fontWeight || "400");
+        fontWeight = isNaN(weight)
+            ? style.fontWeight === "bold"
+                ? 700
+                : 400
+            : weight;
         lineHeight = style.lineHeight || "";
         marginLeft = style.marginLeft || "";
         marginRight = style.marginRight || "";
@@ -45,40 +93,41 @@
         nextStyle = style.next;
     }
 
-    function saveEdit() {
-        if (editingStyle) {
-            styleRegistry.updateStyle(editingStyle.id, {
-                name: newName,
-                description: newDesc,
-                fontFamily,
-                fontSize,
-                fontWeight,
-                lineHeight,
-                marginLeft,
-                marginRight,
-                textIndent,
-                marginTop,
-                marginBottom,
-                textAlign,
-                hyphenate,
-                orphans,
-                widows,
-                basedOn,
-                next: nextStyle,
-            });
-            editingStyle = null;
-        }
+    function startCreate() {
+        isCreating = true;
+        newName = "New Style";
+        newDesc = "";
+        fontFamily = "Arial, sans-serif";
+        fontSize = "12pt";
+        fontWeight = 400;
+        lineHeight = "1.15";
+        marginLeft = "0pt";
+        marginRight = "0pt";
+        textIndent = "0pt";
+        marginTop = "0pt";
+        marginBottom = "0pt";
+        textAlign = "left";
+        hyphenate = false;
+        orphans = 2;
+        widows = 2;
+        basedOn = "Normal Text";
+        nextStyle = undefined;
     }
 
-    function addStyle() {
-        const id = `Style-${Date.now()}`;
-        styleRegistry.addStyle({
-            id,
-            name: newName || "New Style",
+    function cancelCreate() {
+        isCreating = false;
+        // Re-load the currently selected style
+        const style = $styleRegistry.find((s) => s.id === selectedStyleId);
+        if (style) loadStyle(style);
+    }
+
+    function saveStyle() {
+        const styleData: Partial<BlockStyle> = {
+            name: newName,
             description: newDesc,
             fontFamily,
             fontSize,
-            fontWeight,
+            fontWeight: fontWeight.toString(),
             lineHeight,
             marginLeft,
             marginRight,
@@ -91,34 +140,116 @@
             widows,
             basedOn,
             next: nextStyle,
-        });
-        resetForm();
+        };
+
+        if (isCreating) {
+            const id = `Style-${Date.now()}`;
+            styleRegistry.addStyle({
+                id,
+                ...styleData,
+            } as BlockStyle);
+            isCreating = false;
+            selectedStyleId = id; // Select new style
+        } else {
+            styleRegistry.updateStyle(selectedStyleId, styleData);
+        }
     }
 
-    function resetForm() {
-        newName = "";
-        newDesc = "";
-        fontFamily = "";
-        fontSize = "";
-        fontWeight = "";
-        lineHeight = "";
-        marginLeft = "";
-        marginRight = "";
-        textIndent = "";
-        marginTop = "";
-        marginBottom = "";
-        textAlign = "left";
-        hyphenate = false;
-        orphans = undefined;
-        widows = undefined;
-        basedOn = undefined;
-        nextStyle = undefined;
+    function requestDelete() {
+        if (selectedStyleId === "Normal Text") return;
+        showDeleteConfirm = true;
     }
 
-    function deleteStyle(id: string) {
-        styleRegistry.removeStyle(id);
+    function confirmDelete() {
+        styleRegistry.removeStyle(selectedStyleId);
+        selectedStyleId = "Normal Text";
+        showDeleteConfirm = false;
+    }
+
+    // Derived Preview Style
+    let previewStyle = $derived({
+        fontFamily: fontFamily,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        lineHeight: lineHeight,
+        textAlign: textAlign,
+        // Margin/Indent logic might be complex to preview in a small box,
+        // but we can try basic padding/margin if units are CSS compatible.
+        // For simplicity, we preview typography primarily.
+    });
+
+    // Google Fonts Loader Logic
+    const GOOGLE_FONTS = new Set([
+        "Roboto",
+        "Open Sans",
+        "Lato",
+        "Montserrat",
+        "Oswald",
+        "Source Sans Pro",
+        "Slabo 27px",
+        "Raleway",
+        "PT Sans",
+        "Merriweather",
+    ]);
+
+    let googleFontUrl = $derived.by(() => {
+        if (!fontFamily) return null;
+        // Extract first family name, remove quotes
+        const firstFamily = fontFamily
+            .split(",")[0]
+            .trim()
+            .replace(/['"]/g, "");
+
+        if (GOOGLE_FONTS.has(firstFamily)) {
+            // Construct URL: https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap
+            // We load the specific weight plus a regular fallback (400)
+            const weights = [400];
+            if (fontWeight !== 400)
+                weights.push(
+                    typeof fontWeight === "string"
+                        ? parseInt(fontWeight)
+                        : fontWeight,
+                );
+            // Dedupe
+            const uniqueWeights = [...new Set(weights)].join(";");
+            return `https://fonts.googleapis.com/css2?family=${firstFamily.replace(/ /g, "+")}:wght@${uniqueWeights}&display=swap`;
+        }
+        return null;
+    });
+
+    function normalizeUnit(
+        value: string,
+        type: "length" | "lineHeight" = "length",
+    ): string {
+        const trimmed = value.trim();
+        if (!trimmed) return "";
+
+        // If it's just a number
+        if (!isNaN(Number(trimmed))) {
+            const num = Number(trimmed);
+            if (type === "lineHeight") {
+                // Heuristic: Small numbers (< 4) are multipliers, large are likely fixed points
+                return num < 4 ? String(num) : `${num}pt`;
+            } else {
+                // Default lengths to pt
+                return `${num}pt`;
+            }
+        }
+        return trimmed;
     }
 </script>
+
+<svelte:head>
+    {#if googleFontUrl}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossorigin="anonymous"
+        />
+        <link href={googleFontUrl} rel="stylesheet" />
+    {/if}
+</svelte:head>
 
 {#if isOpen}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -140,7 +271,12 @@
             aria-labelledby="modal-title"
         >
             <header class="modal-header">
-                <h2 id="modal-title">Manage Styles</h2>
+                <div>
+                    <h2 id="modal-title">Manage Styles</h2>
+                    <p class="subtitle">
+                        Create, edit, and reorganize block styles.
+                    </p>
+                </div>
                 <button
                     class="close-btn"
                     onclick={onClose}
@@ -148,181 +284,232 @@
                 >
             </header>
 
-            <div class="style-management">
-                <div class="style-list">
-                    {#each $styleRegistry as style}
-                        <div class="style-row">
-                            <button
-                                class="style-item"
-                                onclick={() => {
-                                    onSelect(style.id);
-                                    onClose();
-                                }}
-                            >
-                                <span class="style-name">{style.name}</span>
-                                <span class="style-desc"
-                                    >{style.description}</span
+            <div class="top-bar">
+                {#if isCreating}
+                    <div class="creating-badge">Creating New Style</div>
+                    <button class="secondary" onclick={cancelCreate}
+                        >Cancel</button
+                    >
+                {:else}
+                    <div class="style-selector-group">
+                        <select
+                            bind:value={selectedStyleId}
+                            class="style-select"
+                        >
+                            {#each $styleRegistry as style}
+                                <option value={style.id}
+                                    >{style.displayName || style.name}</option
                                 >
-                            </button>
-                            <div class="actions">
-                                <button
-                                    class="icon-btn"
-                                    onclick={() => startEdit(style)}>✎</button
-                                >
-                                <button
-                                    class="icon-btn delete"
-                                    onclick={() => deleteStyle(style.id)}
-                                    >×</button
-                                >
-                            </div>
-                        </div>
-                    {/each}
+                            {/each}
+                        </select>
+                        <button
+                            class="icon-btn add"
+                            onclick={startCreate}
+                            aria-label="New Style"
+                            title="Create New Style">+</button
+                        >
+                        <button
+                            class="icon-btn delete"
+                            onclick={requestDelete}
+                            disabled={selectedStyleId === "Normal Text"}
+                            aria-label="Delete Style"
+                            title="Delete Selected Style">🗑️</button
+                        >
+                    </div>
+                {/if}
+            </div>
+
+            <div class="main-body">
+                <!-- Preview Section -->
+                <div class="preview-box">
+                    <span class="preview-label">Preview</span>
+                    <div
+                        class="preview-content"
+                        style:font-family={previewStyle.fontFamily}
+                        style:font-size={previewStyle.fontSize}
+                        style:font-weight={previewStyle.fontWeight}
+                        style:line-height={previewStyle.lineHeight}
+                        style:text-align={previewStyle.textAlign}
+                    >
+                        The quick brown fox jumps over the lazy dog.
+                    </div>
                 </div>
 
-                <div class="add-section">
-                    <h3>{editingStyle ? "Edit Style" : "Add New Style"}</h3>
-                    <div class="form-group">
-                        <label for="name">Name</label>
-                        <input
-                            id="name"
-                            bind:value={newName}
-                            placeholder="e.g. Normal Text"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="desc">Description</label>
-                        <input
-                            id="desc"
-                            bind:value={newDesc}
-                            placeholder="Description"
-                        />
-                    </div>
-
-                    <div class="form-group">
-                        <label for="basedOn">Based On Style</label>
-                        <select id="basedOn" bind:value={basedOn}>
-                            <option value={undefined}>None</option>
-                            {#each $styleRegistry as s}
-                                {#if !editingStyle || s.id !== editingStyle.id}
-                                    <option value={s.id}>{s.name}</option>
-                                {/if}
-                            {/each}
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="nextStyle">Next Paragraph Style</label>
-                        <select id="nextStyle" bind:value={nextStyle}>
-                            <option value={undefined}>Same style</option>
-                            {#each $styleRegistry as s}
-                                <option value={s.id}>{s.name}</option>
-                            {/each}
-                        </select>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-column">
-                            <h4>Typography</h4>
-                            <div class="form-group">
-                                <label for="fontFamily">Font Family</label>
-                                <input
-                                    id="fontFamily"
-                                    bind:value={fontFamily}
-                                    placeholder="'Liberation Serif', serif"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="fontSize">Size</label>
-                                <input
-                                    id="fontSize"
-                                    bind:value={fontSize}
-                                    placeholder="12pt"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="fontWeight">Weight</label>
-                                <input
-                                    id="fontWeight"
-                                    bind:value={fontWeight}
-                                    placeholder="bold, 400"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="textAlign">Alignment</label>
-                                <select id="textAlign" bind:value={textAlign}>
-                                    <option value="left">Left</option>
-                                    <option value="center">Center</option>
-                                    <option value="right">Right</option>
-                                    <option value="justify">Justify</option>
-                                </select>
-                            </div>
+                <div class="form-container">
+                    <div class="form-row">
+                        <div class="form-group grow">
+                            <label for="name">Name</label>
+                            <input
+                                id="name"
+                                bind:value={newName}
+                                placeholder="Style Name"
+                            />
                         </div>
-
-                        <div class="form-column">
-                            <h4>Spacing & Indent</h4>
-                            <div class="form-group">
-                                <label for="lineHeight">Line Spacing</label>
-                                <input
-                                    id="lineHeight"
-                                    bind:value={lineHeight}
-                                    placeholder="1.15"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="marginTop">Margin Top</label>
-                                <input
-                                    id="marginTop"
-                                    bind:value={marginTop}
-                                    placeholder="6pt"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="marginBottom">Margin Bottom</label>
-                                <input
-                                    id="marginBottom"
-                                    bind:value={marginBottom}
-                                    placeholder="6pt"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="textIndent">Text Indent</label>
-                                <input
-                                    id="textIndent"
-                                    bind:value={textIndent}
-                                    placeholder="0.5in"
-                                />
-                            </div>
+                        <div class="form-group grow">
+                            <label for="basedOn">Based On</label>
+                            <select id="basedOn" bind:value={basedOn}>
+                                <option value={undefined}>None</option>
+                                {#each $styleRegistry as s}
+                                    {#if isCreating || s.id !== selectedStyleId}
+                                        <option value={s.id}
+                                            >{s.displayName || s.name}</option
+                                        >
+                                    {/if}
+                                {/each}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group grow">
+                            <label for="nextStyle">Next Style</label>
+                            <select id="nextStyle" bind:value={nextStyle}>
+                                <option value={undefined}>Same style</option>
+                                {#each $styleRegistry as s}
+                                    <option value={s.id}
+                                        >{s.displayName || s.name}</option
+                                    >
+                                {/each}
+                            </select>
                         </div>
                     </div>
 
-                    <div class="form-group checkbox">
-                        <label>
-                            <input type="checkbox" bind:checked={hyphenate} />
-                            Enable Hyphenation
-                        </label>
+                    <div class="separator">Typography</div>
+
+                    <div class="form-row">
+                        <div class="form-group grow">
+                            <label for="fontFamily">Font</label>
+                            <input
+                                list="fonts"
+                                id="fontFamily"
+                                bind:value={fontFamily}
+                                placeholder="Select or type font..."
+                            />
+                            <datalist id="fonts">
+                                {#each COMMON_FONTS as font}
+                                    <option value={font}></option>
+                                {/each}
+                            </datalist>
+                        </div>
+                        <div class="form-group w-short">
+                            <label for="fontSize">Size</label>
+                            <input
+                                id="fontSize"
+                                bind:value={fontSize}
+                                onblur={() =>
+                                    (fontSize = normalizeUnit(fontSize))}
+                                placeholder="12pt"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group grow">
+                            <label for="fontWeight">Weight ({fontWeight})</label
+                            >
+                            <input
+                                type="range"
+                                id="fontWeight"
+                                min="100"
+                                max="900"
+                                step="100"
+                                bind:value={fontWeight}
+                            />
+                        </div>
+                        <div class="form-group w-short">
+                            <label for="textAlign">Align</label>
+                            <select id="textAlign" bind:value={textAlign}>
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                                <option value="justify">Justify</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="separator">Spacing & Indents</div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="lineHeight">Line Height</label>
+                            <input
+                                id="lineHeight"
+                                bind:value={lineHeight}
+                                onblur={() =>
+                                    (lineHeight = normalizeUnit(
+                                        lineHeight,
+                                        "lineHeight",
+                                    ))}
+                                placeholder="1.15"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="textIndent">First Line Indent</label>
+                            <input
+                                id="textIndent"
+                                bind:value={textIndent}
+                                onblur={() =>
+                                    (textIndent = normalizeUnit(textIndent))}
+                                placeholder="0pt"
+                            />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="marginTop">Margin Top</label>
+                            <input
+                                id="marginTop"
+                                bind:value={marginTop}
+                                onblur={() =>
+                                    (marginTop = normalizeUnit(marginTop))}
+                                placeholder="0pt"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="marginBottom">Margin Bottom</label>
+                            <input
+                                id="marginBottom"
+                                bind:value={marginBottom}
+                                onblur={() =>
+                                    (marginBottom =
+                                        normalizeUnit(marginBottom))}
+                                placeholder="8pt"
+                            />
+                        </div>
                     </div>
 
                     <div class="form-actions">
-                        {#if editingStyle}
-                            <button class="primary" onclick={saveEdit}
-                                >Save Changes</button
-                            >
-                            <button
-                                onclick={() => {
-                                    editingStyle = null;
-                                    resetForm();
-                                }}>Cancel</button
-                            >
-                        {:else}
-                            <button class="primary" onclick={addStyle}
-                                >Add Style</button
-                            >
-                        {/if}
+                        <button class="primary" onclick={saveStyle}
+                            >Save Style</button
+                        >
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    {#if showDeleteConfirm}
+        <div class="modal-overlay confirm-overlay" role="alertdialog">
+            <div class="confirm-box">
+                <h3>Delete Style?</h3>
+                <p>
+                    Are you sure you want to delete "{(() => {
+                        const s = $styleRegistry.find(
+                            (s) => s.id === selectedStyleId,
+                        );
+                        return s?.displayName || s?.name;
+                    })()}"? usage in document may revert to Normal Text.
+                </p>
+                <div class="confirm-actions">
+                    <button onclick={() => (showDeleteConfirm = false)}
+                        >Cancel</button
+                    >
+                    <button class="danger" onclick={confirmDelete}
+                        >Delete</button
+                    >
+                </div>
+            </div>
+        </div>
+    {/if}
 {/if}
 
 <style>
@@ -332,44 +519,48 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(0, 0, 0, 0.5);
         display: flex;
-        align-items: flex-end;
         justify-content: center;
+        align-items: center;
         z-index: 1000;
+        backdrop-filter: blur(2px);
+    }
+
+    .confirm-overlay {
+        z-index: 1100;
     }
 
     .modal-content {
-        background: var(--header-bg);
+        background: var(--bg-color);
         width: 100%;
-        max-width: 600px;
-        border-radius: 16px 16px 0 0;
-        padding: 20px;
-        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-        animation: slide-up 0.3s ease-out;
+        max-width: 500px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        max-height: 85vh;
+        overflow: hidden;
         color: var(--text-color);
     }
 
-    @keyframes slide-up {
-        from {
-            transform: translateY(100%);
-        }
-        to {
-            transform: translateY(0);
-        }
-    }
-
     .modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
+        align-items: flex-start;
+        background: var(--header-bg);
     }
 
     .modal-header h2 {
         margin: 0;
         font-size: 1.25rem;
-        color: var(--text-color);
+    }
+    .subtitle {
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        color: var(--icon-color);
     }
 
     .close-btn {
@@ -378,154 +569,153 @@
         font-size: 1.5rem;
         cursor: pointer;
         color: var(--icon-color);
+        padding: 0;
+        line-height: 1;
     }
 
-    .close-btn:hover {
+    .top-bar {
+        padding: 12px 20px;
+        background: var(--bg-color);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .style-selector-group {
+        display: flex;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .style-select {
+        flex: 1;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-color);
         color: var(--text-color);
     }
 
-    .style-list {
+    .icon-btn {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border-color);
+        background: var(--bg-color);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1.1rem;
+    }
+    .icon-btn:hover {
+        background: var(--hover-bg);
+    }
+    .icon-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .delete:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
+    .main-body {
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .preview-box {
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .preview-label {
+        position: absolute;
+        top: -8px;
+        left: 12px;
+        background: var(--bg-color);
+        padding: 0 4px;
+        font-size: 0.75rem;
+        color: var(--icon-color);
+        font-weight: 600;
+    }
+    .preview-content {
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .form-container {
         display: flex;
         flex-direction: column;
         gap: 12px;
     }
 
-    .style-row {
+    .form-row {
         display: flex;
-        gap: 8px;
-        align-items: center;
+        gap: 12px;
     }
-
-    .style-item {
+    .grow {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--bg-color);
-        cursor: pointer;
-        text-align: left;
-        transition: all 0.2s;
     }
-
-    .style-item:hover {
-        border-color: var(--primary-color);
-        background: var(--hover-bg);
-    }
-
-    .style-name {
-        font-weight: 600;
-        color: var(--text-color);
-    }
-
-    .style-desc {
-        font-size: 0.75rem;
-        color: var(--icon-color);
-    }
-
-    .actions {
-        display: flex;
-        gap: 4px;
-    }
-
-    .icon-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 1.2rem;
-        color: var(--icon-color);
-        padding: 4px;
-    }
-
-    .icon-btn:hover {
-        color: var(--text-color);
-    }
-
-    .style-management {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        max-height: 70vh;
-        overflow-y: auto;
-        padding-bottom: 20px;
-    }
-
-    .add-section h3 {
-        margin: 0 0 16px 0;
-        font-size: 1.1rem;
-        color: var(--text-color);
+    .w-short {
+        width: 80px;
     }
 
     .form-group {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        margin-bottom: 12px;
+        gap: 4px;
     }
-
     .form-group label {
         font-size: 0.75rem;
-        font-weight: 600;
         color: var(--icon-color);
-        text-transform: uppercase;
+        font-weight: 600;
     }
-
     .form-group input,
     .form-group select {
-        padding: 8px 12px;
+        padding: 8px;
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        font-size: 0.9rem;
-        outline: none;
+        border-radius: 6px;
         background: var(--bg-color);
         color: var(--text-color);
     }
 
-    .form-group input:focus,
-    .form-group select:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin: 16px 0;
-        padding-top: 16px;
-        border-top: 1px solid var(--border-color);
-    }
-
-    .form-column h4 {
-        margin: 0 0 12px 0;
-        font-size: 0.85rem;
-        color: var(--text-color);
+    .separator {
+        font-size: 0.75rem;
         font-weight: 700;
+        color: var(--icon-color);
+        text-transform: uppercase;
+        margin: 8px 0 4px 0;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 4px;
     }
 
-    .form-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 24px;
-    }
-
-    .form-group.checkbox {
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        margin-top: 8px;
-    }
-
-    .form-group.checkbox label {
-        text-transform: none;
-        font-weight: 500;
+    .confirm-box {
+        background: var(--header-bg);
+        padding: 24px;
+        border-radius: 12px;
+        width: 320px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
         color: var(--text-color);
-        cursor: pointer;
+    }
+    .confirm-box h3 {
+        margin: 0 0 12px 0;
+        font-size: 1.1rem;
+    }
+    .confirm-actions {
         display: flex;
-        align-items: center;
-        gap: 8px;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
     }
 
     button.primary {
@@ -533,16 +723,27 @@
         color: white;
         border: none;
         padding: 10px 20px;
-        border-radius: 8px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 12px;
+    }
+    button.danger {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
         font-weight: 600;
         cursor: pointer;
     }
-
-    button.primary:hover {
-        opacity: 0.9;
-    }
-
-    .delete:hover {
-        color: #ef4444;
+    button.secondary {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
     }
 </style>

@@ -55,7 +55,7 @@
         onChange,
     } = $props();
 
-    let dynamicStyles = $derived(
+    let baseStyles = $derived(
         $styleRegistry
             .map((style) => {
                 const s = resolveStyle(style.id, $styleRegistry);
@@ -71,10 +71,31 @@
                     ${s.marginRight ? `margin-right: ${s.marginRight};` : ""}
                     ${s.textIndent ? `text-indent: ${s.textIndent};` : ""}
                     ${s.textAlign ? `text-align: ${s.textAlign};` : ""}
+                    ${s.textTransform ? `text-transform: ${s.textTransform};` : ""}
                 }
             `;
             })
             .join("\n"),
+    );
+
+    let mobileStyles = $derived(
+        $styleRegistry
+            .map((style) => {
+                const s = resolveStyle(style.id, $styleRegistry);
+                if (s.mobileMarginLeft || s.mobileMarginRight) {
+                    return `
+                     .ProseMirror [data-style-name="${style.id}"] {
+                         ${s.mobileMarginLeft ? `margin-left: ${s.mobileMarginLeft} !important;` : ""}
+                         ${s.mobileMarginRight ? `margin-right: ${s.mobileMarginRight} !important;` : ""}
+                     }`;
+                }
+                return "";
+            })
+            .join("\n"),
+    );
+
+    let dynamicStyles = $derived(
+        `${baseStyles}\n@media (max-width: 600px) {\n${mobileStyles}\n}`,
     );
 
     const editor = createEditor({
@@ -112,6 +133,14 @@
             NextParagraphStyle,
         ],
         onCreate({ editor }) {
+            // Register getNextStyle helper for the extension
+            (window as any).__getNextStyle = (currentStyleId: string) => {
+                const style = $styleRegistry.find(
+                    (s) => s.id === currentStyleId,
+                );
+                return style?.next;
+            };
+
             // Apply default style to initial content if needed
             // This ensures the first paragraph has "Normal Text" style
             if (editor.isEmpty) {
@@ -121,7 +150,27 @@
                     .run();
             }
         },
-        // ...
+        onSelectionUpdate({ editor }) {
+            if (!editor) return;
+            const { selection } = editor.state;
+            const { $from: fromPos } = selection;
+            const node = fromPos.node(fromPos.depth);
+
+            if (
+                node.type.name === "paragraph" ||
+                node.type.name === "heading"
+            ) {
+                const styleName = node.attrs.styleName;
+                if (styleName) {
+                    currentStyleId = styleName;
+                } else {
+                    currentStyleId = "Normal Text";
+                }
+            }
+        },
+        onDestroy() {
+            (window as any).__getNextStyle = undefined;
+        },
     });
 
     // ...
@@ -256,6 +305,8 @@
             if (s.marginBottom) attributes["fo:margin-bottom"] = s.marginBottom;
             if (s.textIndent) attributes["fo:text-indent"] = s.textIndent;
             if (s.textAlign) attributes["fo:text-align"] = s.textAlign;
+            if (s.textTransform)
+                attributes["fo:text-transform"] = s.textTransform;
             if (s.hyphenate !== undefined)
                 attributes["fo:hyphenate"] = String(s.hyphenate);
             if (s.orphans !== undefined)
@@ -312,10 +363,11 @@
         metadata: any;
     }) => {
         if (!$editor) return;
+
         // Convert ODF attributes back to BlockStyle
         const styles: any[] = Object.values(data.styles).map((s: any) => {
             const attr = s.attributes;
-            return {
+            const converted = {
                 id: s.name,
                 name: s.name,
                 description: "",
@@ -323,12 +375,13 @@
                 fontSize: attr["fo:font-size"],
                 fontWeight: attr["fo:font-weight"],
                 lineHeight: attr["fo:line-height"],
-                marginLeft: attr["fo:margin-left"],
-                marginRight: attr["fo:margin-right"],
-                marginTop: attr["fo:margin-top"],
-                marginBottom: attr["fo:margin-bottom"],
+                marginLeft: attr["fo:margin-left"] || attr["fo:margin"],
+                marginRight: attr["fo:margin-right"] || attr["fo:margin"],
+                marginTop: attr["fo:margin-top"] || attr["fo:margin"],
+                marginBottom: attr["fo:margin-bottom"] || attr["fo:margin"],
                 textIndent: attr["fo:text-indent"],
                 textAlign: attr["fo:text-align"],
+                textTransform: s.textTransform || attr["fo:text-transform"],
                 hyphenate: attr["fo:hyphenate"] === "true",
                 orphans: attr["fo:orphans"]
                     ? parseInt(attr["fo:orphans"])
@@ -336,10 +389,13 @@
                 widows: attr["fo:widows"]
                     ? parseInt(attr["fo:widows"])
                     : undefined,
-                basedOn: attr["style:parent-style-name"],
-                next: attr["style:next-style-name"],
+                basedOn: s.parent,
+                next: s.next,
+                displayName: s.displayName,
             };
+            return converted;
         });
+
         styleRegistry.setStyles(styles);
         metadata = data.metadata;
         $editor.commands.setContent(data.content);

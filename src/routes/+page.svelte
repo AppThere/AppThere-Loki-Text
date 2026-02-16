@@ -3,12 +3,20 @@
   import StyleSelect from "$lib/StyleSelect.svelte";
   import InsertMenu from "$lib/InsertMenu.svelte";
   import MetadataDialog from "$lib/MetadataDialog.svelte";
-  import { save, open } from "@tauri-apps/plugin-dialog";
+  import AboutDialog from "$lib/AboutDialog.svelte";
+  import SettingsDialog from "$lib/SettingsDialog.svelte";
+  import LandingPage from "$lib/LandingPage.svelte";
+  import { recentDocs } from "$lib/recentDocs";
+  import { TEMPLATES } from "$lib/templates";
+  import { styleRegistry } from "$lib/styleStore";
+  import { save, open, ask } from "@tauri-apps/plugin-dialog";
   import { invoke } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { onMount, tick } from "svelte";
   import {
     FolderOpen,
     Save,
+    FileDown,
     Info,
     Undo,
     Redo,
@@ -20,6 +28,10 @@
     IndentIncrease,
     IndentDecrease,
     Quote,
+    Menu,
+    Plus,
+    Settings,
+    X,
   } from "lucide-svelte";
 
   let editorComponent: any = $state();
@@ -28,14 +40,17 @@
   let currentPath = $state<string | null>(null);
 
   let metadata = $state({
-    title: "",
-    description: "",
-    subject: "",
-    creator: "",
-    creationDate: "",
-    generator: "",
+    title: "Untitled Document",
+    author: "Unknown Author",
+    created: new Date().toISOString(),
   });
+
   let isMetadataOpen = $state(false);
+  let isAboutOpen = $state(false);
+  let isSettingsOpen = $state(false);
+  let isMenuOpen = $state(false);
+
+  let view = $state<"landing" | "editor">("landing");
   let isDirty = $state(false);
 
   // Derived title for the banner
@@ -56,6 +71,10 @@
       path = await save({
         filters: [
           {
+            name: "OpenDocument Text",
+            extensions: ["odt"],
+          },
+          {
             name: "Flat ODT",
             extensions: ["fodt"],
           },
@@ -75,15 +94,119 @@
     }
   }
 
+  async function handleExportEpub() {
+    console.log("handleExportEpub called");
+    if (!editorComponent) {
+      console.error("Editor component not ready");
+      return;
+    }
+
+    const path = await save({
+      filters: [
+        {
+          name: "EPUB",
+          extensions: ["epub"],
+        },
+      ],
+    });
+
+    if (!path) {
+      console.log("User cancelled EPUB export");
+      return; // User cancelled
+    }
+
+    console.log("Exporting to:", path);
+    syncStatus = "Exporting to EPUB...";
+
+    try {
+      // Detect which fonts are used in styles
+      const fontPaths: string[] = [];
+      const styles = $styleRegistry;
+
+      // Check if Courier Prime is used
+      const usesCourierPrime = styles.some(
+        (s) => s.fontFamily && s.fontFamily.includes("Courier Prime"),
+      );
+
+      console.log("Uses Courier Prime:", usesCourierPrime);
+
+      if (usesCourierPrime) {
+        // Add all Courier Prime font files
+        // Use absolute paths to the font files in the project
+        const fontDir =
+          "/Users/kevin/.gemini/antigravity/scratch/appthere-loki/static/fonts";
+        fontPaths.push(`${fontDir}/CourierPrime-Regular.ttf`);
+        fontPaths.push(`${fontDir}/CourierPrime-Bold.ttf`);
+        fontPaths.push(`${fontDir}/CourierPrime-Italic.ttf`);
+        fontPaths.push(`${fontDir}/CourierPrime-BoldItalic.ttf`);
+      }
+
+      // Get current document state
+      const tiptapJson = editorComponent.getJSON();
+
+      // Convert styles to StyleDefinition format (same as saveWithStyles)
+      const stylesMap: Record<string, any> = {};
+      styles.forEach((s) => {
+        let attributes: Record<string, string> = {};
+        if (s.fontFamily) attributes["fo:font-family"] = s.fontFamily;
+        if (s.fontSize) attributes["fo:font-size"] = s.fontSize;
+        if (s.fontWeight) attributes["fo:font-weight"] = s.fontWeight;
+        if (s.lineHeight) attributes["fo:line-height"] = s.lineHeight;
+        if (s.marginLeft) attributes["fo:margin-left"] = s.marginLeft;
+        if (s.marginRight) attributes["fo:margin-right"] = s.marginRight;
+        if (s.marginTop) attributes["fo:margin-top"] = s.marginTop;
+        if (s.marginBottom) attributes["fo:margin-bottom"] = s.marginBottom;
+        if (s.textIndent) attributes["fo:text-indent"] = s.textIndent;
+        if (s.textAlign) attributes["fo:text-align"] = s.textAlign;
+        if (s.textTransform) attributes["fo:text-transform"] = s.textTransform;
+        if (s.hyphenate !== undefined)
+          attributes["fo:hyphenate"] = String(s.hyphenate);
+        if (s.orphans !== undefined)
+          attributes["fo:orphans"] = String(s.orphans);
+        if (s.widows !== undefined) attributes["fo:widows"] = String(s.widows);
+        if (s.basedOn) attributes["style:parent-style-name"] = s.basedOn;
+        if (s.next) attributes["style:next-style-name"] = s.next;
+
+        stylesMap[s.id] = {
+          name: s.id,
+          family: "Paragraph",
+          parent: s.basedOn || null,
+          displayName: s.displayName || null,
+          attributes,
+          textTransform: s.textTransform || null,
+        };
+      });
+
+      console.log("Calling save_epub with:", { path, fontPaths, metadata });
+
+      await invoke("save_epub", {
+        path,
+        tiptapJson,
+        styles: stylesMap,
+        metadata: metadata,
+        fontPaths: fontPaths,
+      });
+
+      console.log("EPUB export successful");
+      syncStatus = "Exported to EPUB successfully";
+      setTimeout(() => {
+        syncStatus = "Ready";
+      }, 2000);
+    } catch (e) {
+      console.error("EPUB export failed", e);
+      syncStatus = "EPUB Export Error: " + String(e);
+    }
+  }
+
   async function handleOpen() {
-    if (!editorComponent) return;
+    console.log("handleOpen called");
 
     const selected = await open({
       multiple: false,
       filters: [
         {
-          name: "Flat ODT",
-          extensions: ["fodt"],
+          name: "OpenDocument Text",
+          extensions: ["odt", "fodt"],
         },
       ],
     });
@@ -91,11 +214,55 @@
     if (!selected) return;
 
     const path = Array.isArray(selected) ? selected[0] : selected;
+    console.log("Opening document:", path);
 
     syncStatus = "Opening...";
     try {
       const response = await invoke("open_document", { path });
-      editorComponent.loadWithStyles(response);
+      console.log("open_document response:", response);
+
+      // Assuming response contains content, styles, and metadata
+      const {
+        content,
+        styles,
+        metadata: loadedMetadata,
+      } = response as { content: any; styles: any; metadata: any };
+
+      console.log(
+        "Parsed response - content:",
+        content,
+        "styles:",
+        styles,
+        "metadata:",
+        loadedMetadata,
+      );
+
+      metadata = loadedMetadata; // Update component's metadata state
+
+      // Switch to editor view first
+      view = "editor";
+      await tick();
+      console.log("Switched to editor view, editorComponent:", editorComponent);
+
+      // Now editor component should be mounted
+      if (!editorComponent) {
+        console.error("Editor component not ready after switching view");
+        syncStatus = "Error: Editor not ready";
+        return;
+      }
+
+      console.log("Calling loadWithStyles...");
+      editorComponent.loadWithStyles({
+        content,
+        styles,
+        metadata: loadedMetadata,
+      });
+
+      await recentDocs.add(
+        path,
+        metadata.title || path.split("/").pop() || "Untitled",
+      );
+
       currentPath = path;
       isDirty = false; // Reset dirty state on open
       syncStatus = "Opened";
@@ -104,153 +271,373 @@
       syncStatus = "Open Error";
     }
   }
+
+  async function handleNewDocument(templateId?: string) {
+    console.log("handleNewDocument called with:", templateId);
+    if (isDirty) {
+      const confirmed = await ask(
+        "You have unsaved changes. Are you sure you want to create a new document?",
+        {
+          title: "New Document",
+          kind: "warning",
+        },
+      );
+      if (!confirmed) return;
+    }
+
+    // Reset state
+    currentPath = null;
+    isDirty = false;
+    syncStatus = "Ready";
+    metadata = {
+      title: "Untitled Document",
+      author: "Unknown Author",
+      created: new Date().toISOString(),
+    };
+
+    // Apply Template Styles
+    let initialStyles = [];
+    if (templateId) {
+      const template = TEMPLATES.find((t) => t.id === templateId);
+      if (template && template.styles.length > 0) {
+        styleRegistry.setStyles(template.styles);
+        initialStyles = template.styles;
+      } else {
+        styleRegistry.reset();
+        initialStyles = $styleRegistry; // get default
+      }
+    } else {
+      styleRegistry.reset();
+      initialStyles = $styleRegistry;
+    }
+
+    // Determine initial style for the first paragraph
+    // If Screenplay, maybe defaults to "Scene Heading"
+    let startStyle = "Normal Text";
+    if (templateId === "screenplay") {
+      startStyle = "Scene Heading";
+    }
+
+    // Clear editor (assuming we can just pass empty/default structure)
+    // We'll mimic an empty Tiptap doc
+    const emptyDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          attrs: { styleName: startStyle },
+        },
+      ],
+    };
+
+    // We can use a default style map or just empty
+
+    view = "editor";
+    await tick();
+
+    editorComponent.loadWithStyles({
+      content: emptyDoc,
+      styles: initialStyles.reduce((acc: any, s: any) => {
+        acc[s.id] = s;
+        return acc;
+      }, {}),
+      metadata: metadata,
+    });
+
+    currentStyleId = startStyle;
+
+    isMenuOpen = false;
+  }
+
+  async function handleOpenRecent(path: string) {
+    try {
+      const result = await invoke("open_document", { path });
+      // @ts-ignore
+      const { content, styles, metadata: meta } = result;
+
+      metadata = meta;
+
+      view = "editor";
+      await tick();
+
+      // Load into editor
+      editorComponent.loadWithStyles({
+        content: JSON.parse(content), // The rust returns JSON string of Tiptap content
+        styles: styles,
+        metadata: metadata,
+      });
+
+      currentPath = path;
+      syncStatus = "Ready";
+      isDirty = false;
+
+      // Update recent to bump to top
+      await recentDocs.add(path, metadata.title);
+    } catch (e) {
+      console.error("Failed to open recent:", e);
+      await ask(
+        `Failed to open document: ${path}\nIt may have been moved or deleted.`,
+        {
+          title: "Error",
+          kind: "error",
+        },
+      );
+      // Remove from list if not found?
+      // For now just error.
+    }
+  }
+
+  async function closeDocument() {
+    if (isDirty) {
+      const confirmed = await ask(
+        "You have unsaved changes. Are you sure you want to close?",
+        {
+          title: "Close Document",
+          kind: "warning",
+        },
+      );
+      if (!confirmed) return;
+    }
+    view = "landing";
+    currentPath = null;
+    isDirty = false;
+    isMenuOpen = false;
+  }
+
+  function toggleMenu() {
+    isMenuOpen = !isMenuOpen;
+  }
+
+  function closeMenu() {
+    isMenuOpen = false;
+  }
+
+  onMount(() => {
+    if (window.visualViewport) {
+      const handleResize = () => {
+        if (window.visualViewport) {
+          document.documentElement.style.setProperty(
+            "--viewport-height",
+            `${window.visualViewport.height}px`,
+          );
+        }
+      };
+
+      window.visualViewport.addEventListener("resize", handleResize);
+      handleResize(); // Initial set
+
+      return () => {
+        window.visualViewport?.removeEventListener("resize", handleResize);
+      };
+    }
+  });
 </script>
 
-<main class="app-container">
-  <header class="app-header">
-    <div class="brand">
-      <span class="logo" title={displayTitle}>{displayTitle}</span>
-    </div>
-    <div class="header-actions">
-      <button
-        class="meta-btn"
-        onclick={() => (isMetadataOpen = true)}
-        title="Document Properties"
-        aria-label="Document Properties"
-      >
-        <Info size={20} />
-      </button>
-      <button
-        class="open-btn"
-        onclick={handleOpen}
-        title="Open document"
-        aria-label="Open document"
-      >
-        <FolderOpen size={20} />
-      </button>
-      <button
-        class="save-btn"
-        onclick={handleSave}
-        title="Save document"
-        aria-label="Save document"
-      >
-        <Save size={20} />
-      </button>
-    </div>
-  </header>
-
-  <div class="content-view">
-    <Editor
-      bind:this={editorComponent}
-      bind:status={syncStatus}
-      bind:currentStyleId
-      bind:metadata
-      onChange={() => (isDirty = true)}
-    />
-  </div>
-
-  <MetadataDialog
-    isOpen={isMetadataOpen}
-    bind:metadata
-    onClose={() => (isMetadataOpen = false)}
+{#if view === "landing"}
+  <LandingPage
+    onNew={handleNewDocument}
+    onOpen={handleOpen}
+    onOpenRecent={handleOpenRecent}
   />
+{:else}
+  <main class="app-container">
+    <header class="app-header">
+      <div class="brand">
+        <button
+          class="meta-btn"
+          onclick={() => (isMetadataOpen = true)}
+          title="Document Properties"
+          aria-label="Document Properties"
+        >
+          <Info size={18} />
+        </button>
+        <span class="logo" title={displayTitle}>{displayTitle}</span>
+      </div>
+      <div class="header-actions">
+        <div class="menu-container">
+          <button
+            class="menu-btn"
+            onclick={toggleMenu}
+            title="Menu"
+            aria-label="App Menu"
+          >
+            <Menu size={20} />
+          </button>
 
-  <div class="bottom-toolbar">
-    <div class="toolbar-scroll-container">
-      <div class="toolbar-controls">
-        <div class="history-controls">
+          {#if isMenuOpen}
+            <div
+              class="menu-backdrop"
+              onclick={closeMenu}
+              role="presentation"
+            ></div>
+            <div class="menu-dropdown">
+              <button onclick={handleOpen} class="menu-item">
+                <FolderOpen size={16} />
+                <span>Open Document</span>
+              </button>
+              <button class="menu-item" onclick={() => handleSave()}>
+                <Save size={18} />
+                <span>Save Document</span>
+              </button>
+              <button class="menu-item" onclick={() => handleExportEpub()}>
+                <FileDown size={18} />
+                <span>Export as EPUB</span>
+              </button>
+              <button onclick={closeDocument} class="menu-item">
+                <X size={16} />
+                <span>Close Document</span>
+              </button>
+              <div class="menu-divider"></div>
+              <button onclick={() => handleNewDocument()} class="menu-item">
+                <Plus size={16} />
+                <span>New Document</span>
+              </button>
+              <button
+                onclick={() => {
+                  isSettingsOpen = true;
+                  closeMenu();
+                }}
+                class="menu-item"
+              >
+                <Settings size={16} />
+                <span>Settings</span>
+              </button>
+              <button
+                onclick={() => {
+                  isAboutOpen = true;
+                  closeMenu();
+                }}
+                class="menu-item"
+              >
+                <Info size={16} />
+                <span>About</span>
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
+    </header>
+
+    <div class="content-view">
+      <Editor
+        bind:this={editorComponent}
+        bind:status={syncStatus}
+        bind:currentStyleId
+        bind:metadata
+        onChange={() => (isDirty = true)}
+      />
+    </div>
+
+    <MetadataDialog
+      isOpen={isMetadataOpen}
+      bind:metadata
+      onClose={() => (isMetadataOpen = false)}
+    />
+
+    <div class="bottom-toolbar">
+      <div class="toolbar-scroll-container">
+        <div class="toolbar-controls">
+          <div class="history-controls">
+            <button
+              class="icon-btn"
+              onclick={() => editorComponent?.undo()}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              <Undo size={18} />
+            </button>
+            <button
+              class="icon-btn"
+              onclick={() => editorComponent?.redo()}
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              <Redo size={18} />
+            </button>
+          </div>
+          <div class="divider"></div>
           <button
             class="icon-btn"
-            onclick={() => editorComponent?.undo()}
-            title="Undo (Ctrl+Z)"
-            aria-label="Undo"
+            onclick={() => editorComponent?.paste()}
+            title="Paste (Ctrl+V)"
+            aria-label="Paste"
           >
-            <Undo size={18} />
+            <Clipboard size={18} />
+          </button>
+
+          <StyleSelect
+            bind:currentStyleId
+            onSelect={(id: string) => editorComponent?.applyStyle(id)}
+            onEdit={() => editorComponent?.openStyles()}
+          />
+
+          <div class="divider"></div>
+
+          <InsertMenu
+            onInsertImage={() => editorComponent?.insertImage()}
+            onInsertTable={() => editorComponent?.insertTable()}
+          />
+
+          <div class="group-spacer"></div>
+
+          <button
+            class="icon-btn"
+            onclick={() => editorComponent?.toggleBulletList()}
+            title="Bulleted List"
+          >
+            <List size={18} />
           </button>
           <button
             class="icon-btn"
-            onclick={() => editorComponent?.redo()}
-            title="Redo (Ctrl+Shift+Z)"
-            aria-label="Redo"
+            onclick={() => editorComponent?.toggleOrderedList()}
+            title="Numbered List"
           >
-            <Redo size={18} />
+            <ListOrdered size={18} />
+          </button>
+          <!-- Blockquote removed as requested -->
+
+          <div class="mini-divider"></div>
+
+          <button
+            class="icon-btn"
+            onclick={() => editorComponent?.indent()}
+            title="Increase Indent"
+          >
+            <IndentIncrease size={18} />
+          </button>
+          <button
+            class="icon-btn"
+            onclick={() => editorComponent?.outdent()}
+            title="Decrease Indent"
+          >
+            <IndentDecrease size={18} />
           </button>
         </div>
-        <div class="divider"></div>
-        <button
-          class="icon-btn"
-          onclick={() => editorComponent?.paste()}
-          title="Paste (Ctrl+V)"
-          aria-label="Paste"
-        >
-          <Clipboard size={18} />
-        </button>
-
-        <StyleSelect
-          bind:currentStyleId
-          onSelect={(id: string) => editorComponent?.applyStyle(id)}
-          onEdit={() => editorComponent?.openStyles()}
-        />
-
-        <div class="divider"></div>
-
-        <InsertMenu
-          onInsertImage={() => editorComponent?.insertImage()}
-          onInsertTable={() => editorComponent?.insertTable()}
-        />
-
-        <div class="group-spacer"></div>
-
-        <button
-          class="icon-btn"
-          onclick={() => editorComponent?.toggleBulletList()}
-          title="Bulleted List"
-        >
-          <List size={18} />
-        </button>
-        <button
-          class="icon-btn"
-          onclick={() => editorComponent?.toggleOrderedList()}
-          title="Numbered List"
-        >
-          <ListOrdered size={18} />
-        </button>
-        <!-- Blockquote removed as requested -->
-
-        <div class="mini-divider"></div>
-
-        <button
-          class="icon-btn"
-          onclick={() => editorComponent?.indent()}
-          title="Increase Indent"
-        >
-          <IndentIncrease size={18} />
-        </button>
-        <button
-          class="icon-btn"
-          onclick={() => editorComponent?.outdent()}
-          title="Decrease Indent"
-        >
-          <IndentDecrease size={18} />
-        </button>
       </div>
     </div>
-  </div>
 
-  <footer class="app-footer">
-    <div class="footer-left">
-      <span class="status-indicator">
-        {currentPath ? currentPath.split("/").pop() : "New File"}
-        {#if isDirty}
-          <span class="dirty-indicator">•</span>
-        {/if}
-      </span>
-    </div>
-    <div class="footer-right">
-      <span>v0.1.0</span>
-    </div>
-  </footer>
-</main>
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span class="status-indicator">
+          {currentPath ? currentPath.split("/").pop() : "New File"}
+          {#if isDirty}
+            <span class="dirty-indicator">•</span>
+          {/if}
+        </span>
+      </div>
+      <div class="footer-right">
+        <span>v0.1.0</span>
+      </div>
+    </footer>
+    <MetadataDialog
+      isOpen={isMetadataOpen}
+      bind:metadata
+      onClose={() => (isMetadataOpen = false)}
+    />
+    <AboutDialog bind:isOpen={isAboutOpen} />
+    <SettingsDialog bind:isOpen={isSettingsOpen} />
+  </main>
+{/if}
 
 <style>
   :root {
@@ -284,32 +671,38 @@
     }
   }
 
+  :global(html),
   :global(body) {
     margin: 0;
     padding: 0;
     background-color: var(--bg-color);
     color: var(--text-color);
-    font-family:
-      "Inter",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      Roboto,
-      sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
     overflow: hidden; /* Prevent body scroll, use content-view scroll */
+    height: 100%;
+    width: 100%;
+  }
+
+  :global(*),
+  :global(*::before),
+  :global(*::after) {
+    box-sizing: border-box;
   }
 
   .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: var(--viewport-height, 100vh);
+    width: 100%;
+    overflow: hidden; /* Ensure no double scroll */
   }
 
   .app-header {
-    height: var(--header-height);
+    height: calc(var(--header-height) + max(env(safe-area-inset-top), 24px));
     display: flex;
     align-items: center;
-    padding: 0 24px;
+    padding: max(env(safe-area-inset-top), 24px) 24px 0 24px;
     background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     justify-content: space-between;
@@ -317,8 +710,11 @@
   }
 
   .brand {
-    flex: 1; /* Allow brand to take available space */
-    min-width: 0; /* Enable truncation for flex child */
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
     margin-right: 16px;
   }
 
@@ -409,13 +805,13 @@
   }
 
   .app-footer {
-    height: var(--footer-height);
+    height: calc(var(--footer-height) + env(safe-area-inset-bottom, 0px));
     background: var(--header-bg);
     border-top: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: 0 24px env(safe-area-inset-bottom, 0px) 24px;
     font-size: 0.8rem;
     color: var(--icon-color);
   }
@@ -436,27 +832,22 @@
   }
 
   /* Shared button styles */
-  .save-btn,
-  .open-btn,
   .meta-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     padding: 0;
-    background: var(--header-bg);
+    background: transparent;
     color: var(--icon-color);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.9rem;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
   }
 
-  .save-btn:hover,
-  .open-btn:hover,
   .meta-btn:hover {
     background: var(--hover-bg);
     border-color: var(--icon-color);
@@ -464,8 +855,6 @@
     box-shadow: var(--shadow-sm);
   }
 
-  .save-btn:active,
-  .open-btn:active,
   .meta-btn:active {
     transform: translateY(0);
   }
@@ -480,8 +869,6 @@
   }
 
   @media (max-width: 640px) {
-    .save-btn,
-    .open-btn,
     .meta-btn {
       width: 36px;
       height: 36px;
@@ -525,5 +912,81 @@
 
   .icon-btn:active {
     background: var(--border-color);
+  }
+
+  .menu-container {
+    position: relative;
+    margin-left: 8px;
+  }
+
+  .menu-btn {
+    background: transparent;
+    border: none;
+    color: var(--icon-color);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+  }
+
+  .menu-btn:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-color);
+  }
+
+  .menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 90;
+    background: transparent;
+  }
+
+  .menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    min-width: 180px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    width: 100%;
+  }
+
+  .menu-item:hover {
+    background-color: var(--hover-bg);
+  }
+
+  .menu-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 4px 0;
   }
 </style>

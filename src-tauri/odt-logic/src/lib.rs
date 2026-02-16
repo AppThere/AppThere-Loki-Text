@@ -109,10 +109,16 @@ pub struct LinkAttrs {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct StyleDefinition {
     pub name: String,
     pub family: StyleFamily,
+    pub parent: Option<String>,
+    pub next: Option<String>,
+    pub display_name: Option<String>,
     pub attributes: HashMap<String, String>,
+    #[serde(rename = "textTransform")]
+    pub text_transform: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -217,7 +223,7 @@ impl Document {
         }
     }
 
-    pub fn from_fodt(xml: &str) -> Result<Self, String> {
+    pub fn from_xml(xml: &str) -> Result<Self, String> {
         let doc = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
         let root = doc.root_element();
 
@@ -231,6 +237,19 @@ impl Document {
         let ns_draw = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
         let ns_table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
         let ns_xlink = "http://www.w3.org/1999/xlink";
+
+        // Check root element
+        // FODT: office:document
+        // ODT content.xml: office:document-content
+        if !root.has_tag_name((ns_office, "document"))
+            && !root.has_tag_name((ns_office, "document-content"))
+            && !root.has_tag_name((ns_office, "document-styles"))
+        {
+            return Err(
+                "Invalid ODT XML: root must be office:document, office:document-content, or office:document-styles"
+                    .to_string(),
+            );
+        }
 
         // Parse Metadata
         let mut metadata = Metadata::default();
@@ -272,6 +291,7 @@ impl Document {
             .filter(|n| {
                 n.has_tag_name((ns_office, "styles"))
                     || n.has_tag_name((ns_office, "automatic-styles"))
+                    || n.has_tag_name((ns_office, "font-face-decls")) // Sometimes present
             })
             .flat_map(|n| n.children())
             .filter(|n| n.has_tag_name((ns_style, "style")));
@@ -284,6 +304,13 @@ impl Document {
                     "text" => StyleFamily::Text,
                     _ => StyleFamily::Text,
                 };
+
+                let parent = style_node
+                    .attribute((ns_style, "parent-style-name"))
+                    .map(|s| s.to_string());
+                let display_name = style_node
+                    .attribute((ns_style, "display-name"))
+                    .map(|s| s.to_string());
 
                 let mut attrs = HashMap::new();
                 let mut marks = Vec::new();
@@ -304,18 +331,115 @@ impl Document {
                         // ... more marks logic
                     }
                     for attr in prop_node.attributes() {
-                        attrs.insert(attr.name().to_string(), attr.value().to_string());
+                        let prefix = if let Some(ns) = attr.namespace() {
+                            if ns == ns_fo {
+                                "fo:"
+                            } else if ns == ns_style {
+                                "style:"
+                            } else if ns == ns_text {
+                                "text:"
+                            } else {
+                                ""
+                            }
+                        } else {
+                            ""
+                        };
+                        let key = format!("{}{}", prefix, attr.name());
+                        attrs.insert(key, attr.value().to_string());
                     }
                 }
+
+                let text_transform = style_node
+                    .children()
+                    .find(|n| n.has_tag_name((ns_style, "text-properties")))
+                    .and_then(|n| n.attribute((ns_fo, "text-transform")))
+                    .map(|s| s.to_string());
+
                 style_definitions.insert(
                     name.to_string(),
                     StyleDefinition {
                         name: name.to_string(),
                         family,
+                        parent,
+                        next: None,
+                        display_name,
                         attributes: attrs,
+                        text_transform,
                     },
                 );
                 style_map.insert(name.to_string(), (family_str.to_string(), marks));
+            }
+        }
+
+        // Parse default styles
+        let default_style_nodes = root
+            .children()
+            .filter(|n| n.has_tag_name((ns_office, "styles")))
+            .flat_map(|n| n.children())
+            .filter(|n| n.has_tag_name((ns_style, "default-style")));
+
+        for ds_node in default_style_nodes {
+            let family_str = ds_node.attribute((ns_style, "family")).unwrap_or("");
+            let (family, name) = match family_str {
+                "paragraph" => (StyleFamily::Paragraph, "_Default_Paragraph"),
+                "text" => (StyleFamily::Text, "_Default_Text"),
+                _ => continue,
+            };
+
+            let mut attrs = HashMap::new();
+            for prop_node in ds_node.children() {
+                if prop_node.has_tag_name((ns_style, "text-properties"))
+                    || prop_node.has_tag_name((ns_style, "paragraph-properties"))
+                {
+                    for attr in prop_node.attributes() {
+                        let prefix = if let Some(ns) = attr.namespace() {
+                            if ns == ns_fo {
+                                "fo:"
+                            } else if ns == ns_style {
+                                "style:"
+                            } else if ns == ns_text {
+                                "text:"
+                            } else {
+                                ""
+                            }
+                        } else {
+                            ""
+                        };
+                        let key = format!("{}{}", prefix, attr.name());
+                        attrs.insert(key, attr.value().to_string());
+                    }
+                }
+            }
+
+            style_definitions.insert(
+                name.to_string(),
+                StyleDefinition {
+                    name: name.to_string(),
+                    family,
+                    parent: None,
+                    next: None,
+                    display_name: Some("Default".to_string()),
+                    attributes: attrs,
+                    text_transform: None,
+                },
+            );
+        }
+
+        // Link styles to defaults if they have no parent
+        for style in style_definitions.values_mut() {
+            if style.parent.is_none() {
+                match style.family {
+                    StyleFamily::Paragraph => {
+                        if style.name != "_Default_Paragraph" {
+                            style.parent = Some("_Default_Paragraph".to_string());
+                        }
+                    }
+                    StyleFamily::Text => {
+                        if style.name != "_Default_Text" {
+                            style.parent = Some("_Default_Text".to_string());
+                        }
+                    }
+                }
             }
         }
 
@@ -417,10 +541,13 @@ impl Document {
                         .attribute((ns_text, "outline-level"))
                         .and_then(|l| l.parse().ok())
                         .unwrap_or(1);
+                    let style_name = child
+                        .attribute((ns_text, "style-name"))
+                        .map(|s| s.to_string());
                     let content = parse_inlines(child, ns_text, ns_xlink, style_map);
                     blocks.push(Block::Heading {
                         level,
-                        style_name: None,
+                        style_name,
                         attrs: None,
                         content,
                     });
@@ -476,7 +603,351 @@ impl Document {
         })
     }
 
-    pub fn to_fodt(&self) -> Result<String, String> {
+    pub fn add_styles_from_xml(&mut self, xml: &str) -> Result<(), String> {
+        use roxmltree::*;
+
+        let doc = Document::parse(xml).map_err(|e| e.to_string())?;
+
+        let ns_office = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+        let ns_style = "urn:oasis:names:tc:opendocument:xmlns:style:1.0";
+        let ns_fo = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0";
+
+        // Find <office:styles> element
+        let styles_elem = doc
+            .descendants()
+            .find(|n| n.has_tag_name((ns_office, "styles")))
+            .ok_or("No office:styles element found in styles.xml")?;
+
+        // Parse each <style:style> element
+        for style_node in styles_elem.children() {
+            if !style_node.is_element() {
+                continue;
+            }
+
+            if style_node.has_tag_name((ns_style, "style")) {
+                let style_name = style_node
+                    .attribute((ns_style, "name"))
+                    .ok_or("Style missing style:name attribute")?
+                    .to_string();
+
+                let family_str = style_node
+                    .attribute((ns_style, "family"))
+                    .unwrap_or("paragraph");
+
+                let family = match family_str {
+                    "paragraph" => StyleFamily::Paragraph,
+                    "text" => StyleFamily::Text,
+                    _ => StyleFamily::Paragraph,
+                };
+
+                let parent = style_node
+                    .attribute((ns_style, "parent-style-name"))
+                    .map(|s| s.to_string());
+
+                let next = style_node
+                    .attribute((ns_style, "next-style-name"))
+                    .map(|s| s.to_string());
+
+                let display_name = style_node
+                    .attribute((ns_style, "display-name"))
+                    .map(|s| s.to_string());
+
+                let mut attributes = HashMap::new();
+
+                // Parse paragraph properties
+                for child in style_node.children() {
+                    if !child.is_element() {
+                        continue;
+                    }
+
+                    if child.has_tag_name((ns_style, "paragraph-properties")) {
+                        for attr in child.attributes() {
+                            let prefix = if let Some(ns) = attr.namespace() {
+                                if ns == ns_fo {
+                                    "fo:"
+                                } else if ns == ns_style {
+                                    "style:"
+                                } else {
+                                    ""
+                                }
+                            } else {
+                                ""
+                            };
+                            let key = format!("{}{}", prefix, attr.name());
+                            attributes.insert(key, attr.value().to_string());
+                        }
+                    }
+
+                    if child.has_tag_name((ns_style, "text-properties")) {
+                        for attr in child.attributes() {
+                            let prefix = if let Some(ns) = attr.namespace() {
+                                if ns == ns_fo {
+                                    "fo:"
+                                } else if ns == ns_style {
+                                    "style:"
+                                } else {
+                                    ""
+                                }
+                            } else {
+                                ""
+                            };
+                            let key = format!("{}{}", prefix, attr.name());
+                            attributes.insert(key, attr.value().to_string());
+                        }
+                    }
+                }
+
+                // Extract text-transform if present
+                let text_transform = attributes.get("fo:text-transform").cloned();
+
+                let style_def = StyleDefinition {
+                    name: style_name.clone(),
+                    family,
+                    parent,
+                    next,
+                    display_name,
+                    attributes,
+                    text_transform,
+                };
+
+                self.styles.insert(style_name, style_def);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Generate content.xml for ODT format (different from FODT)
+    pub fn to_content_xml(&self) -> Result<String, String> {
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+        use quick_xml::Writer;
+        use std::io::Cursor;
+
+        let mut writer = Writer::new(Cursor::new(Vec::new()));
+        writer
+            .write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))
+            .map_err(|e| e.to_string())?;
+
+        let mut document = BytesStart::new("office:document-content");
+        document.push_attribute((
+            "xmlns:office",
+            "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:text",
+            "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:style",
+            "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:fo",
+            "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:table",
+            "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+        ));
+        document.push_attribute(("office:version", "1.3"));
+        writer
+            .write_event(Event::Start(document))
+            .map_err(|e| e.to_string())?;
+
+        // Empty automatic-styles section (styles are in styles.xml)
+        writer
+            .write_event(Event::Start(BytesStart::new("office:automatic-styles")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new("office:automatic-styles")))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::Start(BytesStart::new("office:body")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::Start(BytesStart::new("office:text")))
+            .map_err(|e| e.to_string())?;
+
+        fn write_blocks(
+            blocks: &Vec<Block>,
+            writer: &mut Writer<Cursor<Vec<u8>>>,
+        ) -> Result<(), String> {
+            for block in blocks {
+                match block {
+                    Block::Paragraph {
+                        style_name,
+                        content,
+                        ..
+                    } => {
+                        let mut p = BytesStart::new("text:p");
+                        if let Some(s) = style_name {
+                            p.push_attribute(("text:style-name", s.as_str()));
+                        }
+                        writer
+                            .write_event(Event::Start(p))
+                            .map_err(|e| e.to_string())?;
+                        write_inlines(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("text:p")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::Heading {
+                        level,
+                        style_name,
+                        content,
+                        ..
+                    } => {
+                        let mut h = BytesStart::new("text:h");
+                        if let Some(s) = style_name {
+                            h.push_attribute(("text:style-name", s.as_str()));
+                        }
+                        h.push_attribute(("text:outline-level", level.to_string().as_str()));
+                        writer
+                            .write_event(Event::Start(h))
+                            .map_err(|e| e.to_string())?;
+                        write_inlines(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("text:h")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::BulletList { content } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("text:list")))
+                            .map_err(|e| e.to_string())?;
+                        for item in content {
+                            write_blocks(&vec![item.clone()], writer)?;
+                        }
+                        writer
+                            .write_event(Event::End(BytesEnd::new("text:list")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::OrderedList { content } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("text:list")))
+                            .map_err(|e| e.to_string())?;
+                        for item in content {
+                            write_blocks(&vec![item.clone()], writer)?;
+                        }
+                        writer
+                            .write_event(Event::End(BytesEnd::new("text:list")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::ListItem { content } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("text:list-item")))
+                            .map_err(|e| e.to_string())?;
+                        write_blocks(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("text:list-item")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::Table { content } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("table:table")))
+                            .map_err(|e| e.to_string())?;
+                        write_blocks(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("table:table")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::TableRow { content } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("table:table-row")))
+                            .map_err(|e| e.to_string())?;
+                        write_blocks(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("table:table-row")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::TableHeader { content, .. } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("table:table-header-cell")))
+                            .map_err(|e| e.to_string())?;
+                        write_blocks(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("table:table-header-cell")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::TableCell { content, .. } => {
+                        writer
+                            .write_event(Event::Start(BytesStart::new("table:table-cell")))
+                            .map_err(|e| e.to_string())?;
+                        write_blocks(content, writer)?;
+                        writer
+                            .write_event(Event::End(BytesEnd::new("table:table-cell")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Block::Blockquote { content } => {
+                        for item in content {
+                            write_blocks(&vec![item.clone()], writer)?;
+                        }
+                    }
+                    Block::HorizontalRule => {
+                        writer
+                            .write_event(Event::Empty(BytesStart::new("text:p")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(())
+        }
+
+        fn write_inlines(
+            inlines: &Vec<Inline>,
+            writer: &mut Writer<Cursor<Vec<u8>>>,
+        ) -> Result<(), String> {
+            for inline in inlines {
+                match inline {
+                    Inline::Text {
+                        text,
+                        marks,
+                        style_name,
+                    } => {
+                        let has_marks = !marks.is_empty();
+                        if has_marks {
+                            let mut span = BytesStart::new("text:span");
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        writer
+                            .write_event(Event::Text(BytesText::new(text)))
+                            .map_err(|e| e.to_string())?;
+                        if has_marks {
+                            writer
+                                .write_event(Event::End(BytesEnd::new("text:span")))
+                                .map_err(|e| e.to_string())?;
+                        }
+                    }
+                    Inline::LineBreak => {
+                        writer
+                            .write_event(Event::Empty(BytesStart::new("text:line-break")))
+                            .map_err(|e| e.to_string())?;
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        write_blocks(&self.blocks, &mut writer)?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:text")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new("office:body")))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new("office:document-content")))
+            .map_err(|e| e.to_string())?;
+
+        let result = writer.into_inner().into_inner();
+        String::from_utf8(result).map_err(|e| e.to_string())
+    }
+
+    pub fn to_xml(&self) -> Result<String, String> {
         use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
         use std::io::Cursor;
@@ -707,6 +1178,129 @@ impl Document {
         String::from_utf8(result).map_err(|e| e.to_string())
     }
 
+    pub fn styles_to_xml(&self) -> Result<String, String> {
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
+        use quick_xml::Writer;
+        use std::io::Cursor;
+
+        let mut writer = Writer::new(Cursor::new(Vec::new()));
+        writer
+            .write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))
+            .map_err(|e| e.to_string())?;
+
+        let mut root = BytesStart::new("office:document-styles");
+        root.push_attribute((
+            "xmlns:office",
+            "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:style",
+            "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:fo",
+            "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
+        ));
+        root.push_attribute(("office:version", "1.3"));
+        writer
+            .write_event(Event::Start(root))
+            .map_err(|e| e.to_string())?;
+
+        // Write <office:styles> section
+        writer
+            .write_event(Event::Start(BytesStart::new("office:styles")))
+            .map_err(|e| e.to_string())?;
+
+        // Write each style definition
+        for (style_name, style_def) in &self.styles {
+            let mut style_elem = BytesStart::new("style:style");
+            style_elem.push_attribute(("style:name", style_name.as_str()));
+            style_elem.push_attribute((
+                "style:family",
+                match style_def.family {
+                    StyleFamily::Paragraph => "paragraph",
+                    StyleFamily::Text => "text",
+                },
+            ));
+
+            if let Some(ref parent) = style_def.parent {
+                style_elem.push_attribute(("style:parent-style-name", parent.as_str()));
+            }
+
+            if let Some(ref next) = style_def.next {
+                style_elem.push_attribute(("style:next-style-name", next.as_str()));
+            }
+
+            if let Some(ref display_name) = style_def.display_name {
+                style_elem.push_attribute(("style:display-name", display_name.as_str()));
+            }
+
+            writer
+                .write_event(Event::Start(style_elem))
+                .map_err(|e| e.to_string())?;
+
+            // Write <style:paragraph-properties> or <style:text-properties>
+            if style_def.family == StyleFamily::Paragraph {
+                let mut para_props = BytesStart::new("style:paragraph-properties");
+                for (key, value) in &style_def.attributes {
+                    if key.starts_with("fo:margin")
+                        || key.starts_with("fo:text-indent")
+                        || key.starts_with("fo:text-align")
+                        || key.starts_with("fo:line-height")
+                        || key.starts_with("fo:orphans")
+                        || key.starts_with("fo:widows")
+                        || key.starts_with("fo:hyphenate")
+                    {
+                        para_props.push_attribute((key.as_str(), value.as_str()));
+                    }
+                }
+                writer
+                    .write_event(Event::Empty(para_props))
+                    .map_err(|e| e.to_string())?;
+            }
+
+            // Write <style:text-properties> for font and text-transform
+            let mut text_props = BytesStart::new("style:text-properties");
+            let mut has_text_props = false;
+
+            for (key, value) in &style_def.attributes {
+                if key.starts_with("fo:font")
+                    || key.starts_with("fo:text-transform")
+                    || key.starts_with("fo:font-weight")
+                {
+                    text_props.push_attribute((key.as_str(), value.as_str()));
+                    has_text_props = true;
+                }
+            }
+
+            if let Some(ref transform) = style_def.text_transform {
+                text_props.push_attribute(("fo:text-transform", transform.as_str()));
+                has_text_props = true;
+            }
+
+            if has_text_props {
+                writer
+                    .write_event(Event::Empty(text_props))
+                    .map_err(|e| e.to_string())?;
+            }
+
+            writer
+                .write_event(Event::End(BytesEnd::new("style:style")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:styles")))
+            .map_err(|e| e.to_string())?;
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:document-styles")))
+            .map_err(|e| e.to_string())?;
+
+        let result = writer.into_inner().into_inner();
+        String::from_utf8(result).map_err(|e| e.to_string())
+    }
+
     pub fn from_tiptap(
         root: TiptapNode,
         styles: HashMap<String, StyleDefinition>,
@@ -730,7 +1324,7 @@ impl Document {
         }
     }
 
-    fn tiptap_node_to_block(node: TiptapNode) -> Option<Block> {
+    pub fn tiptap_node_to_block(node: TiptapNode) -> Option<Block> {
         match node {
             TiptapNode::Paragraph { attrs, content } => {
                 let style_name = attrs.as_ref().and_then(|a| a.style_name.clone());

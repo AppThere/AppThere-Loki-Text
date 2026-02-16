@@ -7,7 +7,8 @@ export const NextParagraphStyle = Extension.create({
         return {
             'Enter': ({ editor }) => {
                 const { state } = editor.view;
-                const { $from } = state.selection;
+                const { selection } = state;
+                const { $from, empty } = selection;
 
                 // Get the current block node
                 const currentNode = $from.node($from.depth);
@@ -17,7 +18,14 @@ export const NextParagraphStyle = Extension.create({
                     return false; // Use default behavior
                 }
 
-                // Access styleRegistry from window (we'll set this in Editor.svelte)
+                // Check if we are at end of block
+                const isAtEnd = empty && $from.parentOffset === currentNode.content.size;
+
+                if (!isAtEnd) {
+                    return false; // Middle of block: split normally (persisting style)
+                }
+
+                // Access styleRegistry from window
                 const getNextStyle = (window as any).__getNextStyle;
                 if (!getNextStyle) {
                     return false;
@@ -26,12 +34,15 @@ export const NextParagraphStyle = Extension.create({
                 const nextStyle = getNextStyle(currentStyle);
 
                 if (nextStyle && nextStyle !== currentStyle) {
-                    // Use chain API to split block and set attributes
+                    // We are at the end and have a next style
+                    // Manually insert the new block to avoid double-actions or retaining attrs
                     return editor
                         .chain()
-                        .splitBlock()
-                        .updateAttributes('paragraph', { styleName: nextStyle })
-                        .updateAttributes('heading', { styleName: nextStyle })
+                        .insertContentAt(selection.to, {
+                            type: 'paragraph',
+                            attrs: { styleName: nextStyle }
+                        })
+                        .scrollIntoView()
                         .run();
                 }
 

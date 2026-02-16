@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 export interface BlockStyle {
     id: string;
     name: string;
+    displayName?: string;
     description: string;
     // Inheritance
     basedOn?: string;  // Parent style to inherit from
@@ -22,10 +23,16 @@ export interface BlockStyle {
     marginBottom?: string;
     // Alignment
     textAlign?: 'left' | 'center' | 'right' | 'justify';
+    // Text Transformation
+    textTransform?: 'uppercase' | 'lowercase' | 'capitalize' | 'none';
     // ODF Meta (not visible in editor)
     hyphenate?: boolean;
     orphans?: number;
     widows?: number;
+
+    // Responsive Mobile Overrides (Loki specific)
+    mobileMarginLeft?: string;
+    mobileMarginRight?: string;
 }
 
 const DEFAULT_STYLES: BlockStyle[] = [
@@ -191,6 +198,7 @@ export function resolveStyle(
         ...filterDefinedProperties(style),
         id: style.id,
         name: style.name,
+        displayName: style.displayName,
         description: style.description,
         basedOn: style.basedOn,
         next: style.next,

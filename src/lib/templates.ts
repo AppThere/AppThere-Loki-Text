@@ -26,11 +26,26 @@ export const TEMPLATES: Template[] = [
         description: "Hollywood standard screenplay format.",
         styles: [
             {
+                id: "Script Title",
+                name: "Script Title",
+                description: "Title of the script",
+                next: "Scene Heading",
+                outlineLevel: 1,
+                fontFamily: "\"Courier Prime\", \"Courier New\", Courier, monospace",
+                fontSize: "24pt",
+                fontWeight: "bold",
+                textAlign: "center",
+                marginTop: "1.5in",
+                marginBottom: "0.5in",
+                textTransform: "uppercase",
+            },
+            {
                 id: "Scene Heading",
                 name: "Scene Heading",
                 displayName: "Slugline",
                 description: "Scene Location and Time (INT./EXT.)",
                 next: "Action",
+                outlineLevel: 2,
                 fontFamily: "\"Courier Prime\", \"Courier New\", Courier, monospace",
                 fontSize: "12pt",
                 fontWeight: "bold",
@@ -38,7 +53,6 @@ export const TEMPLATES: Template[] = [
                 marginTop: "12pt",
                 marginBottom: "12pt",
                 textTransform: "uppercase",
-                // specific margins for screenplay
                 marginLeft: "0in",
                 marginRight: "0in",
                 textIndent: "0in",
@@ -62,6 +76,7 @@ export const TEMPLATES: Template[] = [
                 name: "Character",
                 description: "Character Name",
                 next: "Dialogue",
+                outlineLevel: 3,
                 fontFamily: "\"Courier Prime\", \"Courier New\", Courier, monospace",
                 fontSize: "12pt",
                 fontWeight: "normal",
@@ -71,15 +86,13 @@ export const TEMPLATES: Template[] = [
                 marginLeft: "2.0in",
                 marginRight: "0in",
                 textTransform: "uppercase",
-
-                // Responsive overrides
                 mobileMarginLeft: "1.5in"
             },
             {
                 id: "Dialogue",
                 name: "Dialogue",
                 description: "Character Dialogue",
-                next: "Character", // Usually character follows, or action. Character is safe default.
+                next: "Character",
                 fontFamily: "\"Courier Prime\", \"Courier New\", Courier, monospace",
                 fontSize: "12pt",
                 fontWeight: "normal",
@@ -88,8 +101,6 @@ export const TEMPLATES: Template[] = [
                 marginBottom: "12pt",
                 marginLeft: "1.0in",
                 marginRight: "1.5in",
-
-                // Responsive overrides
                 mobileMarginLeft: "0.5in",
                 mobileMarginRight: "0.5in"
             },
@@ -106,8 +117,6 @@ export const TEMPLATES: Template[] = [
                 marginBottom: "0pt",
                 marginLeft: "1.5in",
                 marginRight: "2.0in",
-
-                // Responsive overrides
                 mobileMarginLeft: "1.0in",
                 mobileMarginRight: "1.0in"
             },
@@ -125,8 +134,6 @@ export const TEMPLATES: Template[] = [
                 marginLeft: "4.0in",
                 marginRight: "0in",
                 textTransform: "uppercase",
-
-                // Responsive overrides
                 mobileMarginLeft: "2.5in"
             }
         ]

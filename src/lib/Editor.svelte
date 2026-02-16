@@ -150,6 +150,9 @@
                     .run();
             }
         },
+        onUpdate({ editor }) {
+            if (onChange) onChange();
+        },
         onSelectionUpdate({ editor }) {
             if (!editor) return;
             const { selection } = editor.state;

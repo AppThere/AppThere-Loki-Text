@@ -201,6 +201,17 @@
   async function handleOpen() {
     console.log("handleOpen called");
 
+    if (isDirty) {
+      const confirmed = await ask(
+        "You have unsaved changes. Are you sure you want to open another document?",
+        {
+          title: "Open Document",
+          kind: "warning",
+        },
+      );
+      if (!confirmed) return;
+    }
+
     const selected = await open({
       multiple: false,
       filters: [
@@ -221,37 +232,23 @@
       const response = await invoke("open_document", { path });
       console.log("open_document response:", response);
 
-      // Assuming response contains content, styles, and metadata
       const {
         content,
         styles,
         metadata: loadedMetadata,
       } = response as { content: any; styles: any; metadata: any };
 
-      console.log(
-        "Parsed response - content:",
-        content,
-        "styles:",
-        styles,
-        "metadata:",
-        loadedMetadata,
-      );
+      metadata = loadedMetadata;
 
-      metadata = loadedMetadata; // Update component's metadata state
-
-      // Switch to editor view first
       view = "editor";
       await tick();
-      console.log("Switched to editor view, editorComponent:", editorComponent);
 
-      // Now editor component should be mounted
       if (!editorComponent) {
         console.error("Editor component not ready after switching view");
         syncStatus = "Error: Editor not ready";
         return;
       }
 
-      console.log("Calling loadWithStyles...");
       editorComponent.loadWithStyles({
         content,
         styles,
@@ -264,7 +261,7 @@
       );
 
       currentPath = path;
-      isDirty = false; // Reset dirty state on open
+      isDirty = false;
       syncStatus = "Opened";
     } catch (e) {
       console.error("Open failed", e);
@@ -295,7 +292,6 @@
       created: new Date().toISOString(),
     };
 
-    // Apply Template Styles
     let initialStyles = [];
     if (templateId) {
       const template = TEMPLATES.find((t) => t.id === templateId);
@@ -304,22 +300,18 @@
         initialStyles = template.styles;
       } else {
         styleRegistry.reset();
-        initialStyles = $styleRegistry; // get default
+        initialStyles = $styleRegistry;
       }
     } else {
       styleRegistry.reset();
       initialStyles = $styleRegistry;
     }
 
-    // Determine initial style for the first paragraph
-    // If Screenplay, maybe defaults to "Scene Heading"
     let startStyle = "Normal Text";
     if (templateId === "screenplay") {
       startStyle = "Scene Heading";
     }
 
-    // Clear editor (assuming we can just pass empty/default structure)
-    // We'll mimic an empty Tiptap doc
     const emptyDoc = {
       type: "doc",
       content: [
@@ -329,8 +321,6 @@
         },
       ],
     };
-
-    // We can use a default style map or just empty
 
     view = "editor";
     await tick();
@@ -345,24 +335,32 @@
     });
 
     currentStyleId = startStyle;
-
     isMenuOpen = false;
   }
 
   async function handleOpenRecent(path: string) {
+    if (isDirty) {
+      const confirmed = await ask(
+        "You have unsaved changes. Are you sure you want to open another document?",
+        {
+          title: "Open Recent",
+          kind: "warning",
+        },
+      );
+      if (!confirmed) return;
+    }
+
     try {
       const result = await invoke("open_document", { path });
       // @ts-ignore
       const { content, styles, metadata: meta } = result;
 
       metadata = meta;
-
       view = "editor";
       await tick();
 
-      // Load into editor
       editorComponent.loadWithStyles({
-        content: JSON.parse(content), // The rust returns JSON string of Tiptap content
+        content: JSON.parse(content),
         styles: styles,
         metadata: metadata,
       });
@@ -370,8 +368,6 @@
       currentPath = path;
       syncStatus = "Ready";
       isDirty = false;
-
-      // Update recent to bump to top
       await recentDocs.add(path, metadata.title);
     } catch (e) {
       console.error("Failed to open recent:", e);
@@ -382,8 +378,79 @@
           kind: "error",
         },
       );
-      // Remove from list if not found?
-      // For now just error.
+    }
+  }
+
+  async function scrollEditorToTop() {
+    await tick();
+    const contentView = document.querySelector(".content-view");
+    if (contentView) {
+      contentView.scrollTop = 0;
+    }
+  }
+
+  // Session Preservation
+  async function saveSession() {
+    if (view === "landing") {
+      localStorage.removeItem("loki_session");
+      return;
+    }
+
+    if (!editorComponent) return;
+
+    try {
+      const sessionData = {
+        view,
+        currentPath,
+        metadata,
+        isDirty,
+        content: editorComponent.getJSON(),
+        styles: $styleRegistry,
+        currentStyleId,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem("loki_session", JSON.stringify(sessionData));
+      console.log("Session saved");
+    } catch (e) {
+      console.error("Failed to save session:", e);
+    }
+  }
+
+  async function restoreSession() {
+    const data = localStorage.getItem("loki_session");
+    if (!data) return;
+
+    try {
+      const session = JSON.parse(data);
+      // Only restore if recently saved (e.g. within 24 hours) or always?
+      // Let's go with always for reliable lifecycle handling.
+
+      console.log("Restoring session...");
+      currentPath = session.currentPath;
+      metadata = session.metadata;
+      isDirty = session.isDirty;
+      currentStyleId = session.currentStyleId;
+      view = session.view;
+
+      if (session.styles) {
+        styleRegistry.setStyles(session.styles);
+      }
+
+      await tick();
+      if (editorComponent && session.content) {
+        editorComponent.loadWithStyles({
+          content: session.content,
+          styles: (session.styles || []).reduce((acc: any, s: any) => {
+            acc[s.id] = s;
+            return acc;
+          }, {}),
+          metadata: metadata,
+        });
+        console.log("Editor content restored");
+      }
+    } catch (e) {
+      console.error("Failed to restore session:", e);
+      localStorage.removeItem("loki_session");
     }
   }
 
@@ -402,6 +469,7 @@
     currentPath = null;
     isDirty = false;
     isMenuOpen = false;
+    localStorage.removeItem("loki_session");
   }
 
   function toggleMenu() {
@@ -413,6 +481,55 @@
   }
 
   onMount(() => {
+    restoreSession();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        saveSession();
+      }
+    };
+
+    const handleKeyboardShortcuts = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+
+      if (isMod) {
+        switch (e.key.toLowerCase()) {
+          case "s":
+            e.preventDefault();
+            if (e.shiftKey) {
+              handleExportEpub();
+            } else {
+              handleSave();
+            }
+            break;
+          case "o":
+            e.preventDefault();
+            handleOpen();
+            break;
+          case "n":
+            e.preventDefault();
+            handleNewDocument();
+            break;
+          case "z":
+            // Tiptap usually handles this, but we can explicitly trigger it if focus is elsewhere
+            // or just let it bubble if we want editor to handle it.
+            // However, redo is often Ctrl+Shift+Z or Ctrl+Y.
+            if (e.shiftKey) {
+              e.preventDefault();
+              editorComponent?.redo();
+            }
+            break;
+          case "y":
+            e.preventDefault();
+            editorComponent?.redo();
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     if (window.visualViewport) {
       const handleResize = () => {
         if (window.visualViewport) {
@@ -424,12 +541,22 @@
       };
 
       window.visualViewport.addEventListener("resize", handleResize);
-      handleResize(); // Initial set
+      handleResize();
 
       return () => {
+        window.removeEventListener("keydown", handleKeyboardShortcuts);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
         window.visualViewport?.removeEventListener("resize", handleResize);
       };
     }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyboardShortcuts);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   });
 </script>
 
@@ -657,7 +784,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not(:global(.light)) {
       --primary-color: #60a5fa;
       --bg-color: #1c1917; /* Stone-900 */
       --text-color: #f5f5f4; /* Stone-100 */
@@ -669,6 +796,19 @@
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
       --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
     }
+  }
+
+  :global(html.dark) {
+    --primary-color: #60a5fa;
+    --bg-color: #1c1917; /* Stone-900 */
+    --text-color: #f5f5f4; /* Stone-100 */
+    --header-bg: #292524; /* Stone-800 */
+    --border-color: #44403c; /* Stone-700 */
+    --icon-color: #a8a29e; /* Stone-400 */
+    --hover-bg: #44403c; /* Stone-700 */
+    --document-bg: #000000; /* Pure black */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
   }
 
   :global(html),
@@ -739,9 +879,13 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    .content-view {
+    :root:not(:global(.light)) .content-view {
       background-color: var(--document-bg);
     }
+  }
+
+  :global(html.dark) .content-view {
+    background-color: var(--document-bg);
   }
 
   .bottom-toolbar {
@@ -878,7 +1022,8 @@
       padding: 0;
     }
     .app-header {
-      padding: 0 16px;
+      padding: max(env(safe-area-inset-top), 12px) 16px 8px 16px;
+      align-items: flex-end;
     }
     .bottom-toolbar {
       padding: 0 12px;

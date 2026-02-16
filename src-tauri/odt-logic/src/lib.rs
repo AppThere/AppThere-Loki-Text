@@ -119,6 +119,8 @@ pub struct StyleDefinition {
     pub attributes: HashMap<String, String>,
     #[serde(rename = "textTransform")]
     pub text_transform: Option<String>,
+    #[serde(rename = "outlineLevel")]
+    pub outline_level: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -365,6 +367,7 @@ impl Document {
                         display_name,
                         attributes: attrs,
                         text_transform,
+                        outline_level: None,
                     },
                 );
                 style_map.insert(name.to_string(), (family_str.to_string(), marks));
@@ -421,6 +424,7 @@ impl Document {
                     display_name: Some("Default".to_string()),
                     attributes: attrs,
                     text_transform: None,
+                    outline_level: None,
                 },
             );
         }
@@ -697,8 +701,11 @@ impl Document {
                     }
                 }
 
-                // Extract text-transform if present
+                // Extract text-transform and outline-level if present
                 let text_transform = attributes.get("fo:text-transform").cloned();
+                let outline_level = style_node
+                    .attribute((ns_style, "outline-level"))
+                    .and_then(|s| s.parse::<u32>().ok());
 
                 let style_def = StyleDefinition {
                     name: style_name.clone(),
@@ -708,6 +715,7 @@ impl Document {
                     display_name,
                     attributes,
                     text_transform,
+                    outline_level,
                 };
 
                 self.styles.insert(style_name, style_def);
@@ -903,11 +911,11 @@ impl Document {
                     Inline::Text {
                         text,
                         marks,
-                        style_name,
+                        style_name: _,
                     } => {
                         let has_marks = !marks.is_empty();
                         if has_marks {
-                            let mut span = BytesStart::new("text:span");
+                            let span = BytesStart::new("text:span");
                             writer
                                 .write_event(Event::Start(span))
                                 .map_err(|e| e.to_string())?;
@@ -1233,6 +1241,10 @@ impl Document {
 
             if let Some(ref display_name) = style_def.display_name {
                 style_elem.push_attribute(("style:display-name", display_name.as_str()));
+            }
+
+            if let Some(level) = style_def.outline_level {
+                style_elem.push_attribute(("style:outline-level", level.to_string().as_str()));
             }
 
             writer

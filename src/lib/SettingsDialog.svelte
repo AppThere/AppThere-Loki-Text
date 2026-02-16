@@ -1,12 +1,17 @@
 <script lang="ts">
-    import { X, Moon, Sun } from "lucide-svelte";
+    import { X, Moon, Sun, Monitor } from "lucide-svelte";
     import { fade, scale } from "svelte/transition";
+    import { settingsStore, type Theme } from "./settingsStore";
 
     let { isOpen = $bindable(), onClose = () => {} } = $props();
 
     function close() {
         isOpen = false;
         onClose?.();
+    }
+
+    function setTheme(theme: Theme) {
+        settingsStore.updateSetting("theme", theme);
     }
 </script>
 
@@ -15,16 +20,23 @@
         class="modal-backdrop"
         transition:fade={{ duration: 200 }}
         onclick={close}
-        onkeydown={(e) => e.key === "Escape" && close()}
+        onkeydown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+                close();
+            }
+        }}
         role="button"
-        tabindex="-1"
+        tabindex="0"
+        aria-label="Close dialog"
     >
         <div
             class="modal-content"
             transition:scale={{ duration: 200, start: 0.95 }}
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            tabindex="-1"
         >
             <div class="modal-header">
                 <h2>Settings</h2>
@@ -34,20 +46,34 @@
             </div>
 
             <div class="modal-body">
-                <div class="setting-item">
-                    <div class="setting-icon">
-                        <Moon size={20} />
-                    </div>
-                    <div class="setting-details">
-                        <div class="setting-title">Appearance</div>
-                        <div class="setting-description">
-                            Dark mode is currently enforced. Light mode coming
-                            soon.
-                        </div>
-                    </div>
-                    <div class="setting-control">
-                        <!-- Placeholder toggle, disabled for now as we are dark-only -->
-                        <div class="toggle disabled"></div>
+                <div class="setting-group">
+                    <h3 class="group-title">Appearance</h3>
+
+                    <div class="theme-selector">
+                        <button
+                            class="theme-btn"
+                            class:active={$settingsStore.theme === "light"}
+                            onclick={() => setTheme("light")}
+                        >
+                            <Sun size={20} />
+                            <span>Light</span>
+                        </button>
+                        <button
+                            class="theme-btn"
+                            class:active={$settingsStore.theme === "dark"}
+                            onclick={() => setTheme("dark")}
+                        >
+                            <Moon size={20} />
+                            <span>Dark</span>
+                        </button>
+                        <button
+                            class="theme-btn"
+                            class:active={$settingsStore.theme === "system"}
+                            onclick={() => setTheme("system")}
+                        >
+                            <Monitor size={20} />
+                            <span>System</span>
+                        </button>
                     </div>
                 </div>
 
@@ -129,8 +155,56 @@
         color: var(--text-color, #f5f5f4);
     }
 
+    .setting-group {
+        margin-bottom: 24px;
+    }
+
+    .group-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--icon-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+    }
+
+    .theme-selector {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .theme-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background: var(--hover-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .theme-btn span {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .theme-btn:hover {
+        border-color: var(--primary-color);
+    }
+
+    .theme-btn.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+
     .modal-body {
-        padding: 20px;
+        padding: 24px;
         overflow-y: auto;
         color: var(--text-color, #f5f5f4);
     }
@@ -140,50 +214,6 @@
         align-items: center;
         padding: 12px 0;
         border-bottom: 1px solid var(--border-color, #292524);
-    }
-
-    .setting-item:last-child {
-        border-bottom: none;
-    }
-
-    .setting-icon {
-        margin-right: 16px;
-        color: var(--icon-color, #a8a29e);
-    }
-
-    .setting-details {
-        flex: 1;
-    }
-
-    .setting-title {
-        font-weight: 500;
-        margin-bottom: 4px;
-    }
-
-    .setting-description {
-        font-size: 0.85rem;
-        color: var(--icon-color, #78716c);
-    }
-
-    .toggle.disabled {
-        width: 40px;
-        height: 24px;
-        background: var(--border-color, #44403c);
-        border-radius: 12px;
-        position: relative;
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .toggle.disabled::after {
-        content: "";
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 20px;
-        height: 20px;
-        background: #a8a29e;
-        border-radius: 50%;
     }
 
     .modal-footer {

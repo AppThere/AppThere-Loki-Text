@@ -29,6 +29,7 @@ export interface BlockStyle {
     hyphenate?: boolean;
     orphans?: number;
     widows?: number;
+    outlineLevel?: number; // 1-10
 
     // Responsive Mobile Overrides (Loki specific)
     mobileMarginLeft?: string;
@@ -78,6 +79,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 1',
         description: 'Level 1 heading',
         next: 'Normal Text',
+        outlineLevel: 1,
         fontFamily: 'Arial, sans-serif',
         fontSize: '20pt',
         fontWeight: 'normal',
@@ -91,6 +93,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 2',
         description: 'Level 2 heading',
         next: 'Normal Text',
+        outlineLevel: 2,
         fontFamily: 'Arial, sans-serif',
         fontSize: '16pt',
         fontWeight: 'bold',
@@ -104,6 +107,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 3',
         description: 'Level 3 heading',
         next: 'Normal Text',
+        outlineLevel: 3,
         fontFamily: 'Arial, sans-serif',
         fontSize: '14pt',
         fontWeight: 'bold',
@@ -117,6 +121,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 4',
         description: 'Level 4 heading',
         next: 'Normal Text',
+        outlineLevel: 4,
         fontFamily: 'Arial, sans-serif',
         fontSize: '12pt',
         fontWeight: 'bold',
@@ -130,6 +135,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 5',
         description: 'Level 5 heading',
         next: 'Normal Text',
+        outlineLevel: 5,
         fontFamily: 'Arial, sans-serif',
         fontSize: '11pt',
         fontWeight: 'bold',
@@ -143,6 +149,7 @@ const DEFAULT_STYLES: BlockStyle[] = [
         name: 'Heading 6',
         description: 'Level 6 heading',
         next: 'Normal Text',
+        outlineLevel: 6,
         fontFamily: 'Arial, sans-serif',
         fontSize: '11pt',
         fontWeight: 'bold',

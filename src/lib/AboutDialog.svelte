@@ -15,16 +15,23 @@
         class="modal-backdrop"
         transition:fade={{ duration: 200 }}
         onclick={close}
-        onkeydown={(e) => e.key === "Escape" && close()}
+        onkeydown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+                close();
+            }
+        }}
         role="button"
-        tabindex="-1"
+        tabindex="0"
+        aria-label="Close dialog"
     >
         <div
             class="modal-content"
             transition:scale={{ duration: 200, start: 0.95 }}
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            tabindex="-1"
         >
             <div class="modal-header">
                 <h2>About AppThere Loki Text</h2>

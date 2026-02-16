@@ -76,11 +76,10 @@ impl EpubDocument {
 
         // Extract blocks from the doc root
         let blocks = match root {
-            TiptapNode::Doc { content } => {
-                content.into_iter().filter_map(|node| {
-                    odt_logic::Document::tiptap_node_to_block(node)
-                }).collect::<Vec<_>>()
-            }
+            TiptapNode::Doc { content } => content
+                .into_iter()
+                .filter_map(|node| odt_logic::Document::tiptap_node_to_block(node))
+                .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
 
@@ -131,14 +130,18 @@ impl EpubDocument {
     /// Generate XHTML content for a section
     pub fn section_to_xhtml(&self, section: &ContentSection) -> String {
         let mut html = String::new();
-        
+
         html.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         html.push_str("<!DOCTYPE html>\n");
         html.push_str("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n");
         html.push_str("<head>\n");
-        html.push_str(&format!("  <title>{}</title>\n", 
-            section.title.as_deref().unwrap_or("Section")));
-        html.push_str("  <link rel=\"stylesheet\" type=\"text/css\" href=\"../Styles/styles.css\"/>\n");
+        html.push_str(&format!(
+            "  <title>{}</title>\n",
+            section.title.as_deref().unwrap_or("Section")
+        ));
+        html.push_str(
+            "  <link rel=\"stylesheet\" type=\"text/css\" href=\"../Styles/styles.css\"/>\n",
+        );
         html.push_str("</head>\n");
         html.push_str("<body>\n");
 
@@ -155,17 +158,49 @@ impl EpubDocument {
 
     fn block_to_html(&self, block: &Block) -> String {
         match block {
-            Block::Paragraph { style_name, content, .. } => {
-                let class = style_name.as_ref()
+            Block::Paragraph {
+                style_name,
+                content,
+                ..
+            } => {
+                let mut tag = "p".to_string();
+                if let Some(ref name) = style_name {
+                    if let Some(style) = self.styles.get(name) {
+                        if let Some(level) = style.outline_level {
+                            tag = format!("h{}", level);
+                        }
+                    }
+                }
+
+                let class = style_name
+                    .as_ref()
                     .map(|s| format!(" class=\"style-{}\"", s.replace(' ', "-")))
                     .unwrap_or_default();
-                format!("  <p{}>{}</p>\n", class, self.inlines_to_html(content))
+                format!(
+                    "  <{}{}>{}</{}>\n",
+                    tag,
+                    class,
+                    self.inlines_to_html(content),
+                    tag
+                )
             }
-            Block::Heading { level, style_name, content, .. } => {
-                let class = style_name.as_ref()
+            Block::Heading {
+                level,
+                style_name,
+                content,
+                ..
+            } => {
+                let class = style_name
+                    .as_ref()
                     .map(|s| format!(" class=\"style-{}\"", s.replace(' ', "-")))
                     .unwrap_or_default();
-                format!("  <h{}{}>{}</h{}>\n", level, class, self.inlines_to_html(content), level)
+                format!(
+                    "  <h{}{}>{}</h{}>\n",
+                    level,
+                    class,
+                    self.inlines_to_html(content),
+                    level
+                )
             }
             Block::BulletList { content } => {
                 let mut html = String::from("  <ul>\n");
@@ -209,7 +244,7 @@ impl EpubDocument {
             match inline {
                 Inline::Text { text, marks, .. } => {
                     let mut wrapped_text = text.clone();
-                    
+
                     // Apply marks
                     for mark in marks {
                         wrapped_text = match mark {
@@ -225,7 +260,7 @@ impl EpubDocument {
                             _ => wrapped_text,
                         };
                     }
-                    
+
                     html.push_str(&wrapped_text);
                 }
                 Inline::LineBreak => {
@@ -239,35 +274,47 @@ impl EpubDocument {
     /// Generate the package document (content.opf)
     pub fn to_package_opf(&self) -> String {
         let mut opf = String::new();
-        
+
         opf.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         opf.push_str("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid\">\n");
-        
+
         // Metadata
         opf.push_str("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
-        
+
         let uuid = format!("urn:uuid:{}", uuid::Uuid::new_v4());
-        opf.push_str(&format!("    <dc:identifier id=\"uuid\">{}</dc:identifier>\n", uuid));
-        
+        opf.push_str(&format!(
+            "    <dc:identifier id=\"uuid\">{}</dc:identifier>\n",
+            uuid
+        ));
+
         let title = self.metadata.title.as_deref().unwrap_or("Untitled");
-        opf.push_str(&format!("    <dc:title>{}</dc:title>\n", Self::escape_xml(title)));
-        
+        opf.push_str(&format!(
+            "    <dc:title>{}</dc:title>\n",
+            Self::escape_xml(title)
+        ));
+
         if let Some(creator) = &self.metadata.creator {
-            opf.push_str(&format!("    <dc:creator>{}</dc:creator>\n", Self::escape_xml(creator)));
+            opf.push_str(&format!(
+                "    <dc:creator>{}</dc:creator>\n",
+                Self::escape_xml(creator)
+            ));
         }
-        
+
         opf.push_str("    <dc:language>en</dc:language>\n");
-        
+
         let modified = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        opf.push_str(&format!("    <meta property=\"dcterms:modified\">{}</meta>\n", modified));
-        
+        opf.push_str(&format!(
+            "    <meta property=\"dcterms:modified\">{}</meta>\n",
+            modified
+        ));
+
         opf.push_str("  </metadata>\n");
-        
+
         // Manifest
         opf.push_str("  <manifest>\n");
         opf.push_str("    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n");
         opf.push_str("    <item id=\"css\" href=\"Styles/styles.css\" media-type=\"text/css\"/>\n");
-        
+
         // Content sections
         for section in &self.sections {
             opf.push_str(&format!(
@@ -275,33 +322,35 @@ impl EpubDocument {
                 section.id, section.id
             ));
         }
-        
+
         // Fonts
         for (idx, font) in self.fonts.iter().enumerate() {
             opf.push_str(&format!(
                 "    <item id=\"font-{}\" href=\"Fonts/{}\" media-type=\"{}\"/>\n",
-                idx, font.filename, font.format.media_type()
+                idx,
+                font.filename,
+                font.format.media_type()
             ));
         }
-        
+
         opf.push_str("  </manifest>\n");
-        
+
         // Spine
         opf.push_str("  <spine>\n");
         for section in &self.sections {
             opf.push_str(&format!("    <itemref idref=\"{}\"/>\n", section.id));
         }
         opf.push_str("  </spine>\n");
-        
+
         opf.push_str("</package>\n");
-        
+
         opf
     }
 
     /// Generate the navigation document (nav.xhtml)
     pub fn to_nav_xhtml(&self) -> String {
         let mut nav = String::new();
-        
+
         nav.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         nav.push_str("<!DOCTYPE html>\n");
         nav.push_str("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n");
@@ -312,54 +361,55 @@ impl EpubDocument {
         nav.push_str("  <nav epub:type=\"toc\">\n");
         nav.push_str("    <h1>Table of Contents</h1>\n");
         nav.push_str("    <ol>\n");
-        
+
         for section in &self.sections {
             let title = section.title.as_deref().unwrap_or("Section");
             nav.push_str(&format!(
                 "      <li><a href=\"Text/{}.xhtml\">{}</a></li>\n",
-                section.id, Self::escape_xml(title)
+                section.id,
+                Self::escape_xml(title)
             ));
         }
-        
+
         nav.push_str("    </ol>\n");
         nav.push_str("  </nav>\n");
         nav.push_str("</body>\n");
         nav.push_str("</html>\n");
-        
+
         nav
     }
 
     /// Generate CSS from styles
     pub fn to_css(&self) -> String {
         let mut css = String::new();
-        
+
         // Font faces
-        for (idx, font) in self.fonts.iter().enumerate() {
+        for font in &self.fonts {
             css.push_str(&format!(
                 "@font-face {{\n  font-family: '{}';\n  src: url('../Fonts/{}');\n}}\n\n",
                 font.family_name, font.filename
             ));
         }
-        
+
         // Style classes
         for (name, style) in &self.styles {
             let class_name = name.replace(' ', "-");
             css.push_str(&format!(".style-{} {{\n", class_name));
-            
+
             for (key, value) in &style.attributes {
                 let css_prop = Self::odf_to_css_property(key);
                 if !css_prop.is_empty() {
                     css.push_str(&format!("  {}: {};\n", css_prop, value));
                 }
             }
-            
+
             if let Some(transform) = &style.text_transform {
                 css.push_str(&format!("  text-transform: {};\n", transform));
             }
-            
+
             css.push_str("}\n\n");
         }
-        
+
         css
     }
 

@@ -101,6 +101,11 @@
     );
 
     const editor = createEditor({
+        editorProps: {
+            handleKeyDown: (view, event) => {
+                return handleKeyDown(event);
+            },
+        },
         extensions: [
             StarterKit.configure({
                 bulletList: false, // We import separately to configure if needed, or just use StarterKit's
@@ -143,6 +148,9 @@
                 return style?.next;
             };
 
+            // Initial index build
+            buildAutocompleteIndex();
+
             // Apply default style to initial content if needed
             // This ensures the first paragraph has "Normal Text" style
             if (editor.isEmpty) {
@@ -154,6 +162,7 @@
         },
         onUpdate({ editor }) {
             if (onChange) onChange();
+            checkAutocomplete();
         },
         onSelectionUpdate({ editor }) {
             if (!editor) return;
@@ -172,6 +181,7 @@
                     currentStyleId = "Normal Text";
                 }
             }
+            checkAutocomplete();
         },
         onDestroy() {
             (window as any).__getNextStyle = undefined;
@@ -404,6 +414,9 @@
         styleRegistry.setStyles(styles);
         metadata = data.metadata;
         $editor.commands.setContent(data.content);
+
+        // Rebuild index after loading content
+        setTimeout(() => buildAutocompleteIndex(), 100);
     };
 
     let isStyleDialogOpen = $state(false);
@@ -535,6 +548,160 @@
         if (isLinkMode) {
             linkUrl = $editor.getAttributes("link").href || "";
         }
+    }
+
+    // Autocomplete Logic
+    let autocompleteIndex = $state<Record<string, Set<string>>>({});
+    let suggestions = $state<string[]>([]);
+    let selectedSuggestionIndex = $state(0);
+    let showSuggestions = $state(false);
+    let suggestionPosition = $state({ top: 0, left: 0 });
+    let suggestionQuery = $state("");
+
+    // Build index from current document content
+    function buildAutocompleteIndex() {
+        if (!$editor) return;
+        const index: Record<string, Set<string>> = {};
+
+        $editor.state.doc.descendants((node) => {
+            if (
+                node.type.name === "paragraph" ||
+                node.type.name === "heading"
+            ) {
+                const styleName = node.attrs.styleName || "Normal Text";
+                const style = resolveStyle(styleName, $styleRegistry);
+
+                if (style.autocomplete) {
+                    if (!index[styleName]) index[styleName] = new Set();
+                    const text = node.textContent.trim();
+                    if (text) index[styleName].add(text);
+                }
+            }
+            return true;
+        });
+        autocompleteIndex = index;
+    }
+
+    // Refresh index periodically or on significant changes?
+    // For now, let's refresh when we load content and maybe debounce on updates.
+
+    // Check for suggestions on update
+    function checkAutocomplete() {
+        if (!$editor) return;
+        const { selection } = $editor.state;
+        const { $from: fromPos } = selection;
+        const node = fromPos.node(fromPos.depth);
+
+        const styleName = node.attrs.styleName || "Normal Text";
+        const style = resolveStyle(styleName, $styleRegistry);
+
+        if (!style.autocomplete) {
+            showSuggestions = false;
+            return;
+        }
+
+        // Get text of current block up to cursor
+        const textBefore = fromPos.parent.textBetween(
+            0,
+            fromPos.parentOffset,
+            "\n",
+            "\uFFFC",
+        );
+        // Simple strategy: suggest if we have typed at least 1 char and it matches start of known entries
+        // Note: This matches the *whole line* prefix. Screenplay Characters/Sluglines are usually short whole lines.
+
+        const query = textBefore.trim();
+        suggestionQuery = query;
+
+        if (query.length < 1) {
+            showSuggestions = false;
+            return;
+        }
+
+        const candidates = autocompleteIndex[styleName] || new Set();
+        // Filter candidates that start with query but are not exact match (don't suggest if already typed)
+        const matches = Array.from(candidates)
+            .filter(
+                (c) =>
+                    c.toLowerCase().startsWith(query.toLowerCase()) &&
+                    c.toLowerCase() !== query.toLowerCase(),
+            )
+            .sort()
+            .slice(0, 5); // Limit to 5
+
+        if (matches.length > 0) {
+            suggestions = matches;
+            selectedSuggestionIndex = 0;
+
+            // Calculate position
+            const coords = $editor.view.coordsAtPos(fromPos.pos);
+            const editorRect = $editor.view.dom.getBoundingClientRect();
+
+            // Relative to window, but we might want it relative to editor wrapper if we used absolute.
+            // Using fixed position for simplicity relative to viewport
+            suggestionPosition = {
+                top: coords.bottom + 5, // 5px gap
+                left: coords.left,
+            };
+            showSuggestions = true;
+        } else {
+            showSuggestions = false;
+        }
+    }
+
+    function acceptSuggestion(suggestion: string) {
+        if (!$editor) return;
+        const { selection } = $editor.state;
+        const { $from: fromPos } = selection;
+        // Replace current node text with suggestion? Or just append suffix?
+        // Usually trigger-based autocomplete appends.
+        // But here we are matching the *whole block content*.
+        // So we should probably replace the current text or append the remainder.
+
+        // Let's assume we want to complete the line.
+        // Current text: "INT."
+        // Suggestion: "INT. OFFICE - DAY"
+        // Suffix: " OFFICE - DAY"
+
+        // We can just set the node content to the suggestion.
+        const node = fromPos.node(fromPos.depth);
+        const startPos = fromPos.start();
+        $editor
+            .chain()
+            .deleteRange({ from: startPos, to: startPos + node.content.size })
+            .insertContentAt(startPos, suggestion)
+            .run();
+
+        showSuggestions = false;
+    }
+
+    // Keyboard handling for suggestions
+    function handleKeyDown(event: KeyboardEvent) {
+        if (!showSuggestions) return false;
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            selectedSuggestionIndex =
+                (selectedSuggestionIndex + 1) % suggestions.length;
+            return true;
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            selectedSuggestionIndex =
+                (selectedSuggestionIndex - 1 + suggestions.length) %
+                suggestions.length;
+            return true;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            acceptSuggestion(suggestions[selectedSuggestionIndex]);
+            return true;
+        }
+        if (event.key === "Escape") {
+            showSuggestions = false;
+            return true;
+        }
+        return false;
     }
 </script>
 
@@ -688,6 +855,27 @@
             </BubbleMenu>
             <EditorContent editor={$editor} />
             {@html `<style>${dynamicStyles}</style>`}
+
+            {#if showSuggestions}
+                <div
+                    class="suggestion-menu"
+                    style="top: {suggestionPosition.top}px; left: {suggestionPosition.left}px"
+                >
+                    {#each suggestions as suggestion, i}
+                        <div
+                            class="suggestion-item"
+                            class:selected={i === selectedSuggestionIndex}
+                            onmousedown={() => acceptSuggestion(suggestion)}
+                            role="button"
+                            tabindex="-1"
+                        >
+                            <span class="suggestion-match"
+                                >{suggestionQuery}</span
+                            >{suggestion.substring(suggestionQuery.length)}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
         {/if}
     </div>
 </div>
@@ -799,6 +987,37 @@
         border: 1px solid var(--border-color);
         gap: 2px;
         animation: bubble-fade-in 0.2s ease-out;
+    }
+
+    /* Autocomplete Styles */
+    .suggestion-menu {
+        position: fixed; /* Fixed relative to viewport, coordsAtPos is viewport relative */
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: var(--shadow-md);
+        z-index: 1000;
+        min-width: 200px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .suggestion-item {
+        padding: 6px 12px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.9em;
+        color: var(--text-color);
+    }
+
+    .suggestion-item.selected {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .suggestion-match {
+        font-weight: bold;
     }
 
     @keyframes bubble-fade-in {

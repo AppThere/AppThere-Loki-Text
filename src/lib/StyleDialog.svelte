@@ -36,6 +36,7 @@
     let basedOn = $state<string | undefined>(undefined);
     let nextStyle = $state<string | undefined>(undefined);
     let outlineLevel = $state<number | undefined>(undefined);
+    let autocomplete = $state(false);
 
     // Common Google Fonts & Web Safe Fonts
     // Primary Bundled Fonts and Common Web Fonts
@@ -99,6 +100,7 @@
         basedOn = style.basedOn;
         nextStyle = style.next;
         outlineLevel = style.outlineLevel;
+        autocomplete = style.autocomplete || false;
     }
     function startCreate() {
         isCreating = true;
@@ -120,6 +122,7 @@
         basedOn = "Normal Text";
         nextStyle = undefined;
         outlineLevel = undefined;
+        autocomplete = false;
         activeTab = "general";
     }
 
@@ -149,6 +152,7 @@
             basedOn,
             next: nextStyle,
             outlineLevel,
+            autocomplete,
         };
 
         if (isCreating) {
@@ -432,6 +436,19 @@
                             <p class="field-help">
                                 Used for document navigation and Table of
                                 Contents.
+                            </p>
+                        </div>
+                        <div class="checkbox-group">
+                            <input
+                                type="checkbox"
+                                id="autocomplete"
+                                bind:checked={autocomplete}
+                            />
+                            <label for="autocomplete"
+                                >Enable Autocomplete (IntelliSense)</label
+                            >
+                            <p class="field-help">
+                                Suggests previously used content for this style.
                             </p>
                         </div>
                     {:else if activeTab === "typography"}

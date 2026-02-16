@@ -34,6 +34,9 @@ export interface BlockStyle {
     // Responsive Mobile Overrides (Loki specific)
     mobileMarginLeft?: string;
     mobileMarginRight?: string;
+
+    // Autocomplete
+    autocomplete?: boolean;
 }
 
 const DEFAULT_STYLES: BlockStyle[] = [

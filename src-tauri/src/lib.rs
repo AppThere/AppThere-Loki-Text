@@ -54,7 +54,7 @@ async fn save_document(path: String, tiptap_json: TiptapNode, styles: HashMap<St
         zip.add_directory("META-INF", options).map_err(|e| e.to_string())?;
         zip.start_file("META-INF/manifest.xml", deflated_options).map_err(|e| e.to_string())?;
         let manifest = r#"<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">
+<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3">
  <manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.text"/>
  <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
  <manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>

@@ -56,6 +56,7 @@ export const TEMPLATES: Template[] = [
                 marginLeft: "0in",
                 marginRight: "0in",
                 textIndent: "0in",
+                autocomplete: true,
             },
             {
                 id: "Action",
@@ -86,7 +87,8 @@ export const TEMPLATES: Template[] = [
                 marginLeft: "2.0in",
                 marginRight: "0in",
                 textTransform: "uppercase",
-                mobileMarginLeft: "1.5in"
+                mobileMarginLeft: "1.5in",
+                autocomplete: true,
             },
             {
                 id: "Dialogue",

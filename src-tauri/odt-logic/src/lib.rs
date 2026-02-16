@@ -6,6 +6,12 @@ pub struct Document {
     pub blocks: Vec<Block>,
     pub styles: HashMap<String, StyleDefinition>,
     pub metadata: Metadata,
+    #[serde(skip)]
+    pub font_face_decls: Option<String>,
+    #[serde(skip)]
+    pub automatic_styles: Option<String>,
+    #[serde(skip)]
+    pub master_styles: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -121,6 +127,8 @@ pub struct StyleDefinition {
     pub text_transform: Option<String>,
     #[serde(rename = "outlineLevel")]
     pub outline_level: Option<u32>,
+    #[serde(default)]
+    pub autocomplete: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -224,6 +232,9 @@ impl Document {
             blocks: Vec::new(),
             styles: HashMap::new(),
             metadata: Metadata::default(),
+            font_face_decls: None,
+            automatic_styles: None,
+            master_styles: None,
         }
     }
 
@@ -241,6 +252,7 @@ impl Document {
         let ns_draw = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
         let ns_table = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
         let ns_xlink = "http://www.w3.org/1999/xlink";
+        let ns_loki = "https://appthere.com/loki/ns";
 
         // Check root element
         // FODT: office:document
@@ -363,6 +375,10 @@ impl Document {
                     .and_then(|n| n.attribute((ns_fo, "text-transform")))
                     .map(|s| s.to_string());
 
+                let autocomplete = style_node
+                    .attribute((ns_loki, "autocomplete"))
+                    .map(|s| s == "true");
+
                 style_definitions.insert(
                     name.to_string(),
                     StyleDefinition {
@@ -374,6 +390,7 @@ impl Document {
                         attributes: attrs,
                         text_transform,
                         outline_level: None,
+                        autocomplete,
                     },
                 );
                 style_map.insert(name.to_string(), (family_str.to_string(), marks));
@@ -431,6 +448,7 @@ impl Document {
                     attributes: attrs,
                     text_transform: None,
                     outline_level: None,
+                    autocomplete: None,
                 },
             );
         }
@@ -610,6 +628,9 @@ impl Document {
             blocks,
             styles: style_definitions,
             metadata,
+            font_face_decls: None, // We don't extract raw content in from_xml usually used for content.xml
+            automatic_styles: None,
+            master_styles: None,
         })
     }
 
@@ -621,12 +642,29 @@ impl Document {
         let ns_office = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
         let ns_style = "urn:oasis:names:tc:opendocument:xmlns:style:1.0";
         let ns_fo = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0";
+        let ns_loki = "https://appthere.com/loki/ns";
 
         // Find <office:styles> element
         let styles_elem = doc
             .descendants()
             .find(|n| n.has_tag_name((ns_office, "styles")))
             .ok_or("No office:styles element found in styles.xml")?;
+
+        // Extract raw XML sections for preservation
+        self.font_face_decls = doc
+            .descendants()
+            .find(|n| n.has_tag_name((ns_office, "font-face-decls")))
+            .map(|n| xml[n.range()].to_string());
+
+        self.automatic_styles = doc
+            .descendants()
+            .find(|n| n.has_tag_name((ns_office, "automatic-styles")))
+            .map(|n| xml[n.range()].to_string());
+
+        self.master_styles = doc
+            .descendants()
+            .find(|n| n.has_tag_name((ns_office, "master-styles")))
+            .map(|n| xml[n.range()].to_string());
 
         // Parse each <style:style> element
         for style_node in styles_elem.children() {
@@ -713,6 +751,10 @@ impl Document {
                     .attribute((ns_style, "outline-level"))
                     .and_then(|s| s.parse::<u32>().ok());
 
+                let autocomplete = style_node
+                    .attribute((ns_loki, "autocomplete"))
+                    .map(|s| s == "true");
+
                 let style_def = StyleDefinition {
                     name: style_name.clone(),
                     family,
@@ -722,6 +764,7 @@ impl Document {
                     attributes,
                     text_transform,
                     outline_level,
+                    autocomplete,
                 };
 
                 self.styles.insert(style_name, style_def);
@@ -756,13 +799,49 @@ impl Document {
             "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
         ));
         document.push_attribute((
-            "xmlns:fo",
-            "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
-        ));
-        document.push_attribute((
             "xmlns:table",
             "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
         ));
+        document.push_attribute((
+            "xmlns:draw",
+            "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:fo",
+            "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
+        ));
+        document.push_attribute(("xmlns:xlink", "http://www.w3.org/1999/xlink"));
+        document.push_attribute(("xmlns:dc", "http://purl.org/dc/elements/1.1/"));
+        document.push_attribute((
+            "xmlns:meta",
+            "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:number",
+            "urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:svg",
+            "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:chart",
+            "urn:oasis:names:tc:opendocument:xmlns:chart:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:dr3d",
+            "urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0",
+        ));
+        document.push_attribute(("xmlns:math", "http://www.w3.org/1998/Math/MathML"));
+        document.push_attribute((
+            "xmlns:form",
+            "urn:oasis:names:tc:opendocument:xmlns:form:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:script",
+            "urn:oasis:names:tc:opendocument:xmlns:script:1.0",
+        ));
+        document.push_attribute(("xmlns:loki", "https://appthere.com/loki/ns"));
         document.push_attribute(("office:version", "1.3"));
         writer
             .write_event(Event::Start(document))
@@ -1002,6 +1081,32 @@ impl Document {
             "xmlns:table",
             "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
         ));
+        document.push_attribute((
+            "xmlns:number",
+            "urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:svg",
+            "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:chart",
+            "urn:oasis:names:tc:opendocument:xmlns:chart:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:dr3d",
+            "urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0",
+        ));
+        document.push_attribute(("xmlns:math", "http://www.w3.org/1998/Math/MathML"));
+        document.push_attribute((
+            "xmlns:form",
+            "urn:oasis:names:tc:opendocument:xmlns:form:1.0",
+        ));
+        document.push_attribute((
+            "xmlns:script",
+            "urn:oasis:names:tc:opendocument:xmlns:script:1.0",
+        ));
+        document.push_attribute(("xmlns:loki", "https://appthere.com/loki/ns"));
         document.push_attribute(("office:mimetype", "application/vnd.oasis.opendocument.text"));
         document.push_attribute(("office:version", "1.3"));
         writer
@@ -1091,6 +1196,141 @@ impl Document {
         writer
             .write_event(Event::End(BytesEnd::new("office:meta")))
             .map_err(|e| e.to_string())?;
+
+        // Write preserved <office:font-face-decls>
+        if let Some(ref content) = self.font_face_decls {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        }
+
+        // Write office:styles for FODT
+        writer
+            .write_event(Event::Start(BytesStart::new("office:styles")))
+            .map_err(|e| e.to_string())?;
+
+        for (style_name, style_def) in &self.styles {
+            let mut style_elem = BytesStart::new("style:style");
+            style_elem.push_attribute(("style:name", style_name.as_str()));
+            style_elem.push_attribute((
+                "style:family",
+                match style_def.family {
+                    StyleFamily::Paragraph => "paragraph",
+                    StyleFamily::Text => "text",
+                },
+            ));
+
+            if let Some(ref parent) = style_def.parent {
+                style_elem.push_attribute(("style:parent-style-name", parent.as_str()));
+            }
+
+            if let Some(ref next) = style_def.next {
+                style_elem.push_attribute(("style:next-style-name", next.as_str()));
+            }
+
+            if let Some(ref display_name) = style_def.display_name {
+                style_elem.push_attribute(("style:display-name", display_name.as_str()));
+            }
+
+            if let Some(level) = style_def.outline_level {
+                style_elem.push_attribute(("style:outline-level", level.to_string().as_str()));
+            }
+
+            if let Some(true) = style_def.autocomplete {
+                style_elem.push_attribute(("loki:autocomplete", "true"));
+            }
+
+            writer
+                .write_event(Event::Start(style_elem))
+                .map_err(|e| e.to_string())?;
+
+            if style_def.family == StyleFamily::Paragraph {
+                let mut para_props = BytesStart::new("style:paragraph-properties");
+                for (key, value) in &style_def.attributes {
+                    if key.starts_with("fo:margin")
+                        || key.starts_with("fo:text-indent")
+                        || key.starts_with("fo:text-align")
+                        || key.starts_with("fo:orphans")
+                        || key.starts_with("fo:widows")
+                        || key.starts_with("fo:hyphenate")
+                    {
+                        para_props.push_attribute((key.as_str(), value.as_str()));
+                    } else if key == "fo:line-height" {
+                        // ODF checks: percent, length, normal. Unitless is invalid.
+                        // Convert unitless to percent (1.5 -> 150%)
+                        let val = value.trim();
+                        if val.chars().all(|c| c.is_digit(10) || c == '.') {
+                            if let Ok(num) = val.parse::<f32>() {
+                                let percent = format!("{}%", (num * 100.0).round());
+                                para_props.push_attribute((key.as_str(), percent.as_str()));
+                            } else {
+                                para_props.push_attribute((key.as_str(), value.as_str()));
+                            }
+                        } else {
+                            para_props.push_attribute((key.as_str(), value.as_str()));
+                        }
+                    }
+                }
+                writer
+                    .write_event(Event::Empty(para_props))
+                    .map_err(|e| e.to_string())?;
+            }
+
+            let mut text_props = BytesStart::new("style:text-properties");
+            let mut has_text_props = false;
+
+            for (key, value) in &style_def.attributes {
+                if key.starts_with("fo:font")
+                    || key.starts_with("fo:color")
+                    || key.starts_with("fo:font-size")
+                    || key.starts_with("fo:font-weight")
+                    || key.starts_with("fo:font-style")
+                {
+                    text_props.push_attribute((key.as_str(), value.as_str()));
+                    has_text_props = true;
+                }
+            }
+
+            if let Some(transform) = &style_def.text_transform {
+                text_props.push_attribute(("fo:text-transform", transform.as_str()));
+                has_text_props = true;
+            }
+
+            if has_text_props {
+                writer
+                    .write_event(Event::Empty(text_props))
+                    .map_err(|e| e.to_string())?;
+            }
+
+            writer
+                .write_event(Event::End(BytesEnd::new("style:style")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("office:styles")))
+            .map_err(|e| e.to_string())?;
+
+        // Write preserved <office:automatic-styles>
+        if let Some(ref content) = self.automatic_styles {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        } else {
+            writer
+                .write_event(Event::Start(BytesStart::new("office:automatic-styles")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("office:automatic-styles")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        // Write preserved <office:master-styles>
+        if let Some(ref content) = self.master_styles {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        }
 
         writer
             .write_event(Event::Start(BytesStart::new("office:body")))
@@ -1296,6 +1536,8 @@ impl Document {
             "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
         ));
         doc_meta.push_attribute(("xmlns:dc", "http://purl.org/dc/elements/1.1/"));
+        doc_meta.push_attribute(("xmlns:xlink", "http://www.w3.org/1999/xlink"));
+        doc_meta.push_attribute(("xmlns:grddl", "http://www.w3.org/2003/g/data-view#"));
         doc_meta.push_attribute(("office:version", "1.3"));
         writer
             .write_event(Event::Start(doc_meta))
@@ -1418,7 +1660,7 @@ impl Document {
     }
 
     pub fn styles_to_xml(&self) -> Result<String, String> {
-        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
         use std::io::Cursor;
 
@@ -1437,13 +1679,64 @@ impl Document {
             "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
         ));
         root.push_attribute((
+            "xmlns:text",
+            "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:table",
+            "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:draw",
+            "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
+        ));
+        root.push_attribute((
             "xmlns:fo",
             "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
         ));
+        root.push_attribute(("xmlns:xlink", "http://www.w3.org/1999/xlink"));
+        root.push_attribute(("xmlns:dc", "http://purl.org/dc/elements/1.1/"));
+        root.push_attribute((
+            "xmlns:meta",
+            "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:number",
+            "urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:svg",
+            "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:chart",
+            "urn:oasis:names:tc:opendocument:xmlns:chart:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:dr3d",
+            "urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0",
+        ));
+        root.push_attribute(("xmlns:math", "http://www.w3.org/1998/Math/MathML"));
+        root.push_attribute((
+            "xmlns:form",
+            "urn:oasis:names:tc:opendocument:xmlns:form:1.0",
+        ));
+        root.push_attribute((
+            "xmlns:script",
+            "urn:oasis:names:tc:opendocument:xmlns:script:1.0",
+        ));
+        root.push_attribute(("xmlns:loki", "https://appthere.com/loki/ns"));
         root.push_attribute(("office:version", "1.3"));
         writer
             .write_event(Event::Start(root))
             .map_err(|e| e.to_string())?;
+
+        // Write preserved <office:font-face-decls>
+        if let Some(ref content) = self.font_face_decls {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        }
 
         // Write <office:styles> section
         writer
@@ -1478,6 +1771,10 @@ impl Document {
                 style_elem.push_attribute(("style:outline-level", level.to_string().as_str()));
             }
 
+            if let Some(true) = style_def.autocomplete {
+                style_elem.push_attribute(("loki:autocomplete", "true"));
+            }
+
             writer
                 .write_event(Event::Start(style_elem))
                 .map_err(|e| e.to_string())?;
@@ -1489,12 +1786,25 @@ impl Document {
                     if key.starts_with("fo:margin")
                         || key.starts_with("fo:text-indent")
                         || key.starts_with("fo:text-align")
-                        || key.starts_with("fo:line-height")
                         || key.starts_with("fo:orphans")
                         || key.starts_with("fo:widows")
                         || key.starts_with("fo:hyphenate")
                     {
                         para_props.push_attribute((key.as_str(), value.as_str()));
+                    } else if key == "fo:line-height" {
+                        // ODF checks: percent, length, normal. Unitless is invalid.
+                        // Convert unitless to percent (1.5 -> 150%)
+                        let val = value.trim();
+                        if val.chars().all(|c| c.is_digit(10) || c == '.') {
+                            if let Ok(num) = val.parse::<f32>() {
+                                let percent = format!("{}%", (num * 100.0).round());
+                                para_props.push_attribute((key.as_str(), percent.as_str()));
+                            } else {
+                                para_props.push_attribute((key.as_str(), value.as_str()));
+                            }
+                        } else {
+                            para_props.push_attribute((key.as_str(), value.as_str()));
+                        }
                     }
                 }
                 writer
@@ -1536,6 +1846,28 @@ impl Document {
             .write_event(Event::End(BytesEnd::new("office:styles")))
             .map_err(|e| e.to_string())?;
 
+        // Write preserved <office:automatic-styles>
+        if let Some(ref content) = self.automatic_styles {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        } else {
+            // Write empty automatic-styles if none preserved (required by some validators?)
+            writer
+                .write_event(Event::Start(BytesStart::new("office:automatic-styles")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("office:automatic-styles")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        // Write preserved <office:master-styles>
+        if let Some(ref content) = self.master_styles {
+            writer
+                .write_event(Event::Text(BytesText::from_escaped(content)))
+                .map_err(|e| e.to_string())?;
+        }
+
         writer
             .write_event(Event::End(BytesEnd::new("office:document-styles")))
             .map_err(|e| e.to_string())?;
@@ -1564,6 +1896,9 @@ impl Document {
             blocks,
             styles,
             metadata,
+            font_face_decls: None,
+            automatic_styles: None,
+            master_styles: None,
         }
     }
 

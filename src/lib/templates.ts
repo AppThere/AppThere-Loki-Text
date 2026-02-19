@@ -32,7 +32,7 @@ export const TEMPLATES: Template[] = [
 				next: 'Scene Heading',
 				outlineLevel: 1,
 				fontFamily: '"Courier Prime", "Courier New", Courier, monospace',
-				fontSize: '24pt',
+				fontSize: '12pt',
 				fontWeight: 'bold',
 				textAlign: 'center',
 				marginTop: '1.5in',
@@ -133,10 +133,8 @@ export const TEMPLATES: Template[] = [
 				textAlign: 'right',
 				marginTop: '12pt',
 				marginBottom: '12pt',
-				marginLeft: '4.0in',
 				marginRight: '0in',
-				textTransform: 'uppercase',
-				mobileMarginLeft: '2.5in'
+				textTransform: 'uppercase'
 			}
 		]
 	}

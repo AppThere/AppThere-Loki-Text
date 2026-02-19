@@ -8,6 +8,7 @@ describe('generateEditorStyles', () => {
 			{
 				id: 'test-style',
 				name: 'Test Style',
+				description: 'Description',
 				fontFamily: 'Arial',
 				fontSize: '12pt'
 			}
@@ -24,6 +25,7 @@ describe('generateEditorStyles', () => {
 			{
 				id: 'complex',
 				name: 'Complex',
+				description: 'Description',
 				marginTop: '10px',
 				marginBottom: '20px',
 				fontWeight: 'bold',
@@ -43,11 +45,13 @@ describe('generateEditorStyles', () => {
 			{
 				id: 'break-before',
 				name: 'Break Before',
+				description: 'Description',
 				breakBefore: 'page'
 			},
 			{
 				id: 'break-after',
 				name: 'Break After',
+				description: 'Description',
 				breakAfter: 'page'
 			}
 		];
@@ -69,6 +73,7 @@ describe('generateEditorStyles', () => {
 			{
 				id: 'mobile',
 				name: 'Mobile',
+				description: 'Description',
 				mobileMarginLeft: '10px'
 			}
 		];

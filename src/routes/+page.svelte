@@ -6,6 +6,7 @@
 	import MetadataDialog from '$lib/MetadataDialog.svelte';
 	import AboutDialog from '$lib/AboutDialog.svelte';
 	import SettingsDialog from '$lib/SettingsDialog.svelte';
+	import FormatDialog from '$lib/FormatDialog.svelte';
 	import LandingPage from '$lib/LandingPage.svelte';
 	import { recentDocs } from '$lib/recentDocs';
 	import { TEMPLATES } from '$lib/templates';
@@ -53,7 +54,33 @@
 	let isMetadataOpen = $state(false);
 	let isAboutOpen = $state(false);
 	let isSettingsOpen = $state(false);
+	let isFormatDialogOpen = $state(false);
 	let isMenuOpen = $state(false);
+
+	let formatDialogResolve = $state<((format: 'odt' | 'fodt' | null) => void) | null>(null);
+
+	function requestSaveFormat(): Promise<'odt' | 'fodt' | null> {
+		isFormatDialogOpen = true;
+		return new Promise((resolve) => {
+			formatDialogResolve = resolve;
+		});
+	}
+
+	function handleFormatSelect(format: 'odt' | 'fodt') {
+		isFormatDialogOpen = false;
+		if (formatDialogResolve) {
+			formatDialogResolve(format);
+			formatDialogResolve = null;
+		}
+	}
+
+	function handleFormatCancel() {
+		isFormatDialogOpen = false;
+		if (formatDialogResolve) {
+			formatDialogResolve(null);
+			formatDialogResolve = null;
+		}
+	}
 
 	let view = $state<'landing' | 'editor'>('landing');
 	let isDirty = $state(false);
@@ -87,18 +114,21 @@
 		let path = currentPath;
 		if (!path) {
 			addDebugLog('No current path, requesting save dialog...');
+
+			const format = await requestSaveFormat();
+			if (!format) {
+				addDebugLog('Save cancelled by user at format selection');
+				return;
+			}
+
 			try {
 				path = await fileService.promptSave({
 					filters: [
-						{
-							name: 'OpenDocument Text',
-							extensions: ['odt']
-						},
-						{
-							name: 'Flat ODT',
-							extensions: ['fodt']
-						}
-					]
+						format === 'odt'
+							? { name: 'OpenDocument Text', extensions: ['odt'] }
+							: { name: 'Flat ODT', extensions: ['fodt'] }
+					],
+					defaultPath: metadata.title || 'Untitled'
 				});
 			} catch (e) {
 				addDebugLog(`Save dialog error: ${e}`);
@@ -134,21 +164,30 @@
 		}
 	}
 
-	async function handleSaveAs() {
+	async function handleSaveAs(explicitFormat?: 'odt' | 'fodt') {
 		if (!editorComponent) return;
+
+		let format: 'odt' | 'fodt' | null | undefined = explicitFormat;
+		if (!format) {
+			format = await requestSaveFormat();
+			if (!format) return;
+		}
+
+		let pathStr = metadata.title || 'Untitled';
+
+		// Optional: strip existing extension if present to replace it
+		if (pathStr.endsWith('.odt') || pathStr.endsWith('.fodt')) {
+			pathStr = pathStr.replace(/\.f?odt$/, '');
+		}
+		pathStr += format === 'odt' ? '.odt' : '.fodt';
 
 		const path = await fileService.promptSave({
 			filters: [
-				{
-					name: 'OpenDocument Text',
-					extensions: ['odt']
-				},
-				{
-					name: 'Flat ODT',
-					extensions: ['fodt']
-				}
+				format === 'odt'
+					? { name: 'OpenDocument Text', extensions: ['odt'] }
+					: { name: 'Flat ODT', extensions: ['fodt'] }
 			],
-			defaultPath: metadata.title || 'Untitled'
+			defaultPath: pathStr
 		});
 
 		if (!path) return;
@@ -738,9 +777,25 @@
 								<Save size={18} />
 								<span>Save Document</span>
 							</button>
-							<button class="menu-item" onclick={() => handleSaveAs()}>
+							<button
+								class="menu-item"
+								onclick={() => {
+									handleSaveAs('odt');
+									closeMenu();
+								}}
+							>
 								<Save size={18} />
-								<span>Save As...</span>
+								<span>Save As ODT...</span>
+							</button>
+							<button
+								class="menu-item"
+								onclick={() => {
+									handleSaveAs('fodt');
+									closeMenu();
+								}}
+							>
+								<Save size={18} />
+								<span>Save As FODT...</span>
 							</button>
 							<button class="menu-item" onclick={() => handleExportEpub()}>
 								<FileDown size={18} />

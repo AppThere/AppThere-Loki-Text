@@ -1,168 +1,170 @@
 /* Courier Prime */
 @font-face {
-  font-family: 'Courier Prime';
-  src: url('/fonts/CourierPrime-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+	font-family: 'Courier Prime';
+	src: url('/fonts/CourierPrime-Regular.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
 }
 
 @font-face {
-  font-family: 'Courier Prime';
-  src: url('/fonts/CourierPrime-Bold.ttf') format('truetype');
-  font-weight: bold;
-  font-style: normal;
+	font-family: 'Courier Prime';
+	src: url('/fonts/CourierPrime-Bold.ttf') format('truetype');
+	font-weight: bold;
+	font-style: normal;
 }
 
 @font-face {
-  font-family: 'Courier Prime';
-  src: url('/fonts/CourierPrime-Italic.ttf') format('truetype');
-  font-weight: normal;
-  font-style: italic;
+	font-family: 'Courier Prime';
+	src: url('/fonts/CourierPrime-Italic.ttf') format('truetype');
+	font-weight: normal;
+	font-style: italic;
 }
 
 @font-face {
-  font-family: 'Courier Prime';
-  src: url('/fonts/CourierPrime-BoldItalic.ttf') format('truetype');
-  font-weight: bold;
-  font-style: italic;
+	font-family: 'Courier Prime';
+	src: url('/fonts/CourierPrime-BoldItalic.ttf') format('truetype');
+	font-weight: bold;
+	font-style: italic;
 }
 
 /* Atkinson Hyperlegible Next */
 @font-face {
-  font-family: 'Atkinson Hyperlegible Next';
-  src: url('/fonts/AtkinsonHyperlegibleNext-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+	font-family: 'Atkinson Hyperlegible Next';
+	src: url('/fonts/AtkinsonHyperlegibleNext-Regular.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
 }
 
 @font-face {
-  font-family: 'Atkinson Hyperlegible Next';
-  src: url('/fonts/AtkinsonHyperlegibleNext-Bold.ttf') format('truetype');
-  font-weight: bold;
-  font-style: normal;
+	font-family: 'Atkinson Hyperlegible Next';
+	src: url('/fonts/AtkinsonHyperlegibleNext-Bold.ttf') format('truetype');
+	font-weight: bold;
+	font-style: normal;
 }
 
 @font-face {
-  font-family: 'Atkinson Hyperlegible Next';
-  src: url('/fonts/AtkinsonHyperlegibleNext-Italic.ttf') format('truetype');
-  font-weight: normal;
-  font-style: italic;
+	font-family: 'Atkinson Hyperlegible Next';
+	src: url('/fonts/AtkinsonHyperlegibleNext-Italic.ttf') format('truetype');
+	font-weight: normal;
+	font-style: italic;
 }
 
 @font-face {
-  font-family: 'Atkinson Hyperlegible Next';
-  src: url('/fonts/AtkinsonHyperlegibleNext-BoldItalic.ttf') format('truetype');
-  font-weight: bold;
-  font-style: italic;
+	font-family: 'Atkinson Hyperlegible Next';
+	src: url('/fonts/AtkinsonHyperlegibleNext-BoldItalic.ttf') format('truetype');
+	font-weight: bold;
+	font-style: italic;
 }
 
 /* Public Sans Variable */
 @font-face {
-  font-family: 'Public Sans';
-  src: url('/fonts/PublicSans-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
+	font-family: 'Public Sans';
+	src: url('/fonts/PublicSans-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: normal;
 }
 @font-face {
-  font-family: 'Public Sans';
-  src: url('/fonts/PublicSans-Italic-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: italic;
+	font-family: 'Public Sans';
+	src: url('/fonts/PublicSans-Italic-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: italic;
 }
 
 /* Newsreader Variable */
 @font-face {
-  font-family: 'Newsreader';
-  src: url('/fonts/Newsreader-Variable.ttf') format('truetype');
-  font-weight: 200 800;
-  font-style: normal;
+	font-family: 'Newsreader';
+	src: url('/fonts/Newsreader-Variable.ttf') format('truetype');
+	font-weight: 200 800;
+	font-style: normal;
 }
 @font-face {
-  font-family: 'Newsreader';
-  src: url('/fonts/Newsreader-Italic-Variable.ttf') format('truetype');
-  font-weight: 200 800;
-  font-style: italic;
+	font-family: 'Newsreader';
+	src: url('/fonts/Newsreader-Italic-Variable.ttf') format('truetype');
+	font-weight: 200 800;
+	font-style: italic;
 }
 
 /* Cormorant Garamond Variable */
 @font-face {
-  font-family: 'Cormorant Garamond';
-  src: url('/fonts/CormorantGaramond-Variable.ttf') format('truetype');
-  font-weight: 300 700;
-  font-style: normal;
+	font-family: 'Cormorant Garamond';
+	src: url('/fonts/CormorantGaramond-Variable.ttf') format('truetype');
+	font-weight: 300 700;
+	font-style: normal;
 }
 @font-face {
-  font-family: 'Cormorant Garamond';
-  src: url('/fonts/CormorantGaramond-Italic-Variable.ttf') format('truetype');
-  font-weight: 300 700;
-  font-style: italic;
+	font-family: 'Cormorant Garamond';
+	src: url('/fonts/CormorantGaramond-Italic-Variable.ttf') format('truetype');
+	font-weight: 300 700;
+	font-style: italic;
 }
 
 /* Geist Variable */
 @font-face {
-  font-family: 'Geist';
-  src: url('/fonts/Geist-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
+	font-family: 'Geist';
+	src: url('/fonts/Geist-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: normal;
 }
 
 /* Bodoni Moda Variable */
 @font-face {
-  font-family: 'Bodoni Moda';
-  src: url('/fonts/BodoniModa-Variable.ttf') format('truetype');
-  font-weight: 400 900;
-  font-style: normal;
+	font-family: 'Bodoni Moda';
+	src: url('/fonts/BodoniModa-Variable.ttf') format('truetype');
+	font-weight: 400 900;
+	font-style: normal;
 }
 @font-face {
-  font-family: 'Bodoni Moda';
-  src: url('/fonts/BodoniModa-Italic-Variable.ttf') format('truetype');
-  font-weight: 400 900;
-  font-style: italic;
+	font-family: 'Bodoni Moda';
+	src: url('/fonts/BodoniModa-Italic-Variable.ttf') format('truetype');
+	font-weight: 400 900;
+	font-style: italic;
 }
 
 /* Lexend Variable */
 @font-face {
-  font-family: 'Lexend';
-  src: url('/fonts/Lexend-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
+	font-family: 'Lexend';
+	src: url('/fonts/Lexend-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: normal;
 }
 
 /* Caveat Variable */
 @font-face {
-  font-family: 'Caveat';
-  src: url('/fonts/Caveat-Variable.ttf') format('truetype');
-  font-weight: 400 700;
-  font-style: normal;
+	font-family: 'Caveat';
+	src: url('/fonts/Caveat-Variable.ttf') format('truetype');
+	font-weight: 400 700;
+	font-style: normal;
 }
 
 /* Roboto Flex Variable */
 @font-face {
-  font-family: 'Roboto Flex';
-  src: url('/fonts/RobotoFlex-Variable.ttf') format('truetype');
-  font-weight: 100 1000;
-  font-style: normal;
+	font-family: 'Roboto Flex';
+	src: url('/fonts/RobotoFlex-Variable.ttf') format('truetype');
+	font-weight: 100 1000;
+	font-style: normal;
 }
 
 /* Bitter Variable */
 @font-face {
-  font-family: 'Bitter';
-  src: url('/fonts/Bitter-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
+	font-family: 'Bitter';
+	src: url('/fonts/Bitter-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: normal;
 }
 @font-face {
-  font-family: 'Bitter';
-  src: url('/fonts/Bitter-Italic-Variable.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: italic;
+	font-family: 'Bitter';
+	src: url('/fonts/Bitter-Italic-Variable.ttf') format('truetype');
+	font-weight: 100 900;
+	font-style: italic;
 }
 
 :root {
-  --font-screenplay: 'Courier Prime', 'Courier New', Courier, monospace;
-  --font-sans: 'Atkinson Hyperlegible Next', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  
-  font-family: var(--font-sans);
+	--font-screenplay: 'Courier Prime', 'Courier New', Courier, monospace;
+	--font-sans:
+		'Atkinson Hyperlegible Next', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		sans-serif;
+
+	font-family: var(--font-sans);
 }
 
 /* Ensure form elements inherit the font */
@@ -170,5 +172,5 @@ input,
 button,
 textarea,
 select {
-  font-family: inherit;
+	font-family: inherit;
 }

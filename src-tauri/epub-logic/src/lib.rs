@@ -1,8 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 // Re-use types from odt-logic
-pub use odt_logic::{Block, Inline, Metadata, StyleDefinition, TiptapMark, TiptapNode};
+pub use odt_logic::{
+    Block, Inline, Metadata, StyleDefinition, TiptapAttrs, TiptapMark, TiptapNode,
+};
 
 /// Represents a section of content in the EPUB
 /// Sections are split at HorizontalRule blocks
@@ -41,7 +46,7 @@ impl FontFormat {
     }
 
     pub fn from_filename(filename: &str) -> Self {
-        let ext = filename.split('.').last().unwrap_or("").to_lowercase();
+        let ext = filename.split('.').next_back().unwrap_or("").to_lowercase();
         match ext.as_str() {
             "ttf" => FontFormat::TrueType,
             "otf" => FontFormat::OpenType,
@@ -78,7 +83,7 @@ impl EpubDocument {
         let blocks = match root {
             TiptapNode::Doc { content } => content
                 .into_iter()
-                .filter_map(|node| odt_logic::Document::tiptap_node_to_block(node))
+                .filter_map(odt_logic::Document::tiptap_node_to_block)
                 .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
@@ -106,16 +111,14 @@ impl EpubDocument {
                 }
             }
 
-            if break_before {
-                if !current_blocks.is_empty() {
-                    sections.push(ContentSection {
-                        id: format!("section-{}", section_counter),
-                        title: Some(format!("Section {}", section_counter)),
-                        blocks: current_blocks.clone(),
-                    });
-                    current_blocks.clear();
-                    section_counter += 1;
-                }
+            if break_before && !current_blocks.is_empty() {
+                sections.push(ContentSection {
+                    id: format!("section-{}", section_counter),
+                    title: Some(format!("Section {}", section_counter)),
+                    blocks: current_blocks.clone(),
+                });
+                current_blocks.clear();
+                section_counter += 1;
             }
 
             if matches!(block, Block::PageBreak) {
@@ -134,16 +137,14 @@ impl EpubDocument {
 
             current_blocks.push(block.clone());
 
-            if break_after {
-                if !current_blocks.is_empty() {
-                    sections.push(ContentSection {
-                        id: format!("section-{}", section_counter),
-                        title: Some(format!("Section {}", section_counter)),
-                        blocks: current_blocks.clone(),
-                    });
-                    current_blocks.clear();
-                    section_counter += 1;
-                }
+            if break_after && !current_blocks.is_empty() {
+                sections.push(ContentSection {
+                    id: format!("section-{}", section_counter),
+                    title: Some(format!("Section {}", section_counter)),
+                    blocks: current_blocks.clone(),
+                });
+                current_blocks.clear();
+                section_counter += 1;
             }
         }
 
@@ -267,7 +268,7 @@ impl EpubDocument {
             Block::ListItem { content } => {
                 let mut html = String::from("    <li>");
                 for block in content {
-                    html.push_str(&self.block_to_html(block).trim());
+                    html.push_str(self.block_to_html(block).trim());
                 }
                 html.push_str("</li>\n");
                 html

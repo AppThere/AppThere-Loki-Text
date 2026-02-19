@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Document {
     pub blocks: Vec<Block>,
@@ -228,6 +231,12 @@ pub struct TiptapResponse {
     pub metadata: Metadata,
 }
 
+impl Default for Document {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Document {
     pub fn new() -> Self {
         Self {
@@ -345,10 +354,11 @@ impl Document {
                         if prop_node.attribute((ns_fo, "font-style")) == Some("italic") {
                             marks.push(TiptapMark::Italic);
                         }
-                        if let Some(u) = prop_node.attribute((ns_style, "text-underline-style")) {
-                            if u != "none" {
-                                marks.push(TiptapMark::Underline);
-                            }
+                        if prop_node
+                            .attribute((ns_style, "text-underline-style"))
+                            .is_some_and(|u| u != "none")
+                        {
+                            marks.push(TiptapMark::Underline);
                         }
                         // ... more marks logic
                     }
@@ -540,32 +550,30 @@ impl Document {
             let mut blocks = Vec::new();
             for child in node.children() {
                 if child.has_tag_name((ns_text, "p")) {
-                    if let Some(frame) = child
+                    if let Some(img) = child
                         .children()
                         .find(|n| n.has_tag_name((ns_draw, "frame")))
+                        .and_then(|frame| {
+                            frame
+                                .children()
+                                .find(|n| n.has_tag_name((ns_draw, "image")))
+                        })
                     {
-                        if let Some(img) = frame
-                            .children()
-                            .find(|n| n.has_tag_name((ns_draw, "image")))
-                        {
-                            let href = img.attribute((ns_xlink, "href")).unwrap_or("").to_string();
-                            blocks.push(Block::Image {
-                                src: href,
-                                alt: None,
-                                title: None,
-                            });
-                            continue;
-                        }
+                        let href = img.attribute((ns_xlink, "href")).unwrap_or("").to_string();
+                        blocks.push(Block::Image {
+                            src: href,
+                            alt: None,
+                            title: None,
+                        });
+                        continue;
                     }
                     let style_name = child
                         .attribute((ns_text, "style-name"))
                         .map(|s| s.to_string());
 
-                    if let Some(ref name) = style_name {
-                        if name == "PageBreak" {
-                            blocks.push(Block::PageBreak);
-                            continue;
-                        }
+                    if style_name.as_deref() == Some("PageBreak") {
+                        blocks.push(Block::PageBreak);
+                        continue;
                     }
 
                     let content = parse_inlines(child, ns_text, ns_xlink, style_map);
@@ -657,8 +665,7 @@ impl Document {
         // Find <office:styles> element
         let styles_elem = doc
             .descendants()
-            .find(|n| n.has_tag_name((ns_office, "styles")))
-            .ok_or("No office:styles element found in styles.xml")?;
+            .find(|n| n.has_tag_name((ns_office, "styles")));
 
         // Extract raw XML sections for preservation
         self.font_face_decls = doc
@@ -676,108 +683,123 @@ impl Document {
             .find(|n| n.has_tag_name((ns_office, "master-styles")))
             .map(|n| xml[n.range()].to_string());
 
-        // Parse each <style:style> element
-        for style_node in styles_elem.children() {
-            if !style_node.is_element() {
-                continue;
-            }
-
-            if style_node.has_tag_name((ns_style, "style")) {
-                let style_name = style_node
-                    .attribute((ns_style, "name"))
-                    .ok_or("Style missing style:name attribute")?
-                    .to_string();
-
-                let family_str = style_node
-                    .attribute((ns_style, "family"))
-                    .unwrap_or("paragraph");
-
-                let family = match family_str {
-                    "paragraph" => StyleFamily::Paragraph,
-                    "text" => StyleFamily::Text,
-                    _ => StyleFamily::Paragraph,
-                };
-
-                let parent = style_node
-                    .attribute((ns_style, "parent-style-name"))
-                    .map(|s| s.to_string());
-
-                let next = style_node
-                    .attribute((ns_style, "next-style-name"))
-                    .map(|s| s.to_string());
-
-                let display_name = style_node
-                    .attribute((ns_style, "display-name"))
-                    .map(|s| s.to_string());
-
-                let mut attributes = HashMap::new();
-
-                // Parse paragraph properties
-                for child in style_node.children() {
-                    if !child.is_element() {
-                        continue;
-                    }
-
-                    if child.has_tag_name((ns_style, "paragraph-properties")) {
-                        for attr in child.attributes() {
-                            let prefix = if let Some(ns) = attr.namespace() {
-                                if ns == ns_fo {
-                                    "fo:"
-                                } else if ns == ns_style {
-                                    "style:"
-                                } else {
-                                    ""
-                                }
-                            } else {
-                                ""
-                            };
-                            let key = format!("{}{}", prefix, attr.name());
-                            attributes.insert(key, attr.value().to_string());
-                        }
-                    }
-
-                    if child.has_tag_name((ns_style, "text-properties")) {
-                        for attr in child.attributes() {
-                            let prefix = if let Some(ns) = attr.namespace() {
-                                if ns == ns_fo {
-                                    "fo:"
-                                } else if ns == ns_style {
-                                    "style:"
-                                } else {
-                                    ""
-                                }
-                            } else {
-                                ""
-                            };
-                            let key = format!("{}{}", prefix, attr.name());
-                            attributes.insert(key, attr.value().to_string());
-                        }
-                    }
+        if let Some(styles_node) = styles_elem {
+            // Parse each <style:style> or <style:default-style> element
+            for style_node in styles_node.children() {
+                if !style_node.is_element() {
+                    continue;
                 }
 
-                // Extract text-transform and outline-level if present
-                let text_transform = attributes.get("fo:text-transform").cloned();
-                let outline_level = style_node
-                    .attribute((ns_style, "outline-level"))
-                    .and_then(|s| s.parse::<u32>().ok());
+                if style_node.has_tag_name((ns_style, "style"))
+                    || style_node.has_tag_name((ns_style, "default-style"))
+                {
+                    let is_default = style_node.has_tag_name((ns_style, "default-style"));
 
-                let autocomplete = style_node
-                    .attribute((ns_loki, "autocomplete"))
-                    .map(|s| s == "true");
+                    let style_name = if is_default {
+                        let family = style_node.attribute((ns_style, "family")).unwrap_or("");
+                        match family {
+                            "paragraph" => "_Default_Paragraph".to_string(),
+                            "text" => "_Default_Text".to_string(),
+                            _ => format!("_Default_{}", family),
+                        }
+                    } else {
+                        style_node
+                            .attribute((ns_style, "name"))
+                            .ok_or("Style missing style:name attribute")?
+                            .to_string()
+                    };
 
-                let style_def = StyleDefinition {
-                    name: style_name.clone(),
-                    family,
-                    parent,
-                    next,
-                    display_name,
-                    attributes,
-                    text_transform,
-                    outline_level,
-                    autocomplete,
-                };
+                    let family_str = style_node
+                        .attribute((ns_style, "family"))
+                        .unwrap_or("paragraph");
 
-                self.styles.insert(style_name, style_def);
+                    let family = match family_str {
+                        "paragraph" => StyleFamily::Paragraph,
+                        "text" => StyleFamily::Text,
+                        _ => StyleFamily::Paragraph,
+                    };
+
+                    let parent = style_node
+                        .attribute((ns_style, "parent-style-name"))
+                        .map(|s| s.to_string());
+
+                    let next = style_node
+                        .attribute((ns_style, "next-style-name"))
+                        .map(|s| s.to_string());
+
+                    let display_name = style_node
+                        .attribute((ns_style, "display-name"))
+                        .map(|s| s.to_string());
+
+                    let mut attributes = HashMap::new();
+
+                    // Parse paragraph properties
+                    for child in style_node.children() {
+                        if !child.is_element() {
+                            continue;
+                        }
+
+                        if child.has_tag_name((ns_style, "paragraph-properties")) {
+                            for attr in child.attributes() {
+                                let prefix = if let Some(ns) = attr.namespace() {
+                                    if ns == ns_fo {
+                                        "fo:"
+                                    } else if ns == ns_style {
+                                        "style:"
+                                    } else {
+                                        ""
+                                    }
+                                } else {
+                                    ""
+                                };
+                                let key = format!("{}{}", prefix, attr.name());
+                                attributes.insert(key, attr.value().to_string());
+                            }
+                        }
+
+                        if child.has_tag_name((ns_style, "text-properties")) {
+                            for attr in child.attributes() {
+                                let prefix = if let Some(ns) = attr.namespace() {
+                                    if ns == ns_fo {
+                                        "fo:"
+                                    } else if ns == ns_style {
+                                        "style:"
+                                    } else {
+                                        ""
+                                    }
+                                } else {
+                                    ""
+                                };
+                                let key = format!("{}{}", prefix, attr.name());
+                                attributes.insert(key, attr.value().to_string());
+                            }
+                        }
+                    }
+
+                    // Extract text-transform and outline-level if present
+                    let text_transform = attributes.get("fo:text-transform").cloned();
+                    let outline_level = style_node
+                        .attribute((ns_style, "outline-level"))
+                        .and_then(|s| s.parse::<u32>().ok());
+
+                    let autocomplete = style_node
+                        .attribute((ns_loki, "autocomplete"))
+                        .map(|s| s == "true");
+
+                    let style_def = StyleDefinition {
+                        name: style_name.clone(),
+                        family,
+                        parent,
+                        next,
+                        display_name,
+                        attributes,
+                        text_transform,
+                        outline_level,
+                        autocomplete,
+                    };
+
+                    self.styles.insert(style_name, style_def);
+                }
             }
         }
 
@@ -1277,7 +1299,7 @@ impl Document {
                         // ODF checks: percent, length, normal. Unitless is invalid.
                         // Convert unitless to percent (1.5 -> 150%)
                         let val = value.trim();
-                        if val.chars().all(|c| c.is_digit(10) || c == '.') {
+                        if val.chars().all(|c| c.is_ascii_digit() || c == '.') {
                             if let Ok(num) = val.parse::<f32>() {
                                 let percent = format!("{}%", (num * 100.0).round());
                                 para_props.push_attribute((key.as_str(), percent.as_str()));
@@ -1841,7 +1863,7 @@ impl Document {
                         // ODF checks: percent, length, normal. Unitless is invalid.
                         // Convert unitless to percent (1.5 -> 150%)
                         let val = value.trim();
-                        if val.chars().all(|c| c.is_digit(10) || c == '.') {
+                        if val.chars().all(|c| c.is_ascii_digit() || c == '.') {
                             if let Ok(num) = val.parse::<f32>() {
                                 let percent = format!("{}%", (num * 100.0).round());
                                 para_props.push_attribute((key.as_str(), percent.as_str()));
@@ -1947,15 +1969,12 @@ impl Document {
         metadata: Metadata,
     ) -> Self {
         let mut blocks = Vec::new();
-        match root {
-            TiptapNode::Doc { content } => {
-                for node in content {
-                    if let Some(block) = Self::tiptap_node_to_block(node) {
-                        blocks.push(block);
-                    }
+        if let TiptapNode::Doc { content } = root {
+            for node in content {
+                if let Some(block) = Self::tiptap_node_to_block(node) {
+                    blocks.push(block);
                 }
             }
-            _ => {}
         }
         Document {
             blocks,
@@ -1978,7 +1997,7 @@ impl Document {
                 let inlines = Self::tiptap_content_to_inlines(content.unwrap_or_default());
                 Some(Block::Paragraph {
                     style_name,
-                    attrs: block_attrs.into(),
+                    attrs: block_attrs,
                     content: inlines,
                 })
             }
@@ -1993,7 +2012,7 @@ impl Document {
                 Some(Block::Heading {
                     level,
                     style_name,
-                    attrs: block_attrs.into(),
+                    attrs: block_attrs,
                     content: inlines,
                 })
             }
@@ -2091,11 +2110,7 @@ impl Document {
     }
 
     pub fn to_tiptap(&self) -> TiptapNode {
-        let content = self
-            .blocks
-            .iter()
-            .map(|b| Self::block_to_tiptap(b))
-            .collect();
+        let content = self.blocks.iter().map(Self::block_to_tiptap).collect();
         TiptapNode::Doc { content }
     }
 

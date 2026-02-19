@@ -29,4 +29,6 @@ odt-logic = { path = "odt-logic" }
 epub-logic = { path = "epub-logic" }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+log = "0.4"
 zip = "8.0.0"

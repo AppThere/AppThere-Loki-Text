@@ -7,9 +7,12 @@
         Clock,
         File,
         Search,
+        Trash2,
     } from "lucide-svelte";
     import { recentDocs, type RecentDoc } from "./recentDocs";
     import { TEMPLATES } from "./templates";
+    import { ask, message } from "@tauri-apps/plugin-dialog";
+    import { addDebugLog } from "$lib/debugStore";
 
     let { onNew, onOpen, onOpenRecent } = $props();
 
@@ -24,6 +27,51 @@
             console.error("Failed to load recent docs:", e);
         }
     });
+
+    async function confirmRemove(event: MouseEvent, doc: RecentDoc) {
+        event.stopPropagation();
+
+        const removeOption = await ask(
+            `What would you like to do with "${doc.title}"?\n\n- Remove from list: Only removes the entry from the editor's home screen.\n- Delete from device: Permanently removes the file from your disk.`,
+            {
+                title: "Manage Recent Document",
+                kind: "info",
+                okLabel: "Delete from Device",
+                cancelLabel: "Remove from List",
+            },
+        );
+
+        // Tauri ask() returns true for primary button (Delete from Device)
+        // False for secondary button (Remove from List)
+        // If they click outside or cancel, it might return null/undefined depending on implementation,
+        // but Tauri's ask() usually returns a boolean.
+
+        try {
+            if (removeOption) {
+                // Delete from Device
+                const confirmed = await ask(
+                    `Are you ABSOLUTELY sure you want to delete "${doc.title}" from disk?\n\nPath: ${doc.path}`,
+                    {
+                        title: "Confirm Permanent Deletion",
+                        kind: "warning",
+                    },
+                );
+                if (confirmed) {
+                    recents = await recentDocs.deleteFile(doc.path);
+                    if (selectedRecentPath === doc.path)
+                        selectedRecentPath = null;
+                }
+            } else {
+                // Remove from List (this happens if they press the cancelLabel)
+                // Wait, Tauri's ask() returns false for cancel button.
+                // Let's check the behavior. If it was "cancelled", we remove from list.
+                recents = await recentDocs.remove(doc.path);
+                if (selectedRecentPath === doc.path) selectedRecentPath = null;
+            }
+        } catch (e) {
+            console.error("Failed to manage document removal:", e);
+        }
+    }
 
     function formatDate(iso: string) {
         try {
@@ -96,11 +144,44 @@
                 {#if recents.length > 0}
                     <div class="recent-list">
                         {#each recents as doc}
-                            <button
+                            <div
                                 class="recent-item"
                                 class:selected={selectedRecentPath === doc.path}
-                                onclick={() => (selectedRecentPath = doc.path)}
-                                ondblclick={() => onOpenRecent(doc.path)}
+                                onclick={async () => {
+                                    try {
+                                        console.log(
+                                            "Recent item clicked:",
+                                            doc.path,
+                                        );
+                                        addDebugLog(
+                                            "LandingPage: Clicked recent doc: " +
+                                                doc.path,
+                                        );
+                                        if (
+                                            typeof onOpenRecent !== "function"
+                                        ) {
+                                            addDebugLog(
+                                                "ERROR: onOpenRecent is not a function!",
+                                            );
+                                            return;
+                                        }
+                                        await onOpenRecent(doc.path);
+                                    } catch (e) {
+                                        addDebugLog("ERROR in onclick: " + e);
+                                        console.error(e);
+                                    }
+                                }}
+                                ondblclick={() => {
+                                    /* Double click ignored in favor of single click */
+                                }}
+                                onkeydown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        onOpenRecent(doc.path);
+                                    }
+                                }}
+                                role="button"
+                                tabindex="0"
                                 title={doc.path}
                             >
                                 <div class="doc-icon">
@@ -115,7 +196,14 @@
                                             .pop() || "/"}
                                     </div>
                                 </div>
-                            </button>
+                                <button
+                                    class="remove-btn"
+                                    onclick={(e) => confirmRemove(e, doc)}
+                                    title="Manage document"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
                         {/each}
                     </div>
                 {:else}
@@ -126,17 +214,9 @@
                 {/if}
             </div>
             <div class="tile-footer">
-                <button
-                    class="action-btn"
-                    onclick={() =>
-                        selectedRecentPath && onOpenRecent(selectedRecentPath)}
-                    disabled={!selectedRecentPath}
-                >
-                    Open Selected
-                </button>
-                <button class="action-btn secondary" onclick={onOpen}>
+                <button class="action-btn primary full-width" onclick={onOpen}>
                     <Search size={16} />
-                    Browse...
+                    Browse Storage...
                 </button>
             </div>
         </div>
@@ -144,6 +224,12 @@
 </div>
 
 <style>
+    /* ... existing styles ... */
+
+    .full-width {
+        width: 100%;
+        justify-content: center;
+    }
     .landing-container {
         display: flex;
         flex-direction: column;
@@ -368,6 +454,39 @@
         overflow: hidden;
         text-overflow: ellipsis;
         opacity: 0.8;
+    }
+
+    .remove-btn {
+        opacity: 0;
+        background: transparent;
+        border: none;
+        padding: 8px;
+        color: var(--icon-color);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+        margin-left: 4px;
+    }
+
+    .recent-item:hover .remove-btn,
+    .recent-item.selected .remove-btn {
+        opacity: 0.6;
+    }
+
+    .remove-btn:hover {
+        opacity: 1 !important;
+        background: rgba(255, 0, 0, 0.1);
+        color: #ff4444;
+    }
+
+    /* For touch devices, show the remove button by default */
+    @media (pointer: coarse) {
+        .remove-btn {
+            opacity: 0.6;
+        }
     }
 
     .empty-state {

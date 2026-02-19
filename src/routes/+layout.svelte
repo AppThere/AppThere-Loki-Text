@@ -1,8 +1,31 @@
-<script>
+<script lang="ts">
     import "../app.css";
     import { settingsStore } from "$lib/settingsStore";
+    import { onMount } from "svelte";
+    import DebugOverlay from "$lib/DebugOverlay.svelte";
+    import { listen } from "@tauri-apps/api/event";
+    import { addDebugLog } from "$lib/debugStore";
 
     let { children } = $props();
+
+    onMount(() => {
+        console.log("FRONTEND_STARTUP: layout.svelte onMount");
+        addDebugLog("App mounted. Waiting for events...");
+
+        let unlisten: (() => void) | undefined;
+
+        const setup = async () => {
+            // Listen for backend debug events
+            unlisten = await listen<string>("debug_log", (event) => {
+                addDebugLog(event.payload);
+            });
+        };
+        setup();
+
+        return () => {
+            if (unlisten) unlisten();
+        };
+    });
 
     $effect(() => {
         const root = document.documentElement;
@@ -31,4 +54,7 @@
     });
 </script>
 
+{#if import.meta.env.DEV}
+    <DebugOverlay />
+{/if}
 {@render children()}

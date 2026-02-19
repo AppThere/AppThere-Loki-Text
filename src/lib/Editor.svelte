@@ -451,20 +451,41 @@ hr.page-break::after {
         }
     }
 
+    import { addDebugLog } from "$lib/debugStore";
+    import { writeFile } from "@tauri-apps/plugin-fs"; // Import writeFile
+
     export const saveWithStyles = async (path: string) => {
         if (!$editor) return;
         status = "Saving...";
+        addDebugLog(`Editor.svelte: invoking save_document to ${path}`);
         try {
-            await invoke("save_document", {
+            // Update type definition if possible, but for now treating result as any to check for array
+            const result = await invoke<number[] | null>("save_document", {
                 path,
                 tiptapJson: JSON.stringify($editor.getJSON()),
                 styles: getStyleDefinitions(),
                 metadata,
             });
+
+            if (result && Array.isArray(result)) {
+                addDebugLog(
+                    `Editor.svelte: Received ${result.length} bytes from backend. Writing via plugin-fs...`,
+                );
+                const data = new Uint8Array(result);
+                await writeFile(path, data);
+                addDebugLog("Editor.svelte: plugin-fs write success.");
+            } else {
+                addDebugLog(
+                    "Editor.svelte: invoke success (backend handled write)",
+                );
+            }
+
             status = "Saved";
         } catch (e) {
             status = "Error saving";
             console.error(e);
+            addDebugLog(`Editor.svelte invoke error: ${JSON.stringify(e)}`);
+            throw e; // Re-throw so parent knows
         }
     };
 

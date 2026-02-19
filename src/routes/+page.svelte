@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { addDebugLog } from "$lib/debugStore";
   import Editor from "$lib/Editor.svelte";
   import StyleSelect from "$lib/StyleSelect.svelte";
   import InsertMenu from "$lib/InsertMenu.svelte";
@@ -11,6 +12,7 @@
   import { styleRegistry } from "$lib/styleStore";
   import { save, open, ask } from "@tauri-apps/plugin-dialog";
   import { invoke } from "@tauri-apps/api/core";
+  import { readFile, writeFile } from "@tauri-apps/plugin-fs";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount, tick } from "svelte";
   import {
@@ -61,41 +63,77 @@
   // Derived title for the banner
   let displayTitle = $derived(metadata.title || "Untitled Document");
 
-  $effect(() => {
-    const title = metadata.title
+  // Title is updated via onMount and whenever metadata changes
+  let windowTitle = $derived(
+    metadata.title
       ? `${metadata.title} - AppThere Loki Text`
-      : "AppThere Loki Text";
-    getCurrentWindow().setTitle(title);
+      : "AppThere Loki Text",
+  );
+
+  $effect(() => {
+    // Only run in browser, after Tauri is ready
+    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+      getCurrentWindow()
+        .setTitle(windowTitle)
+        .catch(() => {});
+    }
   });
 
   async function handleSave() {
-    if (!editorComponent) return;
+    addDebugLog("handleSave called");
+    if (!editorComponent) {
+      addDebugLog("Error: editorComponent not ready");
+      return;
+    }
 
     let path = currentPath;
     if (!path) {
-      path = await save({
-        filters: [
-          {
-            name: "OpenDocument Text",
-            extensions: ["odt"],
-          },
-          {
-            name: "Flat ODT",
-            extensions: ["fodt"],
-          },
-        ],
-      });
-      if (!path) return; // User cancelled
+      addDebugLog("No current path, requesting save dialog...");
+      try {
+        path = await save({
+          filters: [
+            {
+              name: "OpenDocument Text",
+              extensions: ["odt"],
+            },
+            {
+              name: "Flat ODT",
+              extensions: ["fodt"],
+            },
+          ],
+        });
+      } catch (e) {
+        addDebugLog(`Save dialog error: ${e}`);
+        return;
+      }
+
+      if (!path) {
+        addDebugLog("Save cancelled by user");
+        return;
+      }
+
+      // Normalize path
+      path = path.startsWith("file://")
+        ? decodeURIComponent(path.slice(7))
+        : path;
+
+      addDebugLog(`Selection path: ${path}`);
       currentPath = path;
+    } else {
+      addDebugLog(`Using existing path: ${path}`);
     }
 
     syncStatus = "Saving...";
     try {
+      addDebugLog("Calling editorComponent.saveWithStyles...");
       await editorComponent.saveWithStyles(path);
+      await recentDocs.add(path, metadata.title || "Untitled");
       isDirty = false;
       syncStatus = "Saved to disk";
+      addDebugLog("Editor component save completed");
     } catch (e) {
       console.error("Save failed", e);
+      addDebugLog(`Save execution failed: ${JSON.stringify(e)}`);
       syncStatus = "Save Error";
     }
   }
@@ -119,11 +157,15 @@
 
     if (!path) return;
 
-    currentPath = path;
+    // Normalize path
+    const normalizedPath = path.startsWith("file://")
+      ? decodeURIComponent(path.slice(7))
+      : path;
+    currentPath = normalizedPath;
     syncStatus = "Saving as...";
 
     try {
-      await editorComponent.saveWithStyles(path);
+      await editorComponent.saveWithStyles(normalizedPath);
       isDirty = false;
       syncStatus = "Saved to new file";
       await recentDocs.add(path, metadata.title || "Untitled");
@@ -246,7 +288,9 @@
 
       console.log("Calling save_epub with:", { path, fontPaths, metadata });
 
-      await invoke("save_epub", {
+      console.log("Calling save_epub with:", { path, fontPaths, metadata });
+
+      const result = await invoke<number[] | null>("save_epub", {
         path,
         tiptapJson: JSON.stringify(tiptapJson),
         styles: stylesMap,
@@ -254,19 +298,28 @@
         fontPaths: fontPaths,
       });
 
+      if (result && Array.isArray(result)) {
+        const data = new Uint8Array(result);
+        await writeFile(path, data);
+        addDebugLog("EPUB Export: plugin-fs write completed.");
+      }
+
       console.log("EPUB export successful");
-      syncStatus = "Exported to EPUB successfully";
+      syncStatus = "Exported to EPUB";
       setTimeout(() => {
         syncStatus = "Ready";
       }, 2000);
-    } catch (e) {
+    } catch (e: any) {
       console.error("EPUB export failed", e);
-      syncStatus = "EPUB Export Error: " + String(e);
+      addDebugLog(`EPUB Export Error: ${JSON.stringify(e)}`);
+      addDebugLog(`EPUB Export Error Message: ${e?.message}`);
+      syncStatus = "EPUB Export Error";
     }
   }
 
   async function handleOpen() {
     console.log("handleOpen called");
+    addDebugLog("handleOpen called");
 
     if (isDirty) {
       const confirmed = await ask(
@@ -283,8 +336,8 @@
       multiple: false,
       filters: [
         {
-          name: "OpenDocument Text",
-          extensions: ["odt", "fodt"],
+          name: "Loki Documents",
+          extensions: ["loki", "odt", "fodt"],
         },
       ],
     });
@@ -292,48 +345,7 @@
     if (!selected) return;
 
     const path = Array.isArray(selected) ? selected[0] : selected;
-    console.log("Opening document:", path);
-
-    syncStatus = "Opening...";
-    try {
-      const response = await invoke("open_document", { path });
-      console.log("open_document response:", response);
-
-      const {
-        content,
-        styles,
-        metadata: loadedMetadata,
-      } = response as { content: any; styles: any; metadata: any };
-
-      metadata = loadedMetadata;
-
-      view = "editor";
-      await tick();
-
-      if (!editorComponent) {
-        console.error("Editor component not ready after switching view");
-        syncStatus = "Error: Editor not ready";
-        return;
-      }
-
-      editorComponent.loadWithStyles({
-        content,
-        styles,
-        metadata: loadedMetadata,
-      });
-
-      await recentDocs.add(
-        path,
-        metadata.title || path.split("/").pop() || "Untitled",
-      );
-
-      currentPath = path;
-      isDirty = false;
-      syncStatus = "Opened";
-    } catch (e) {
-      console.error("Open failed", e);
-      syncStatus = "Open Error";
-    }
+    await openDocumentWithPath(path);
   }
 
   async function handleNewDocument(templateId?: string) {
@@ -411,7 +423,11 @@
   }
 
   async function handleOpenRecent(path: string) {
+    addDebugLog(`handleOpenRecent called with: ${path}`);
     if (isDirty) {
+      addDebugLog(
+        "handleOpenRecent: Document is dirty, asking confirmation...",
+      );
       const confirmed = await ask(
         "You have unsaved changes. Are you sure you want to open another document?",
         {
@@ -419,43 +435,14 @@
           kind: "warning",
         },
       );
-      if (!confirmed) return;
+      if (!confirmed) {
+        addDebugLog("handleOpenRecent: User cancelled open");
+        return;
+      }
     }
 
-    // Harden path handling: Remove file:// if present (Tauri dialog sometimes returns it)
-    let cleanedPath = path.startsWith("file://")
-      ? decodeURIComponent(path.slice(7))
-      : path;
-
-    try {
-      const result = await invoke("open_document", { path: cleanedPath });
-      // @ts-ignore
-      const { content, styles, metadata: meta } = result;
-
-      metadata = meta;
-      view = "editor";
-      await tick();
-
-      editorComponent.loadWithStyles({
-        content: content,
-        styles: styles,
-        metadata: metadata,
-      });
-
-      currentPath = cleanedPath;
-      syncStatus = "Ready";
-      isDirty = false;
-      await recentDocs.add(cleanedPath, metadata.title);
-    } catch (e) {
-      console.error("Failed to open recent:", e);
-      await ask(
-        `Failed to open document: ${cleanedPath}\n\nError: ${e}\n\nIt may have been moved or deleted.`,
-        {
-          title: "Error Opening Document",
-          kind: "error",
-        },
-      );
-    }
+    addDebugLog("handleOpenRecent: Calling openDocumentWithPath...");
+    await openDocumentWithPath(path);
   }
 
   async function scrollEditorToTop() {
@@ -463,6 +450,85 @@
     const contentView = document.querySelector(".content-view");
     if (contentView) {
       contentView.scrollTop = 0;
+    }
+  }
+
+  async function openDocumentWithPath(path: string) {
+    addDebugLog(`openDocumentWithPath called with: ${path}`);
+    // Harden path handling: Remove file:// if present
+    let cleanedPath = path.startsWith("file://")
+      ? decodeURIComponent(path.slice(7))
+      : path;
+
+    console.log("openDocumentWithPath opening:", cleanedPath);
+    syncStatus = "Opening...";
+
+    try {
+      let fileContent: number[] | null = null;
+      if (cleanedPath.startsWith("content://")) {
+        addDebugLog(`Reading content:// URI from frontend: ${cleanedPath}`);
+        try {
+          const bytes = await readFile(cleanedPath);
+          fileContent = Array.from(bytes);
+          addDebugLog(`Read ${fileContent.length} bytes from frontend.`);
+        } catch (e) {
+          addDebugLog(`Frontend readFile failed: ${e}`);
+          throw e; // Re-throw to catch block below
+        }
+      }
+
+      const response = await invoke("open_document", {
+        path: cleanedPath,
+        fileContent,
+      });
+      console.log("open_document response:", response);
+
+      const {
+        content,
+        styles,
+        metadata: loadedMetadata,
+      } = response as { content: any; styles: any; metadata: any };
+
+      metadata = loadedMetadata;
+
+      view = "editor";
+      await tick();
+
+      if (!editorComponent) {
+        console.error("Editor component not ready after switching view");
+        syncStatus = "Error: Editor not ready";
+        return;
+      }
+
+      editorComponent.loadWithStyles({
+        content,
+        styles,
+        metadata: loadedMetadata,
+      });
+
+      await recentDocs.add(
+        cleanedPath,
+        metadata.title || cleanedPath.split("/").pop() || "Untitled",
+      );
+
+      currentPath = cleanedPath;
+      isDirty = false;
+      syncStatus = "Opened";
+      addDebugLog("Document opened successfully.");
+    } catch (e: any) {
+      console.error("Open failed", e);
+      addDebugLog(`Open failed error object: ${JSON.stringify(e)}`);
+      addDebugLog(`Open failed message: ${e?.message}`);
+      addDebugLog(`Open failed toString: ${e?.toString()}`);
+
+      await ask(
+        `Failed to open document: ${cleanedPath}\n\nError: ${e?.message || e}\n\nIt may have been moved, deleted, or you might not have permission to access it.`,
+        {
+          title: "Error Opening Document",
+          kind: "error",
+        },
+      );
+      syncStatus = "Open Error";
     }
   }
 

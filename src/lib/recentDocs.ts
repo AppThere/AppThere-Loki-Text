@@ -58,5 +58,35 @@ export const recentDocs = {
         } catch (e) {
             console.error('Failed to clear recent docs', e);
         }
+    },
+    async remove(path: string) {
+        try {
+            const list = await this.get();
+            const newList = list.filter(doc => doc.path !== path);
+            await writeTextFile(RECENT_DOCS_FILE, JSON.stringify(newList, null, 2), { baseDir: BaseDirectory.AppLocalData });
+            return newList;
+        } catch (e) {
+            console.error('Failed to remove recent doc', e);
+            return [];
+        }
+    },
+    async deleteFile(path: string) {
+        try {
+            // First remove from list
+            const newList = await this.remove(path);
+
+            // Then delete from disk using Tauri FS plugin
+            // We need to import remove from @tauri-apps/plugin-fs
+            const { remove } = await import('@tauri-apps/plugin-fs');
+
+            // Normalize path for Tauri FS (decode URI component)
+            const cleanPath = path.startsWith('file://') ? decodeURIComponent(path.slice(7)) : path;
+
+            await remove(cleanPath);
+            return newList;
+        } catch (e) {
+            console.error('Failed to delete recent doc file', e);
+            return await this.get(); // Return current list even if delete fails
+        }
     }
 };

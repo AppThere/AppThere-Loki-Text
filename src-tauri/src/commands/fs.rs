@@ -15,6 +15,8 @@ pub async fn save_document<R: Runtime>(
     tiptap_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
+    original_path: Option<String>,
+    original_content: Option<Vec<u8>>,
 ) -> CommandResult<Option<Vec<u8>>> {
     app.emit("debug_log", format!("Saving document to {}", path))
         .ok();
@@ -25,12 +27,42 @@ pub async fn save_document<R: Runtime>(
 
     let doc = Document::from_tiptap(json_node, styles, metadata);
 
+    let mut original_bytes: Option<Vec<u8>> = original_content;
+    if original_bytes.is_none() {
+        if let Some(ref orig_path) = original_path {
+            if !orig_path.starts_with("content://") {
+                original_bytes = std::fs::read(orig_path).ok();
+            }
+        }
+    }
+
     let bytes = if path.ends_with(".fodt") {
-        doc.to_xml()?.into_bytes()
+        if let Some(orig_bytes) = original_bytes {
+            if let Ok(orig_xml) = String::from_utf8(orig_bytes) {
+                if let Ok(updated) = doc.update_fodt(&orig_xml) {
+                    updated.into_bytes()
+                } else {
+                    doc.to_xml()?.into_bytes()
+                }
+            } else {
+                doc.to_xml()?.into_bytes()
+            }
+        } else {
+            doc.to_xml()?.into_bytes()
+        }
     } else {
         // ODT Generation (ZIP)
         let mut buffer = Cursor::new(Vec::new());
-        write_odt_zip(&mut buffer, &doc)?;
+        if let Some(orig_bytes) = original_bytes {
+            if update_odt_zip(&orig_bytes, &mut buffer, &doc).is_ok() {
+                // Success
+            } else {
+                buffer = Cursor::new(Vec::new()); // Reset buffer
+                write_odt_zip(&mut buffer, &doc)?;
+            }
+        } else {
+            write_odt_zip(&mut buffer, &doc)?;
+        }
         buffer.into_inner()
     };
 
@@ -50,6 +82,71 @@ pub async fn save_document<R: Runtime>(
         .ok();
         Ok(None)
     }
+}
+
+fn update_odt_zip<W: Write + std::io::Seek>(
+    old_bytes: &[u8],
+    writer: W,
+    doc: &Document,
+) -> Result<(), String> {
+    let reader = Cursor::new(old_bytes.to_vec());
+    let mut zip_in = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
+    let mut zip_out = ZipWriter::new(writer);
+
+    let options_mimetype = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let options_deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+
+    // Write mimetype first (uncompressed) if it exists
+    for i in 0..zip_in.len() {
+        let mut file = zip_in.by_index(i).map_err(|e| e.to_string())?;
+        if file.name() == "mimetype" {
+            zip_out.start_file("mimetype", options_mimetype).map_err(|e| e.to_string())?;
+            std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
+            break;
+        }
+    }
+
+    // Write the rest
+    for i in 0..zip_in.len() {
+        let mut file = zip_in.by_index(i).map_err(|e| e.to_string())?;
+        let name = file.name().to_string();
+        if name == "mimetype" {
+            continue;
+        }
+
+        zip_out.start_file(&name, options_deflated).map_err(|e| e.to_string())?;
+
+        if name == "content.xml" {
+            let mut original = String::new();
+            if file.read_to_string(&mut original).is_ok() {
+                if let Ok(updated) = doc.update_fodt(&original) {
+                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                } else {
+                    zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                }
+            } else {
+                zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+            }
+        } else if name == "styles.xml" {
+            let mut original = String::new();
+            if file.read_to_string(&mut original).is_ok() {
+                if let Ok(updated) = doc.update_fodt(&original) {
+                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                } else {
+                    zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                }
+            } else {
+                zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+            }
+        } else if name == "meta.xml" {
+            zip_out.write_all(doc.to_meta_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+        } else {
+            std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
+        }
+    }
+
+    zip_out.finish().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn write_odt_zip<W: Write + std::io::Seek>(writer: W, doc: &Document) -> Result<(), String> {

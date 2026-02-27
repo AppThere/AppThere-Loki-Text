@@ -209,7 +209,7 @@
 	import { addDebugLog } from '$lib/debugStore';
 	// writeFile import removed
 
-	export const saveWithStyles = async (path: string) => {
+	export const saveWithStyles = async (path: string, originalPath?: string) => {
 		if (!$editor) return;
 		status = 'Saving...';
 		addDebugLog(`Editor.svelte: delegating save to FileService: ${path}`);
@@ -218,7 +218,8 @@
 				path,
 				JSON.stringify($editor.getJSON()),
 				getStyleDefinitions(),
-				metadata // Note: passed as is
+				metadata, // Note: passed as is
+				originalPath
 			);
 			status = 'Saved';
 		} catch (e) {

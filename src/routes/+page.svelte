@@ -112,6 +112,7 @@
 		}
 
 		let path = currentPath;
+		let originalPath = currentPath || undefined;
 		if (!path) {
 			addDebugLog('No current path, requesting save dialog...');
 
@@ -152,7 +153,7 @@
 		syncStatus = 'Saving...';
 		try {
 			addDebugLog('Calling editorComponent.saveWithStyles...');
-			await editorComponent.saveWithStyles(path);
+			await editorComponent.saveWithStyles(path, originalPath);
 			await recentDocs.add(path, metadata.title || 'Untitled');
 			isDirty = false;
 			syncStatus = 'Saved to disk';
@@ -166,6 +167,8 @@
 
 	async function handleSaveAs(explicitFormat?: 'odt' | 'fodt') {
 		if (!editorComponent) return;
+
+		let originalPath = currentPath || undefined;
 
 		let format: 'odt' | 'fodt' | null | undefined = explicitFormat;
 		if (!format) {
@@ -198,7 +201,7 @@
 		syncStatus = 'Saving as...';
 
 		try {
-			await editorComponent.saveWithStyles(normalizedPath);
+			await editorComponent.saveWithStyles(normalizedPath, originalPath);
 			isDirty = false;
 			syncStatus = 'Saved to new file';
 			await recentDocs.add(path, metadata.title || 'Untitled');

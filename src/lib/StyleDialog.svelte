@@ -34,6 +34,7 @@
 	let breakAfter = $state<'auto' | 'page'>('auto');
 	let mobileMarginLeft = $state('');
 	let mobileMarginRight = $state('');
+	let allCaps = $state(false);
 
 	// Common Google Fonts & Web Safe Fonts
 	// Primary Bundled Fonts and Common Web Fonts
@@ -98,6 +99,7 @@
 		breakAfter = style.breakAfter || 'auto';
 		mobileMarginLeft = style.mobileMarginLeft || '';
 		mobileMarginRight = style.mobileMarginRight || '';
+		allCaps = style.textTransform === 'uppercase';
 	}
 	function startCreate() {
 		isCreating = true;
@@ -124,6 +126,7 @@
 		breakAfter = 'auto';
 		mobileMarginLeft = '';
 		mobileMarginRight = '';
+		allCaps = false;
 		activeTab = 'general';
 	}
 
@@ -159,7 +162,8 @@
 			outlineLevel,
 			autocomplete,
 			breakBefore,
-			breakAfter
+			breakAfter,
+			textTransform: allCaps ? 'uppercase' : 'none'
 		};
 
 		if (isCreating) {
@@ -190,7 +194,8 @@
 		fontSize: fontSize,
 		fontWeight: fontWeight,
 		lineHeight: lineHeight,
-		textAlign: textAlign
+		textAlign: textAlign,
+		textTransform: allCaps ? 'uppercase' : 'none'
 	});
 
 	// Google Fonts Loader Logic
@@ -328,7 +333,15 @@
 					onclick={() => (activeTab = 'paragraph')}
 				>
 					<AlignJustify size={16} />
-					<span>Paragraph</span>
+					<span>Indents & Spacing</span>
+				</button>
+				<button
+					class="tab-btn"
+					class:active={activeTab === 'textflow'}
+					onclick={() => (activeTab = 'textflow')}
+				>
+					<Layers size={16} />
+					<span>Text Flow</span>
 				</button>
 			</div>
 
@@ -390,7 +403,7 @@
 						</div>
 						<div class="checkbox-group">
 							<input type="checkbox" id="autocomplete" bind:checked={autocomplete} />
-							<label for="autocomplete">Enable Autocomplete (IntelliSense)</label>
+							<label for="autocomplete">Enable Autocomplete</label>
 							<p class="field-help">Suggests previously used content for this style.</p>
 						</div>
 					{:else if activeTab === 'typography'}
@@ -438,24 +451,47 @@
 								<span>Bold</span>
 							</div>
 						</div>
+						<div class="checkbox-group">
+							<input type="checkbox" id="allCaps" bind:checked={allCaps} />
+							<label for="allCaps">All Caps</label>
+						</div>
 					{:else if activeTab === 'paragraph'}
+						<div class="section-label">Indentation</div>
 						<div class="form-row">
 							<div class="form-group grow">
-								<label for="lineHeight">Line Spacing</label>
+								<label for="marginLeft">Before Text</label>
 								<input
-									id="lineHeight"
-									bind:value={lineHeight}
-									onblur={() => (lineHeight = normalizeUnit(lineHeight, 'lineHeight'))}
+									id="marginLeft"
+									bind:value={marginLeft}
+									onblur={() => (marginLeft = normalizeUnit(marginLeft))}
 								/>
 							</div>
 							<div class="form-group grow">
-								<label for="textIndent">First Line Indent</label>
+								<label for="marginRight">After Text</label>
 								<input
-									id="textIndent"
-									bind:value={textIndent}
-									onblur={() => (textIndent = normalizeUnit(textIndent))}
+									id="marginRight"
+									bind:value={marginRight}
+									onblur={() => (marginRight = normalizeUnit(marginRight))}
 								/>
 							</div>
+						</div>
+						<div class="form-group">
+							<label for="textIndent">First Line Indent</label>
+							<input
+								id="textIndent"
+								bind:value={textIndent}
+								onblur={() => (textIndent = normalizeUnit(textIndent))}
+							/>
+						</div>
+
+						<div class="section-label">Spacing</div>
+						<div class="form-group">
+							<label for="lineHeight">Line Spacing</label>
+							<input
+								id="lineHeight"
+								bind:value={lineHeight}
+								onblur={() => (lineHeight = normalizeUnit(lineHeight, 'lineHeight'))}
+							/>
 						</div>
 						<div class="form-row">
 							<div class="form-group grow">
@@ -475,6 +511,11 @@
 								/>
 							</div>
 						</div>
+					{:else if activeTab === 'textflow'}
+						<div class="checkbox-group">
+							<input type="checkbox" id="hyphenate" bind:checked={hyphenate} />
+							<label for="hyphenate">Enable hyphenation</label>
+						</div>
 						<div class="form-row">
 							<div class="form-group grow">
 								<label for="orphans">Orphans</label>
@@ -484,10 +525,6 @@
 								<label for="widows">Widows</label>
 								<input type="number" id="widows" bind:value={widows} min="1" max="10" />
 							</div>
-						</div>
-						<div class="checkbox-group">
-							<input type="checkbox" id="hyphenate" bind:checked={hyphenate} />
-							<label for="hyphenate">Enable hyphenation</label>
 						</div>
 						<div class="form-row">
 							<div class="form-group grow">
@@ -797,6 +834,17 @@
 		color: var(--text-color);
 		font-size: 0.95rem;
 		transition: border-color 0.2s;
+	}
+
+	.section-label {
+		font-size: 0.7rem;
+		font-weight: 800;
+		color: var(--primary-color);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		margin: 8px 0 4px 0;
+		border-bottom: 1px solid var(--border-color);
+		padding-bottom: 4px;
 	}
 
 	.form-group input:focus,

@@ -271,9 +271,10 @@ impl Document {
         if !root.has_tag_name((ns_office, "document"))
             && !root.has_tag_name((ns_office, "document-content"))
             && !root.has_tag_name((ns_office, "document-styles"))
+            && !root.has_tag_name((ns_office, "document-meta"))
         {
             return Err(
-                "Invalid ODT XML: root must be office:document, office:document-content, or office:document-styles"
+                "Invalid ODT XML: root must be office:document, office:document-content, office:document-styles, or office:document-meta"
                     .to_string(),
             );
         }
@@ -483,11 +484,26 @@ impl Document {
             }
         }
 
-        let office_text = root
-            .children()
-            .find(|n| n.has_tag_name((ns_office, "body")))
-            .and_then(|n| n.children().find(|c| c.has_tag_name((ns_office, "text"))))
-            .ok_or("Could not find office:text")?;
+        let is_meta_only = root.has_tag_name((ns_office, "document-meta"));
+
+        let blocks = if is_meta_only {
+            Vec::new()
+        } else {
+            let office_text = root
+                .children()
+                .find(|n| n.has_tag_name((ns_office, "body")))
+                .and_then(|n| n.children().find(|c| c.has_tag_name((ns_office, "text"))))
+                .ok_or("Could not find office:text")?;
+
+            parse_blocks(
+                office_text,
+                ns_text,
+                ns_table,
+                ns_draw,
+                ns_xlink,
+                &style_map,
+            )
+        };
 
         // Helper functions
         fn parse_inlines(
@@ -634,14 +650,6 @@ impl Document {
             blocks
         }
 
-        let blocks = parse_blocks(
-            office_text,
-            ns_text,
-            ns_table,
-            ns_draw,
-            ns_xlink,
-            &style_map,
-        );
         Ok(Document {
             blocks,
             styles: style_definitions,
@@ -1079,6 +1087,135 @@ impl Document {
         String::from_utf8(result).map_err(|e| e.to_string())
     }
 
+    pub fn update_fodt(&self, old_xml: &str) -> Result<String, String> {
+        use quick_xml::events::Event;
+        use quick_xml::{Reader, Writer};
+        use std::io::Cursor;
+
+        let mut reader = Reader::from_str(old_xml);
+        let mut writer = Writer::new(Cursor::new(Vec::new()));
+        let mut buf = Vec::new();
+        let mut skip_depth = 0;
+        let mut in_styles = false;
+
+        loop {
+            match reader.read_event_into(&mut buf) {
+                Ok(Event::Start(ref e))
+                    if e.name().as_ref() == b"office:text" && skip_depth == 0 =>
+                {
+                    writer
+                        .write_event(Event::Start(e.clone()))
+                        .map_err(|err| err.to_string())?;
+
+                    let generated = self.to_content_xml()?;
+                    if let Some(start_idx) = generated.find("<office:text>") {
+                        if let Some(end_idx) = generated.rfind("</office:text>") {
+                            let inner_xml = &generated[start_idx + 13..end_idx];
+                            let mut inner_reader = Reader::from_str(inner_xml);
+                            let mut inner_buf = Vec::new();
+                            loop {
+                                match inner_reader.read_event_into(&mut inner_buf) {
+                                    Ok(Event::Eof) => break,
+                                    Ok(event) => {
+                                        writer.write_event(event).map_err(|e| e.to_string())?;
+                                    }
+                                    Err(e) => return Err(e.to_string()),
+                                }
+                                inner_buf.clear();
+                            }
+                        }
+                    }
+
+                    skip_depth = 1;
+                }
+                Ok(Event::Start(ref e))
+                    if e.name().as_ref() == b"office:meta" && skip_depth == 0 =>
+                {
+                    writer
+                        .write_event(Event::Start(e.clone()))
+                        .map_err(|err| err.to_string())?;
+
+                    let generated = self.to_xml()?;
+                    if let Some(start_idx) = generated.find("<office:meta>") {
+                        if let Some(end_idx) = generated.rfind("</office:meta>") {
+                            let inner_xml = &generated[start_idx + 13..end_idx];
+                            let mut inner_reader = Reader::from_str(inner_xml);
+                            let mut inner_buf = Vec::new();
+                            loop {
+                                match inner_reader.read_event_into(&mut inner_buf) {
+                                    Ok(Event::Eof) => break,
+                                    Ok(event) => {
+                                        writer.write_event(event).map_err(|e| e.to_string())?;
+                                    }
+                                    Err(e) => return Err(e.to_string()),
+                                }
+                                inner_buf.clear();
+                            }
+                        }
+                    }
+
+                    skip_depth = 1;
+                }
+                Ok(Event::Start(ref e))
+                    if e.name().as_ref() == b"office:styles" && skip_depth == 0 =>
+                {
+                    writer
+                        .write_event(Event::Start(e.clone()))
+                        .map_err(|err| err.to_string())?;
+
+                    let generated = self.styles_to_xml()?;
+                    if let Some(start_idx) = generated.find("<office:styles>") {
+                        if let Some(end_idx) = generated.rfind("</office:styles>") {
+                            let inner_xml = &generated[start_idx + 15..end_idx];
+                            let mut inner_reader = Reader::from_str(inner_xml);
+                            let mut inner_buf = Vec::new();
+                            loop {
+                                match inner_reader.read_event_into(&mut inner_buf) {
+                                    Ok(Event::Eof) => break,
+                                    Ok(event) => {
+                                        writer.write_event(event).map_err(|e| e.to_string())?;
+                                    }
+                                    Err(e) => return Err(e.to_string()),
+                                }
+                                inner_buf.clear();
+                            }
+                        }
+                    }
+
+                    skip_depth = 1;
+                    in_styles = true;
+                }
+                Ok(Event::Start(ref _e)) if skip_depth > 0 => {
+                    skip_depth += 1;
+                }
+                Ok(Event::Empty(ref _e)) if skip_depth > 0 => {}
+                Ok(Event::End(e)) if skip_depth > 0 => {
+                    skip_depth -= 1;
+                    if skip_depth == 0 {
+                        // We are exiting the skipped section (<office:text> or <office:styles>)
+                        writer
+                            .write_event(Event::End(e))
+                            .map_err(|err| err.to_string())?;
+                        if in_styles {
+                            in_styles = false;
+                        }
+                    }
+                }
+                Ok(Event::Eof) => break,
+                Ok(e) => {
+                    if skip_depth == 0 {
+                        writer.write_event(e).map_err(|err| err.to_string())?;
+                    }
+                }
+                Err(e) => return Err(e.to_string()),
+            }
+            buf.clear();
+        }
+
+        let result = writer.into_inner().into_inner();
+        String::from_utf8(result).map_err(|e| e.to_string())
+    }
+
     pub fn to_xml(&self) -> Result<String, String> {
         use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
@@ -1181,6 +1318,30 @@ impl Document {
                 .map_err(|e| e.to_string())?;
             writer
                 .write_event(Event::End(BytesEnd::new("dc:title")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(description) = &self.metadata.description {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:description")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(description)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:description")))
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(subject) = &self.metadata.subject {
+            writer
+                .write_event(Event::Start(BytesStart::new("dc:subject")))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Text(BytesText::new(subject)))
+                .map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("dc:subject")))
                 .map_err(|e| e.to_string())?;
         }
 

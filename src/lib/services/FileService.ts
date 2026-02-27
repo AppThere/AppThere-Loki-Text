@@ -6,18 +6,32 @@ export class FileService {
 		path: string,
 		tiptapJson: string,
 		styles: Record<string, StyleDefinition>,
-		metadata: Metadata
+		metadata: Metadata,
+		originalPath?: string
 	): Promise<void> {
 		addDebugLog(`FileService: Saving to ${path}`);
 		const { invoke } = await import('@tauri-apps/api/core');
 		const { writeFile } = await import('@tauri-apps/plugin-fs');
 
-		// Backend: save_document(path, tiptap_json, styles, metadata)
+		let originalContent: number[] | null = null;
+		if (originalPath && originalPath.startsWith('content://')) {
+			try {
+				const octets = await this.readBinaryFile(originalPath);
+				originalContent = Array.from(octets);
+				addDebugLog(`FileService: Read ${octets.length} bytes from original content URI`);
+			} catch (e) {
+				addDebugLog(`FileService: Failed to read original content URI, will generate from scratch: ${e}`);
+			}
+		}
+
+		// Backend: save_document(path, tiptap_json, styles, metadata, original_path, original_content)
 		const result = await invoke<number[] | null>('save_document', {
 			path,
 			tiptapJson: tiptapJson,
 			styles,
-			metadata
+			metadata,
+			originalPath: originalPath || null,
+			originalContent
 		});
 
 		if (result && path.startsWith('content://')) {

@@ -1,0 +1,12 @@
+feat: complete Phase 38-43 Lexical migration, add robust doc features, and fix Android build
+
+This major commit finalizes the transition away from Svelte to a fully-featured React + Lexical editor environment, adding critical document features and polishing both desktop and mobile compilation targets.
+
+Key accomplishments:
+1. Tables (Phase 38): Integrated @lexical/table for 3x3 insertion and ODT serialization.
+2. Auto-Save (Phase 39): Added debounced IPC calls and UI indicators to smoothly save without blocking the main JS thread on large documents.
+3. Hyperlinks (Phase 40): Added LinkDialog to embed URLs natively within formatting strings.
+4. Images (Phase 41): Added ImageDialog leveraging Tauri native file pickers and base64 parsing for seamless local image inclusions.
+5. Adapter Tests (Phase 42): Scaled up vitest integration to strictly assert Tiptap ↔ Lexical conversions for paragraphs, links, and tables.
+6. Print Support (Phase 43): Implemented print CSS styles to isolate the document view, adding a 'Print...' native menu item on Desktop.
+7. Android Build Fixes: Gated macOS application menus securely behind #[cfg(desktop)] in Rust, and resolved TextNode/ParagraphNode TypeScript property errors for aarch64 cross-compilation.

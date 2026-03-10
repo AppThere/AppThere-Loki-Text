@@ -392,17 +392,24 @@ impl Document {
                     .attribute((ns_loki, "autocomplete"))
                     .map(|s| s == "true");
 
+                let next = style_node
+                    .attribute((ns_style, "next-style-name"))
+                    .map(|s| s.to_string());
+                let outline_level = style_node
+                    .attribute((ns_style, "outline-level"))
+                    .and_then(|s| s.parse::<u32>().ok());
+
                 style_definitions.insert(
                     name.to_string(),
                     StyleDefinition {
                         name: name.to_string(),
                         family,
                         parent,
-                        next: None,
+                        next,
                         display_name,
                         attributes: attrs,
                         text_transform,
-                        outline_level: None,
+                        outline_level,
                         autocomplete,
                     },
                 );

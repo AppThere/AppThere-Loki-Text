@@ -2,7 +2,7 @@
 members = ["odt-logic", "epub-logic"]
 
 [package]
-name = "appthere-loki"
+name = "AppThere-Loki"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]

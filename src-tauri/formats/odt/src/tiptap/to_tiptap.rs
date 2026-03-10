@@ -100,3 +100,124 @@ pub fn inlines_to_tiptap(inlines: &[Inline]) -> Vec<TiptapNode> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common_core::block::BlockAttrs;
+    use common_core::marks::TiptapMark;
+
+    #[test]
+    fn document_to_tiptap_empty() {
+        let node = document_to_tiptap(&[]);
+        if let TiptapNode::Doc { content } = node {
+            assert!(content.is_empty());
+        } else {
+            panic!("expected Doc");
+        }
+    }
+
+    #[test]
+    fn document_to_tiptap_page_break() {
+        let node = document_to_tiptap(&[Block::PageBreak]);
+        if let TiptapNode::Doc { content } = node {
+            assert!(matches!(content[0], TiptapNode::PageBreak));
+        } else {
+            panic!("expected Doc");
+        }
+    }
+
+    #[test]
+    fn block_to_tiptap_paragraph_preserves_style() {
+        let block = Block::Paragraph {
+            style_name: Some("Body Text".to_string()),
+            attrs: Some(BlockAttrs {
+                text_align: Some("right".to_string()),
+                indent: None,
+            }),
+            content: vec![],
+        };
+        let node = block_to_tiptap(&block);
+        if let TiptapNode::Paragraph { attrs, .. } = node {
+            let a = attrs.unwrap();
+            assert_eq!(a.style_name.as_deref(), Some("Body Text"));
+            assert_eq!(a.text_align.as_deref(), Some("right"));
+        } else {
+            panic!("expected Paragraph");
+        }
+    }
+
+    #[test]
+    fn block_to_tiptap_heading_carries_level() {
+        let block = Block::Heading { level: 2, style_name: None, attrs: None, content: vec![] };
+        let node = block_to_tiptap(&block);
+        if let TiptapNode::Heading { attrs, .. } = node {
+            assert_eq!(attrs.unwrap().level, Some(2));
+        } else {
+            panic!("expected Heading");
+        }
+    }
+
+    #[test]
+    fn block_to_tiptap_image() {
+        let block = Block::Image {
+            src: "hero.jpg".to_string(),
+            alt: None,
+            title: Some("Hero".to_string()),
+        };
+        let node = block_to_tiptap(&block);
+        if let TiptapNode::Image { attrs } = node {
+            assert_eq!(attrs.src, "hero.jpg");
+            assert_eq!(attrs.title.as_deref(), Some("Hero"));
+        } else {
+            panic!("expected Image");
+        }
+    }
+
+    #[test]
+    fn block_to_tiptap_horizontal_rule() {
+        assert!(matches!(block_to_tiptap(&Block::HorizontalRule), TiptapNode::HorizontalRule));
+    }
+
+    #[test]
+    fn inlines_to_tiptap_text_node() {
+        let inlines = vec![Inline::Text {
+            text: "world".to_string(),
+            style_name: None,
+            marks: vec![TiptapMark::Bold],
+        }];
+        let nodes = inlines_to_tiptap(&inlines);
+        assert_eq!(nodes.len(), 1);
+        if let TiptapNode::Text { text, marks } = &nodes[0] {
+            assert_eq!(text, "world");
+            assert_eq!(marks.as_ref().unwrap().len(), 1);
+        } else {
+            panic!("expected Text node");
+        }
+    }
+
+    #[test]
+    fn inlines_to_tiptap_line_break() {
+        let inlines = vec![Inline::LineBreak];
+        let nodes = inlines_to_tiptap(&inlines);
+        assert!(matches!(nodes[0], TiptapNode::HardBreak));
+    }
+
+    #[test]
+    fn inlines_to_tiptap_empty() {
+        assert!(inlines_to_tiptap(&[]).is_empty());
+    }
+
+    #[test]
+    fn block_to_tiptap_bullet_list() {
+        let block = Block::BulletList {
+            content: vec![Block::ListItem { content: vec![] }],
+        };
+        let node = block_to_tiptap(&block);
+        if let TiptapNode::BulletList { content } = node {
+            assert_eq!(content.len(), 1);
+        } else {
+            panic!("expected BulletList");
+        }
+    }
+}

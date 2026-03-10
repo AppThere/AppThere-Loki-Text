@@ -138,3 +138,110 @@ pub enum Block {
     /// A page break.
     PageBreak,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inline::Inline;
+
+    #[test]
+    fn block_attrs_default() {
+        let attrs = BlockAttrs::default();
+        assert!(attrs.text_align.is_none());
+        assert!(attrs.indent.is_none());
+    }
+
+    #[test]
+    fn cell_attrs_default() {
+        let attrs = CellAttrs::default();
+        assert!(attrs.colspan.is_none());
+        assert!(attrs.rowspan.is_none());
+        assert!(attrs.colwidth.is_none());
+    }
+
+    #[test]
+    fn paragraph_block_construction() {
+        let block = Block::Paragraph {
+            style_name: Some("Standard".to_string()),
+            attrs: None,
+            content: vec![Inline::Text {
+                text: "Hello".to_string(),
+                style_name: None,
+                marks: vec![],
+            }],
+        };
+        if let Block::Paragraph { style_name, content, .. } = &block {
+            assert_eq!(style_name.as_deref(), Some("Standard"));
+            assert_eq!(content.len(), 1);
+        } else {
+            panic!("expected Paragraph");
+        }
+    }
+
+    #[test]
+    fn heading_block_level() {
+        let block = Block::Heading {
+            level: 2,
+            style_name: None,
+            attrs: None,
+            content: vec![],
+        };
+        if let Block::Heading { level, .. } = &block {
+            assert_eq!(*level, 2);
+        } else {
+            panic!("expected Heading");
+        }
+    }
+
+    #[test]
+    fn image_block_fields() {
+        let block = Block::Image {
+            src: "image.png".to_string(),
+            alt: Some("A picture".to_string()),
+            title: None,
+        };
+        if let Block::Image { src, alt, title } = &block {
+            assert_eq!(src, "image.png");
+            assert_eq!(alt.as_deref(), Some("A picture"));
+            assert!(title.is_none());
+        } else {
+            panic!("expected Image");
+        }
+    }
+
+    #[test]
+    fn horizontal_rule_and_page_break() {
+        assert_eq!(Block::HorizontalRule, Block::HorizontalRule);
+        assert_eq!(Block::PageBreak, Block::PageBreak);
+    }
+
+    #[test]
+    fn bullet_list_nesting() {
+        let inner = Block::ListItem {
+            content: vec![Block::Paragraph {
+                style_name: None,
+                attrs: None,
+                content: vec![],
+            }],
+        };
+        let list = Block::BulletList { content: vec![inner] };
+        if let Block::BulletList { content } = &list {
+            assert_eq!(content.len(), 1);
+        } else {
+            panic!("expected BulletList");
+        }
+    }
+
+    #[test]
+    fn block_serde_roundtrip() {
+        let block = Block::Heading {
+            level: 1,
+            style_name: Some("Heading 1".to_string()),
+            attrs: Some(BlockAttrs { text_align: Some("center".to_string()), indent: None }),
+            content: vec![],
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        let decoded: Block = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, block);
+    }
+}

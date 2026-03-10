@@ -54,3 +54,45 @@ pub enum Inline {
     /// A hard line break (`text:line-break` in ODT).
     LineBreak,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::marks::TiptapMark;
+
+    #[test]
+    fn text_inline_serde_roundtrip() {
+        let inline = Inline::Text {
+            text: "Hello, World!".to_string(),
+            style_name: Some("Emphasis".to_string()),
+            marks: vec![TiptapMark::Bold, TiptapMark::Italic],
+        };
+        let json = serde_json::to_string(&inline).unwrap();
+        let decoded: Inline = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, inline);
+    }
+
+    #[test]
+    fn text_inline_no_marks() {
+        let inline = Inline::Text {
+            text: "plain".to_string(),
+            style_name: None,
+            marks: vec![],
+        };
+        if let Inline::Text { text, style_name, marks } = &inline {
+            assert_eq!(text, "plain");
+            assert!(style_name.is_none());
+            assert!(marks.is_empty());
+        } else {
+            panic!("expected Text variant");
+        }
+    }
+
+    #[test]
+    fn line_break_serde_roundtrip() {
+        let inline = Inline::LineBreak;
+        let json = serde_json::to_string(&inline).unwrap();
+        let decoded: Inline = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, Inline::LineBreak);
+    }
+}

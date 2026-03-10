@@ -133,3 +133,86 @@ fn validate_root(root: &roxmltree::Node, ns_office: &str) -> Result<(), String> 
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NS_OFFICE: &str = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+    const NS_TEXT: &str = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+    const NS_DC: &str = "http://purl.org/dc/elements/1.1/";
+    const NS_META: &str = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
+
+    fn minimal_fodt(body: &str) -> String {
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="{NS_OFFICE}" xmlns:text="{NS_TEXT}"
+    xmlns:dc="{NS_DC}" xmlns:meta="{NS_META}" office:version="1.3">
+  <office:body>
+    <office:text>{body}</office:text>
+  </office:body>
+</office:document>"#
+        )
+    }
+
+    #[test]
+    fn parse_invalid_xml_returns_error() {
+        assert!(parse_document("<unclosed").is_err());
+    }
+
+    #[test]
+    fn parse_non_odt_root_returns_error() {
+        let xml = r#"<?xml version="1.0"?><root><child/></root>"#;
+        let err = parse_document(xml).unwrap_err();
+        assert!(err.contains("Invalid ODT XML"));
+    }
+
+    #[test]
+    fn parse_empty_fodt_yields_no_blocks() {
+        let xml = minimal_fodt("");
+        let doc = parse_document(&xml).unwrap();
+        assert!(doc.blocks.is_empty());
+    }
+
+    #[test]
+    fn parse_fodt_with_paragraph() {
+        let body = format!(r#"<text:p xmlns:text="{NS_TEXT}">Hello</text:p>"#);
+        let xml = minimal_fodt(&body);
+        let doc = parse_document(&xml).unwrap();
+        assert_eq!(doc.blocks.len(), 1);
+        if let common_core::Block::Paragraph { content, .. } = &doc.blocks[0] {
+            assert_eq!(content.len(), 1);
+        } else {
+            panic!("expected Paragraph");
+        }
+    }
+
+    #[test]
+    fn parse_meta_only_document_yields_no_blocks() {
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<office:document-meta xmlns:office="{NS_OFFICE}" xmlns:dc="{NS_DC}"
+    xmlns:meta="{NS_META}" office:version="1.3">
+  <office:meta>
+    <dc:title>My Doc</dc:title>
+  </office:meta>
+</office:document-meta>"#
+        );
+        let doc = parse_document(&xml).unwrap();
+        assert!(doc.blocks.is_empty());
+        assert_eq!(doc.metadata.title.as_deref(), Some("My Doc"));
+    }
+
+    #[test]
+    fn add_styles_from_xml_invalid_returns_error() {
+        let mut doc = Document {
+            blocks: vec![],
+            styles: std::collections::HashMap::new(),
+            metadata: common_core::Metadata::default(),
+            font_face_decls: None,
+            automatic_styles: None,
+            master_styles: None,
+        };
+        assert!(add_styles_from_xml(&mut doc, "<bad").is_err());
+    }
+}

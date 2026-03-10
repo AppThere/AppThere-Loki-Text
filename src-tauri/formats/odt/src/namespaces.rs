@@ -77,3 +77,55 @@ pub fn ns_prefix(ns: &str) -> &'static str {
         _ => "",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ns_default_office_uri() {
+        let ns = Ns::default();
+        assert_eq!(ns.office, "urn:oasis:names:tc:opendocument:xmlns:office:1.0");
+    }
+
+    #[test]
+    fn ns_default_dc_uri() {
+        let ns = Ns::default();
+        assert_eq!(ns.dc, "http://purl.org/dc/elements/1.1/");
+    }
+
+    #[test]
+    fn ns_default_xlink_uri() {
+        let ns = Ns::default();
+        assert_eq!(ns.xlink, "http://www.w3.org/1999/xlink");
+    }
+
+    #[test]
+    fn ns_prefix_fo() {
+        assert_eq!(
+            ns_prefix("urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"),
+            "fo:"
+        );
+    }
+
+    #[test]
+    fn ns_prefix_style() {
+        assert_eq!(
+            ns_prefix("urn:oasis:names:tc:opendocument:xmlns:style:1.0"),
+            "style:"
+        );
+    }
+
+    #[test]
+    fn ns_prefix_text() {
+        assert_eq!(
+            ns_prefix("urn:oasis:names:tc:opendocument:xmlns:text:1.0"),
+            "text:"
+        );
+    }
+
+    #[test]
+    fn ns_prefix_unknown_returns_empty() {
+        assert_eq!(ns_prefix("http://unknown.ns/"), "");
+    }
+}

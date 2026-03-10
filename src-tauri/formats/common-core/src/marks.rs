@@ -64,3 +64,71 @@ pub struct TiptapAttrsInline {
     #[serde(rename = "styleName")]
     pub style_name: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bold_mark_serde_roundtrip() {
+        let mark = TiptapMark::Bold;
+        let json = serde_json::to_string(&mark).unwrap();
+        assert!(json.contains("\"bold\""));
+        let decoded: TiptapMark = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, TiptapMark::Bold);
+    }
+
+    #[test]
+    fn italic_mark_serde() {
+        let json = serde_json::to_string(&TiptapMark::Italic).unwrap();
+        assert!(json.contains("\"italic\""));
+    }
+
+    #[test]
+    fn link_mark_serde_roundtrip() {
+        let mark = TiptapMark::Link {
+            attrs: LinkAttrs {
+                href: "https://example.com".to_string(),
+                target: Some("_blank".to_string()),
+            },
+        };
+        let json = serde_json::to_string(&mark).unwrap();
+        let decoded: TiptapMark = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, mark);
+    }
+
+    #[test]
+    fn named_span_style_mark_roundtrip() {
+        let mark = TiptapMark::NamedSpanStyle {
+            attrs: TiptapAttrsInline { style_name: Some("Emphasis".to_string()) },
+        };
+        let json = serde_json::to_string(&mark).unwrap();
+        assert!(json.contains("Emphasis"));
+        let decoded: TiptapMark = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, mark);
+    }
+
+    #[test]
+    fn link_attrs_no_target() {
+        let attrs = LinkAttrs { href: "https://example.org".to_string(), target: None };
+        assert_eq!(attrs.href, "https://example.org");
+        assert!(attrs.target.is_none());
+    }
+
+    #[test]
+    fn all_simple_mark_variants_serialize() {
+        let variants = [
+            TiptapMark::Bold,
+            TiptapMark::Italic,
+            TiptapMark::Underline,
+            TiptapMark::Strike,
+            TiptapMark::Superscript,
+            TiptapMark::Subscript,
+        ];
+        for mark in &variants {
+            let json = serde_json::to_string(mark).unwrap();
+            let decoded: TiptapMark = serde_json::from_str(&json).unwrap();
+            assert_eq!(&decoded, mark);
+        }
+    }
+}

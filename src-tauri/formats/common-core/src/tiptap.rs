@@ -133,3 +133,79 @@ pub struct TiptapResponse {
     /// Document metadata.
     pub metadata: Metadata,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::marks::TiptapMark;
+
+    #[test]
+    fn tiptap_attrs_default_all_none() {
+        let attrs = TiptapAttrs::default();
+        assert!(attrs.style_name.is_none());
+        assert!(attrs.level.is_none());
+        assert!(attrs.text_align.is_none());
+        assert!(attrs.indent.is_none());
+    }
+
+    #[test]
+    fn image_attrs_fields() {
+        let attrs = ImageAttrs {
+            src: "photo.jpg".to_string(),
+            alt: Some("A photo".to_string()),
+            title: None,
+        };
+        assert_eq!(attrs.src, "photo.jpg");
+        assert_eq!(attrs.alt.as_deref(), Some("A photo"));
+        assert!(attrs.title.is_none());
+    }
+
+    #[test]
+    fn doc_node_contains_children() {
+        let doc = TiptapNode::Doc {
+            content: vec![TiptapNode::HorizontalRule, TiptapNode::PageBreak],
+        };
+        if let TiptapNode::Doc { content } = doc {
+            assert_eq!(content.len(), 2);
+        } else {
+            panic!("expected Doc");
+        }
+    }
+
+    #[test]
+    fn text_node_with_marks() {
+        let node = TiptapNode::Text {
+            text: "bold text".to_string(),
+            marks: Some(vec![TiptapMark::Bold]),
+        };
+        if let TiptapNode::Text { text, marks } = node {
+            assert_eq!(text, "bold text");
+            assert_eq!(marks.unwrap().len(), 1);
+        } else {
+            panic!("expected Text");
+        }
+    }
+
+    #[test]
+    fn hard_break_node() {
+        let node = TiptapNode::HardBreak;
+        assert!(matches!(node, TiptapNode::HardBreak));
+    }
+
+    #[test]
+    fn paragraph_node_with_attrs() {
+        let node = TiptapNode::Paragraph {
+            attrs: Some(TiptapAttrs {
+                style_name: Some("Standard".to_string()),
+                ..TiptapAttrs::default()
+            }),
+            content: Some(vec![TiptapNode::HardBreak]),
+        };
+        if let TiptapNode::Paragraph { attrs, content } = node {
+            assert_eq!(attrs.unwrap().style_name.as_deref(), Some("Standard"));
+            assert_eq!(content.unwrap().len(), 1);
+        } else {
+            panic!("expected Paragraph");
+        }
+    }
+}

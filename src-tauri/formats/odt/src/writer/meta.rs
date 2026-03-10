@@ -88,3 +88,69 @@ fn write_text_element(
     writer.write_event(Event::Text(BytesText::new(text))).map_err(|e| e.to_string())?;
     writer.write_event(Event::End(BytesEnd::new(tag))).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_meta_xml_empty_metadata_is_valid_xml() {
+        let xml = to_meta_xml(&Metadata::default()).unwrap();
+        assert!(xml.contains("office:document-meta"));
+        assert!(xml.contains("office:meta"));
+        assert!(xml.contains("AppThere Loki")); // default generator
+    }
+
+    #[test]
+    fn to_meta_xml_title_present() {
+        let meta = Metadata { title: Some("Test Doc".to_string()), ..Metadata::default() };
+        let xml = to_meta_xml(&meta).unwrap();
+        assert!(xml.contains("dc:title"));
+        assert!(xml.contains("Test Doc"));
+    }
+
+    #[test]
+    fn to_meta_xml_creator_present() {
+        let meta = Metadata { creator: Some("Alice".to_string()), ..Metadata::default() };
+        let xml = to_meta_xml(&meta).unwrap();
+        assert!(xml.contains("dc:creator"));
+        assert!(xml.contains("Alice"));
+    }
+
+    #[test]
+    fn to_meta_xml_language_present() {
+        let meta = Metadata { language: Some("fr-FR".to_string()), ..Metadata::default() };
+        let xml = to_meta_xml(&meta).unwrap();
+        assert!(xml.contains("dc:language"));
+        assert!(xml.contains("fr-FR"));
+    }
+
+    #[test]
+    fn to_meta_xml_no_title_when_absent() {
+        let xml = to_meta_xml(&Metadata::default()).unwrap();
+        assert!(!xml.contains("dc:title"));
+    }
+
+    #[test]
+    fn to_meta_xml_all_fields() {
+        let meta = Metadata {
+            title: Some("Title".to_string()),
+            creator: Some("Bob".to_string()),
+            description: Some("Desc".to_string()),
+            subject: Some("Subj".to_string()),
+            language: Some("en".to_string()),
+            creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+            identifier: Some("doc-123".to_string()),
+            generator: Some("MyApp".to_string()),
+        };
+        let xml = to_meta_xml(&meta).unwrap();
+        assert!(xml.contains("Title"));
+        assert!(xml.contains("Bob"));
+        assert!(xml.contains("Desc"));
+        assert!(xml.contains("Subj"));
+        assert!(xml.contains("en"));
+        assert!(xml.contains("2024-01-01"));
+        assert!(xml.contains("doc-123"));
+        assert!(xml.contains("MyApp"));
+    }
+}

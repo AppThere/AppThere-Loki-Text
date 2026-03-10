@@ -86,3 +86,54 @@ pub struct StyleDefinition {
     #[serde(default)]
     pub autocomplete: Option<bool>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn style_family_paragraph_odf_str() {
+        assert_eq!(StyleFamily::Paragraph.to_odf_str(), "paragraph");
+    }
+
+    #[test]
+    fn style_family_text_odf_str() {
+        assert_eq!(StyleFamily::Text.to_odf_str(), "text");
+    }
+
+    #[test]
+    fn style_definition_serde_roundtrip() {
+        let style = StyleDefinition {
+            name: "Heading 1".to_string(),
+            family: StyleFamily::Paragraph,
+            parent: Some("Standard".to_string()),
+            next: Some("Text Body".to_string()),
+            display_name: Some("Heading 1".to_string()),
+            attributes: HashMap::from([("fo:font-size".to_string(), "14pt".to_string())]),
+            text_transform: None,
+            outline_level: Some(1),
+            autocomplete: Some(true),
+        };
+        let json = serde_json::to_string(&style).unwrap();
+        let decoded: StyleDefinition = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, style);
+    }
+
+    #[test]
+    fn style_definition_minimal() {
+        let style = StyleDefinition {
+            name: "Default".to_string(),
+            family: StyleFamily::Text,
+            parent: None,
+            next: None,
+            display_name: None,
+            attributes: HashMap::new(),
+            text_transform: None,
+            outline_level: None,
+            autocomplete: None,
+        };
+        assert_eq!(style.name, "Default");
+        assert_eq!(style.family, StyleFamily::Text);
+        assert!(style.attributes.is_empty());
+    }
+}

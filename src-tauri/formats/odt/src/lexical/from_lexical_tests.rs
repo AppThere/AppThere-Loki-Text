@@ -4,7 +4,7 @@ use common_core::lexical::{LexicalDocument, LexicalNode, LexicalRoot, FORMAT_BOL
 use common_core::marks::TiptapMark;
 use common_core::{Block, Inline, Metadata};
 
-use super::{from_lexical, node_to_block, node_to_inlines, decode_format};
+use super::{decode_format, from_lexical, node_to_block, node_to_inlines};
 
 fn make_lex(children: Vec<LexicalNode>) -> LexicalDocument {
     LexicalDocument {
@@ -45,7 +45,12 @@ fn paragraph_style_to_paragraph_block() {
     }]);
     let doc = from_lexical(lex, HashMap::new(), Metadata::default());
     assert_eq!(doc.blocks.len(), 1);
-    if let Block::Paragraph { style_name, content, .. } = &doc.blocks[0] {
+    if let Block::Paragraph {
+        style_name,
+        content,
+        ..
+    } = &doc.blocks[0]
+    {
         assert_eq!(style_name.as_deref(), Some("Standard"));
         assert_eq!(content.len(), 1);
     } else {
@@ -129,7 +134,10 @@ fn list_type_number_produces_ordered_list() {
         indent: 0,
         version: 1,
     };
-    assert!(matches!(node_to_block(node), Some(Block::OrderedList { .. })));
+    assert!(matches!(
+        node_to_block(node),
+        Some(Block::OrderedList { .. })
+    ));
 }
 
 #[test]
@@ -144,7 +152,10 @@ fn table_cell_header_state_selects_variant() {
         indent: 0,
         version: 1,
     };
-    assert!(matches!(node_to_block(header), Some(Block::TableHeader { .. })));
+    assert!(matches!(
+        node_to_block(header),
+        Some(Block::TableHeader { .. })
+    ));
 
     let cell = LexicalNode::TableCell {
         col_span: 2,

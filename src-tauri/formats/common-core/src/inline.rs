@@ -79,7 +79,12 @@ mod tests {
             style_name: None,
             marks: vec![],
         };
-        if let Inline::Text { text, style_name, marks } = &inline {
+        if let Inline::Text {
+            text,
+            style_name,
+            marks,
+        } = &inline
+        {
             assert_eq!(text, "plain");
             assert!(style_name.is_none());
             assert!(marks.is_empty());

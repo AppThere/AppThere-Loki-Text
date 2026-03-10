@@ -21,13 +21,21 @@ pub fn to_meta_xml(metadata: &Metadata) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     let mut doc_meta = BytesStart::new("office:document-meta");
-    doc_meta.push_attribute(("xmlns:office", "urn:oasis:names:tc:opendocument:xmlns:office:1.0"));
-    doc_meta.push_attribute(("xmlns:meta", "urn:oasis:names:tc:opendocument:xmlns:meta:1.0"));
+    doc_meta.push_attribute((
+        "xmlns:office",
+        "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+    ));
+    doc_meta.push_attribute((
+        "xmlns:meta",
+        "urn:oasis:names:tc:opendocument:xmlns:meta:1.0",
+    ));
     doc_meta.push_attribute(("xmlns:dc", "http://purl.org/dc/elements/1.1/"));
     doc_meta.push_attribute(("xmlns:xlink", "http://www.w3.org/1999/xlink"));
     doc_meta.push_attribute(("xmlns:grddl", "http://www.w3.org/2003/g/data-view#"));
     doc_meta.push_attribute(("office:version", "1.3"));
-    writer.write_event(Event::Start(doc_meta)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(doc_meta))
+        .map_err(|e| e.to_string())?;
 
     writer
         .write_event(Event::Start(BytesStart::new("office:meta")))
@@ -35,7 +43,9 @@ pub fn to_meta_xml(metadata: &Metadata) -> Result<String, String> {
 
     write_meta_elements(&mut writer, metadata)?;
 
-    writer.write_event(Event::End(BytesEnd::new("office:meta"))).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::End(BytesEnd::new("office:meta")))
+        .map_err(|e| e.to_string())?;
     writer
         .write_event(Event::End(BytesEnd::new("office:document-meta")))
         .map_err(|e| e.to_string())?;
@@ -51,7 +61,11 @@ pub fn write_meta_elements(
     writer: &mut Writer<Cursor<Vec<u8>>>,
     metadata: &Metadata,
 ) -> Result<(), String> {
-    write_text_element(writer, "meta:generator", metadata.generator.as_deref().unwrap_or("AppThere Loki"))?;
+    write_text_element(
+        writer,
+        "meta:generator",
+        metadata.generator.as_deref().unwrap_or("AppThere Loki"),
+    )?;
 
     if let Some(title) = &metadata.title {
         write_text_element(writer, "dc:title", title)?;
@@ -84,9 +98,15 @@ fn write_text_element(
     tag: &str,
     text: &str,
 ) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new(tag))).map_err(|e| e.to_string())?;
-    writer.write_event(Event::Text(BytesText::new(text))).map_err(|e| e.to_string())?;
-    writer.write_event(Event::End(BytesEnd::new(tag))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::Start(BytesStart::new(tag)))
+        .map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Text(BytesText::new(text)))
+        .map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::End(BytesEnd::new(tag)))
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -103,7 +123,10 @@ mod tests {
 
     #[test]
     fn to_meta_xml_title_present() {
-        let meta = Metadata { title: Some("Test Doc".to_string()), ..Metadata::default() };
+        let meta = Metadata {
+            title: Some("Test Doc".to_string()),
+            ..Metadata::default()
+        };
         let xml = to_meta_xml(&meta).unwrap();
         assert!(xml.contains("dc:title"));
         assert!(xml.contains("Test Doc"));
@@ -111,7 +134,10 @@ mod tests {
 
     #[test]
     fn to_meta_xml_creator_present() {
-        let meta = Metadata { creator: Some("Alice".to_string()), ..Metadata::default() };
+        let meta = Metadata {
+            creator: Some("Alice".to_string()),
+            ..Metadata::default()
+        };
         let xml = to_meta_xml(&meta).unwrap();
         assert!(xml.contains("dc:creator"));
         assert!(xml.contains("Alice"));
@@ -119,7 +145,10 @@ mod tests {
 
     #[test]
     fn to_meta_xml_language_present() {
-        let meta = Metadata { language: Some("fr-FR".to_string()), ..Metadata::default() };
+        let meta = Metadata {
+            language: Some("fr-FR".to_string()),
+            ..Metadata::default()
+        };
         let xml = to_meta_xml(&meta).unwrap();
         assert!(xml.contains("dc:language"));
         assert!(xml.contains("fr-FR"));

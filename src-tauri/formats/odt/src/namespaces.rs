@@ -85,7 +85,10 @@ mod tests {
     #[test]
     fn ns_default_office_uri() {
         let ns = Ns::default();
-        assert_eq!(ns.office, "urn:oasis:names:tc:opendocument:xmlns:office:1.0");
+        assert_eq!(
+            ns.office,
+            "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+        );
     }
 
     #[test]

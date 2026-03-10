@@ -61,7 +61,14 @@ pub fn parse_document(xml: &str) -> Result<Document, String> {
             .and_then(|n| n.children().find(|c| c.has_tag_name((ns.office, "text"))))
             .ok_or("Could not find office:text")?;
 
-        parse_blocks(office_text, ns.text, ns.table, ns.draw, ns.xlink, &style_map)
+        parse_blocks(
+            office_text,
+            ns.text,
+            ns.table,
+            ns.draw,
+            ns.xlink,
+            &style_map,
+        )
     };
 
     Ok(Document {
@@ -108,8 +115,7 @@ pub fn add_styles_from_xml(doc: &mut Document, xml: &str) -> Result<(), String> 
         .descendants()
         .find(|n| n.has_tag_name((ns.office, "styles")))
     {
-        let new_styles =
-            parse_styles_node(styles_elem, ns.style, ns.fo, ns.text, ns.loki)?;
+        let new_styles = parse_styles_node(styles_elem, ns.style, ns.fo, ns.text, ns.loki)?;
         doc.styles.extend(new_styles);
     }
 

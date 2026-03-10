@@ -27,28 +27,33 @@ pub fn document_to_tiptap(blocks: &[Block]) -> TiptapNode {
 /// Returns `None` for block types that have no direct Tiptap equivalent.
 pub fn block_to_tiptap(block: &Block) -> TiptapNode {
     match block {
-        Block::Paragraph { style_name, attrs, content } => {
-            TiptapNode::Paragraph {
-                attrs: Some(TiptapAttrs {
-                    style_name: style_name.clone(),
-                    text_align: attrs.as_ref().and_then(|a| a.text_align.clone()),
-                    indent: attrs.as_ref().and_then(|a| a.indent),
-                    level: None,
-                }),
-                content: Some(inlines_to_tiptap(content)),
-            }
-        }
-        Block::Heading { level, style_name, attrs, content } => {
-            TiptapNode::Heading {
-                attrs: Some(TiptapAttrs {
-                    style_name: style_name.clone(),
-                    text_align: attrs.as_ref().and_then(|a| a.text_align.clone()),
-                    indent: attrs.as_ref().and_then(|a| a.indent),
-                    level: Some(*level),
-                }),
-                content: Some(inlines_to_tiptap(content)),
-            }
-        }
+        Block::Paragraph {
+            style_name,
+            attrs,
+            content,
+        } => TiptapNode::Paragraph {
+            attrs: Some(TiptapAttrs {
+                style_name: style_name.clone(),
+                text_align: attrs.as_ref().and_then(|a| a.text_align.clone()),
+                indent: attrs.as_ref().and_then(|a| a.indent),
+                level: None,
+            }),
+            content: Some(inlines_to_tiptap(content)),
+        },
+        Block::Heading {
+            level,
+            style_name,
+            attrs,
+            content,
+        } => TiptapNode::Heading {
+            attrs: Some(TiptapAttrs {
+                style_name: style_name.clone(),
+                text_align: attrs.as_ref().and_then(|a| a.text_align.clone()),
+                indent: attrs.as_ref().and_then(|a| a.indent),
+                level: Some(*level),
+            }),
+            content: Some(inlines_to_tiptap(content)),
+        },
         Block::Image { src, alt, title } => TiptapNode::Image {
             attrs: ImageAttrs {
                 src: src.clone(),
@@ -149,7 +154,12 @@ mod tests {
 
     #[test]
     fn block_to_tiptap_heading_carries_level() {
-        let block = Block::Heading { level: 2, style_name: None, attrs: None, content: vec![] };
+        let block = Block::Heading {
+            level: 2,
+            style_name: None,
+            attrs: None,
+            content: vec![],
+        };
         let node = block_to_tiptap(&block);
         if let TiptapNode::Heading { attrs, .. } = node {
             assert_eq!(attrs.unwrap().level, Some(2));
@@ -176,7 +186,10 @@ mod tests {
 
     #[test]
     fn block_to_tiptap_horizontal_rule() {
-        assert!(matches!(block_to_tiptap(&Block::HorizontalRule), TiptapNode::HorizontalRule));
+        assert!(matches!(
+            block_to_tiptap(&Block::HorizontalRule),
+            TiptapNode::HorizontalRule
+        ));
     }
 
     #[test]

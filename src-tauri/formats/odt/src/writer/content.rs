@@ -34,7 +34,9 @@ pub fn to_content_xml(blocks: &[Block]) -> Result<String, String> {
 
     let mut document = BytesStart::new("office:document-content");
     push_content_ns(&mut document);
-    writer.write_event(Event::Start(document)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(document))
+        .map_err(|e| e.to_string())?;
 
     // Empty automatic-styles — named styles are in styles.xml
     writer
@@ -81,65 +83,103 @@ fn write_blocks_content(
     Ok(())
 }
 
-fn write_block_content(
-    block: &Block,
-    writer: &mut Writer<Cursor<Vec<u8>>>,
-) -> Result<(), String> {
+fn write_block_content(block: &Block, writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), String> {
     match block {
-        Block::Paragraph { style_name, content, .. } => {
+        Block::Paragraph {
+            style_name,
+            content,
+            ..
+        } => {
             let mut p = BytesStart::new("text:p");
             if let Some(s) = style_name {
                 p.push_attribute(("text:style-name", s.as_str()));
             }
-            writer.write_event(Event::Start(p)).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(p))
+                .map_err(|e| e.to_string())?;
             write_inlines_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("text:p"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("text:p")))
+                .map_err(|e| e.to_string())?;
         }
-        Block::Heading { level, style_name, content, .. } => {
+        Block::Heading {
+            level,
+            style_name,
+            content,
+            ..
+        } => {
             let mut h = BytesStart::new("text:h");
             if let Some(s) = style_name {
                 h.push_attribute(("text:style-name", s.as_str()));
             }
             h.push_attribute(("text:outline-level", level.to_string().as_str()));
-            writer.write_event(Event::Start(h)).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(h))
+                .map_err(|e| e.to_string())?;
             write_inlines_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("text:h"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("text:h")))
+                .map_err(|e| e.to_string())?;
         }
         Block::PageBreak => {
             let mut p = BytesStart::new("text:p");
             p.push_attribute(("text:style-name", "PageBreak"));
-            writer.write_event(Event::Empty(p)).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Empty(p))
+                .map_err(|e| e.to_string())?;
         }
         Block::BulletList { content } | Block::OrderedList { content } => {
-            writer.write_event(Event::Start(BytesStart::new("text:list"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(BytesStart::new("text:list")))
+                .map_err(|e| e.to_string())?;
             for item in content {
                 write_block_content(item, writer)?;
             }
-            writer.write_event(Event::End(BytesEnd::new("text:list"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("text:list")))
+                .map_err(|e| e.to_string())?;
         }
         Block::ListItem { content } => {
-            writer.write_event(Event::Start(BytesStart::new("text:list-item"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(BytesStart::new("text:list-item")))
+                .map_err(|e| e.to_string())?;
             write_blocks_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("text:list-item"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("text:list-item")))
+                .map_err(|e| e.to_string())?;
         }
         Block::Table { content } => {
-            writer.write_event(Event::Start(BytesStart::new("table:table"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(BytesStart::new("table:table")))
+                .map_err(|e| e.to_string())?;
             write_blocks_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("table:table"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("table:table")))
+                .map_err(|e| e.to_string())?;
         }
         Block::TableRow { content } => {
-            writer.write_event(Event::Start(BytesStart::new("table:table-row"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(BytesStart::new("table:table-row")))
+                .map_err(|e| e.to_string())?;
             write_blocks_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("table:table-row"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("table:table-row")))
+                .map_err(|e| e.to_string())?;
         }
         Block::TableCell { content, .. } | Block::TableHeader { content, .. } => {
-            writer.write_event(Event::Start(BytesStart::new("table:table-cell"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Start(BytesStart::new("table:table-cell")))
+                .map_err(|e| e.to_string())?;
             write_blocks_content(content, writer)?;
-            writer.write_event(Event::End(BytesEnd::new("table:table-cell"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::End(BytesEnd::new("table:table-cell")))
+                .map_err(|e| e.to_string())?;
         }
         Block::Blockquote { content } => write_blocks_content(content, writer)?,
         Block::HorizontalRule => {
-            writer.write_event(Event::Empty(BytesStart::new("text:p"))).map_err(|e| e.to_string())?;
+            writer
+                .write_event(Event::Empty(BytesStart::new("text:p")))
+                .map_err(|e| e.to_string())?;
         }
         Block::Image { .. } => {} // Images not supported in content.xml writer
     }

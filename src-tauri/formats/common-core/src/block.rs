@@ -170,7 +170,12 @@ mod tests {
                 marks: vec![],
             }],
         };
-        if let Block::Paragraph { style_name, content, .. } = &block {
+        if let Block::Paragraph {
+            style_name,
+            content,
+            ..
+        } = &block
+        {
             assert_eq!(style_name.as_deref(), Some("Standard"));
             assert_eq!(content.len(), 1);
         } else {
@@ -224,7 +229,9 @@ mod tests {
                 content: vec![],
             }],
         };
-        let list = Block::BulletList { content: vec![inner] };
+        let list = Block::BulletList {
+            content: vec![inner],
+        };
         if let Block::BulletList { content } = &list {
             assert_eq!(content.len(), 1);
         } else {
@@ -237,7 +244,10 @@ mod tests {
         let block = Block::Heading {
             level: 1,
             style_name: Some("Heading 1".to_string()),
-            attrs: Some(BlockAttrs { text_align: Some("center".to_string()), indent: None }),
+            attrs: Some(BlockAttrs {
+                text_align: Some("center".to_string()),
+                indent: None,
+            }),
             content: vec![],
         };
         let json = serde_json::to_string(&block).unwrap();

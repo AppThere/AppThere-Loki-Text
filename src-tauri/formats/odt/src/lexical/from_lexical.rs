@@ -43,8 +43,20 @@ pub fn from_lexical(
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
 ) -> Document {
-    let blocks = lex.root.children.into_iter().filter_map(node_to_block).collect();
-    Document { blocks, styles, metadata, font_face_decls: None, automatic_styles: None, master_styles: None }
+    let blocks = lex
+        .root
+        .children
+        .into_iter()
+        .filter_map(node_to_block)
+        .collect();
+    Document {
+        blocks,
+        styles,
+        metadata,
+        font_face_decls: None,
+        automatic_styles: None,
+        master_styles: None,
+    }
 }
 
 /// Tries to convert a [`LexicalNode`] to a [`Block`].
@@ -53,14 +65,29 @@ pub fn from_lexical(
 /// appear at block level.
 pub fn node_to_block(node: LexicalNode) -> Option<Block> {
     match node {
-        LexicalNode::ParagraphStyle { style_name, children, format, indent, .. } => {
-            Some(Block::Paragraph {
-                style_name: if style_name.is_empty() { None } else { Some(style_name) },
-                attrs: block_attrs(format, indent),
-                content: children.into_iter().flat_map(node_to_inlines).collect(),
-            })
-        }
-        LexicalNode::HeadingStyle { tag, style_name, children, format, indent, .. } => {
+        LexicalNode::ParagraphStyle {
+            style_name,
+            children,
+            format,
+            indent,
+            ..
+        } => Some(Block::Paragraph {
+            style_name: if style_name.is_empty() {
+                None
+            } else {
+                Some(style_name)
+            },
+            attrs: block_attrs(format, indent),
+            content: children.into_iter().flat_map(node_to_inlines).collect(),
+        }),
+        LexicalNode::HeadingStyle {
+            tag,
+            style_name,
+            children,
+            format,
+            indent,
+            ..
+        } => {
             let level = tag
                 .strip_prefix('h')
                 .and_then(|n| n.parse::<u32>().ok())
@@ -75,7 +102,11 @@ pub fn node_to_block(node: LexicalNode) -> Option<Block> {
         }
         LexicalNode::Image { src, alt_text, .. } => Some(Block::Image {
             src,
-            alt: if alt_text.is_empty() { None } else { Some(alt_text) },
+            alt: if alt_text.is_empty() {
+                None
+            } else {
+                Some(alt_text)
+            },
             title: None,
         }),
         LexicalNode::Table { children, .. } => Some(Block::Table {
@@ -84,7 +115,13 @@ pub fn node_to_block(node: LexicalNode) -> Option<Block> {
         LexicalNode::TableRow { children, .. } => Some(Block::TableRow {
             content: children.into_iter().filter_map(node_to_block).collect(),
         }),
-        LexicalNode::TableCell { col_span, row_span, header_state, children, .. } => {
+        LexicalNode::TableCell {
+            col_span,
+            row_span,
+            header_state,
+            children,
+            ..
+        } => {
             let attrs = Some(CellAttrs {
                 colspan: if col_span == 1 { None } else { Some(col_span) },
                 rowspan: if row_span == 1 { None } else { Some(row_span) },
@@ -97,7 +134,11 @@ pub fn node_to_block(node: LexicalNode) -> Option<Block> {
                 Some(Block::TableCell { attrs, content })
             }
         }
-        LexicalNode::List { list_type, children, .. } => {
+        LexicalNode::List {
+            list_type,
+            children,
+            ..
+        } => {
             let items = children.into_iter().filter_map(node_to_block).collect();
             if list_type == "number" {
                 Some(Block::OrderedList { content: items })
@@ -122,7 +163,12 @@ pub fn node_to_block(node: LexicalNode) -> Option<Block> {
 /// Block-level nodes (paragraph, heading, etc.) are ignored here.
 pub fn node_to_inlines(node: LexicalNode) -> Vec<Inline> {
     match node {
-        LexicalNode::Text { text, format, style_name, .. } => {
+        LexicalNode::Text {
+            text,
+            format,
+            style_name,
+            ..
+        } => {
             vec![Inline::Text {
                 text,
                 style_name: style_name.clone(),
@@ -130,7 +176,12 @@ pub fn node_to_inlines(node: LexicalNode) -> Vec<Inline> {
             }]
         }
         LexicalNode::LineBreak { .. } => vec![Inline::LineBreak],
-        LexicalNode::Link { url, target, children, .. } => {
+        LexicalNode::Link {
+            url,
+            target,
+            children,
+            ..
+        } => {
             let link_mark = TiptapMark::Link {
                 attrs: LinkAttrs { href: url, target },
             };
@@ -138,9 +189,17 @@ pub fn node_to_inlines(node: LexicalNode) -> Vec<Inline> {
                 .into_iter()
                 .flat_map(node_to_inlines)
                 .map(|inline| match inline {
-                    Inline::Text { text, style_name, mut marks } => {
+                    Inline::Text {
+                        text,
+                        style_name,
+                        mut marks,
+                    } => {
                         marks.push(link_mark.clone());
-                        Inline::Text { text, style_name, marks }
+                        Inline::Text {
+                            text,
+                            style_name,
+                            marks,
+                        }
                     }
                     other => other,
                 })
@@ -152,12 +211,19 @@ pub fn node_to_inlines(node: LexicalNode) -> Vec<Inline> {
 }
 
 fn block_attrs(format: String, indent: u32) -> Option<BlockAttrs> {
-    let text_align = if format.is_empty() { None } else { Some(format) };
+    let text_align = if format.is_empty() {
+        None
+    } else {
+        Some(format)
+    };
     let indent_val = if indent == 0 { None } else { Some(indent) };
     if text_align.is_none() && indent_val.is_none() {
         None
     } else {
-        Some(BlockAttrs { text_align, indent: indent_val })
+        Some(BlockAttrs {
+            text_align,
+            indent: indent_val,
+        })
     }
 }
 
@@ -184,7 +250,9 @@ pub(crate) fn decode_format(format: u32, style_name: Option<String>) -> Vec<Tipt
     if let Some(name) = style_name {
         if !name.is_empty() {
             marks.push(TiptapMark::NamedSpanStyle {
-                attrs: TiptapAttrsInline { style_name: Some(name) },
+                attrs: TiptapAttrsInline {
+                    style_name: Some(name),
+                },
             });
         }
     }

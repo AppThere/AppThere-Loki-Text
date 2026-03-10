@@ -43,20 +43,35 @@ pub fn to_lexical(doc: &Document) -> LexicalDocument {
 /// Converts a single [`Block`] to a [`LexicalNode`].
 pub fn block_to_node(block: &Block) -> LexicalNode {
     match block {
-        Block::Paragraph { style_name, attrs, content } => LexicalNode::ParagraphStyle {
+        Block::Paragraph {
+            style_name,
+            attrs,
+            content,
+        } => LexicalNode::ParagraphStyle {
             style_name: style_name.clone().unwrap_or_else(|| "Standard".to_string()),
             children: inlines_to_nodes(content),
             direction: None,
-            format: attrs.as_ref().and_then(|a| a.text_align.clone()).unwrap_or_default(),
+            format: attrs
+                .as_ref()
+                .and_then(|a| a.text_align.clone())
+                .unwrap_or_default(),
             indent: attrs.as_ref().and_then(|a| a.indent).unwrap_or(0),
             version: 1,
         },
-        Block::Heading { level, style_name, attrs, content } => LexicalNode::HeadingStyle {
+        Block::Heading {
+            level,
+            style_name,
+            attrs,
+            content,
+        } => LexicalNode::HeadingStyle {
             tag: format!("h{}", level.min(&6)),
             style_name: style_name.clone(),
             children: inlines_to_nodes(content),
             direction: None,
-            format: attrs.as_ref().and_then(|a| a.text_align.clone()).unwrap_or_default(),
+            format: attrs
+                .as_ref()
+                .and_then(|a| a.text_align.clone())
+                .unwrap_or_default(),
             indent: attrs.as_ref().and_then(|a| a.indent).unwrap_or(0),
             version: 1,
         },
@@ -114,12 +129,8 @@ pub fn block_to_node(block: &Block) -> LexicalNode {
             indent: 0,
             version: 1,
         },
-        Block::TableHeader { attrs, content } => {
-            table_cell_node(attrs, content, true)
-        }
-        Block::TableCell { attrs, content } => {
-            table_cell_node(attrs, content, false)
-        }
+        Block::TableHeader { attrs, content } => table_cell_node(attrs, content, true),
+        Block::TableCell { attrs, content } => table_cell_node(attrs, content, false),
         Block::HorizontalRule => {
             // Represent as empty paragraph – Lexical has no native HR block
             LexicalNode::ParagraphStyle {
@@ -155,7 +166,11 @@ pub fn inlines_to_nodes(inlines: &[Inline]) -> Vec<LexicalNode> {
     let mut out = Vec::with_capacity(inlines.len());
     for inline in inlines {
         match inline {
-            Inline::Text { text, marks, style_name } => {
+            Inline::Text {
+                text,
+                marks,
+                style_name,
+            } => {
                 let link = marks.iter().find_map(|m| {
                     if let TiptapMark::Link { attrs } = m {
                         Some(attrs.clone())
@@ -210,89 +225,5 @@ pub fn inlines_to_nodes(inlines: &[Inline]) -> Vec<LexicalNode> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use common_core::marks::{LinkAttrs, TiptapMark};
-
-    #[test]
-    fn empty_document_produces_root() {
-        let doc = Document::new();
-        let lex = to_lexical(&doc);
-        assert_eq!(lex.root.node_type, "root");
-        assert!(lex.root.children.is_empty());
-    }
-
-    #[test]
-    fn paragraph_becomes_paragraph_style() {
-        let block = Block::Paragraph {
-            style_name: Some("Body Text".to_string()),
-            attrs: None,
-            content: vec![],
-        };
-        let node = block_to_node(&block);
-        if let LexicalNode::ParagraphStyle { style_name, .. } = node {
-            assert_eq!(style_name, "Body Text");
-        } else {
-            panic!("expected ParagraphStyle");
-        }
-    }
-
-    #[test]
-    fn heading_becomes_heading_style_with_tag() {
-        let block = Block::Heading { level: 3, style_name: None, attrs: None, content: vec![] };
-        let node = block_to_node(&block);
-        if let LexicalNode::HeadingStyle { tag, .. } = node {
-            assert_eq!(tag, "h3");
-        } else {
-            panic!("expected HeadingStyle");
-        }
-    }
-
-    #[test]
-    fn text_with_bold_italic_sets_format() {
-        let inlines = vec![Inline::Text {
-            text: "hi".to_string(),
-            style_name: None,
-            marks: vec![TiptapMark::Bold, TiptapMark::Italic],
-        }];
-        let nodes = inlines_to_nodes(&inlines);
-        if let LexicalNode::Text { format, .. } = &nodes[0] {
-            assert_eq!(*format, FORMAT_BOLD | FORMAT_ITALIC);
-        } else {
-            panic!("expected Text");
-        }
-    }
-
-    #[test]
-    fn link_mark_produces_link_wrapper() {
-        let inlines = vec![Inline::Text {
-            text: "click".to_string(),
-            style_name: None,
-            marks: vec![TiptapMark::Link {
-                attrs: LinkAttrs {
-                    href: "https://example.com".to_string(),
-                    target: Some("_blank".to_string()),
-                },
-            }],
-        }];
-        let nodes = inlines_to_nodes(&inlines);
-        if let LexicalNode::Link { url, children, .. } = &nodes[0] {
-            assert_eq!(url, "https://example.com");
-            assert_eq!(children.len(), 1);
-        } else {
-            panic!("expected Link");
-        }
-    }
-
-    #[test]
-    fn line_break_becomes_linebreak_node() {
-        let nodes = inlines_to_nodes(&[Inline::LineBreak]);
-        assert!(matches!(nodes[0], LexicalNode::LineBreak { .. }));
-    }
-
-    #[test]
-    fn page_break_becomes_page_break_node() {
-        let node = block_to_node(&Block::PageBreak);
-        assert!(matches!(node, LexicalNode::PageBreak { .. }));
-    }
-}
+#[path = "to_lexical_tests.rs"]
+mod tests;

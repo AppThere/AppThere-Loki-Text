@@ -31,12 +31,17 @@ pub fn write_blocks(blocks: &[Block], writer: &mut XmlWriter) -> Result<(), Stri
 /// Writes a single block element.
 fn write_single_block(block: &Block, writer: &mut XmlWriter) -> Result<(), String> {
     match block {
-        Block::Paragraph { style_name, content, .. } => {
-            write_paragraph(style_name.as_deref(), content, writer)
-        }
-        Block::Heading { level, style_name, content, .. } => {
-            write_heading(*level, style_name.as_deref(), content, writer)
-        }
+        Block::Paragraph {
+            style_name,
+            content,
+            ..
+        } => write_paragraph(style_name.as_deref(), content, writer),
+        Block::Heading {
+            level,
+            style_name,
+            content,
+            ..
+        } => write_heading(*level, style_name.as_deref(), content, writer),
         Block::PageBreak => write_page_break(writer),
         Block::BulletList { content } | Block::OrderedList { content } => {
             write_list(content, writer)
@@ -50,82 +55,131 @@ fn write_single_block(block: &Block, writer: &mut XmlWriter) -> Result<(), Strin
         }
         Block::Image { src, .. } => write_image(src, writer),
         Block::Blockquote { content } => write_blocks(content, writer),
-        Block::HorizontalRule => {
-            writer.write_event(Event::Empty(BytesStart::new("text:p"))).map_err(|e| e.to_string())
-        }
+        Block::HorizontalRule => writer
+            .write_event(Event::Empty(BytesStart::new("text:p")))
+            .map_err(|e| e.to_string()),
     }
 }
 
-fn write_paragraph(style_name: Option<&str>, content: &[Inline], writer: &mut XmlWriter) -> Result<(), String> {
+fn write_paragraph(
+    style_name: Option<&str>,
+    content: &[Inline],
+    writer: &mut XmlWriter,
+) -> Result<(), String> {
     let mut p = BytesStart::new("text:p");
     if let Some(s) = style_name {
         p.push_attribute(("text:style-name", s));
     }
-    writer.write_event(Event::Start(p)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(p))
+        .map_err(|e| e.to_string())?;
     write_inlines_with_style(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new("text:p"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("text:p")))
+        .map_err(|e| e.to_string())
 }
 
-fn write_heading(level: u32, style_name: Option<&str>, content: &[Inline], writer: &mut XmlWriter) -> Result<(), String> {
+fn write_heading(
+    level: u32,
+    style_name: Option<&str>,
+    content: &[Inline],
+    writer: &mut XmlWriter,
+) -> Result<(), String> {
     let mut h = BytesStart::new("text:h");
     if let Some(s) = style_name {
         h.push_attribute(("text:style-name", s));
     }
     h.push_attribute(("text:outline-level", level.to_string().as_str()));
-    writer.write_event(Event::Start(h)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(h))
+        .map_err(|e| e.to_string())?;
     write_inlines_with_style(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new("text:h"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("text:h")))
+        .map_err(|e| e.to_string())
 }
 
 fn write_page_break(writer: &mut XmlWriter) -> Result<(), String> {
     let mut p = BytesStart::new("text:p");
     p.push_attribute(("text:style-name", "PageBreak"));
-    writer.write_event(Event::Empty(p)).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::Empty(p))
+        .map_err(|e| e.to_string())
 }
 
 fn write_list(items: &[Block], writer: &mut XmlWriter) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new("text:list"))).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(BytesStart::new("text:list")))
+        .map_err(|e| e.to_string())?;
     for item in items {
         write_single_block(item, writer)?;
     }
-    writer.write_event(Event::End(BytesEnd::new("text:list"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("text:list")))
+        .map_err(|e| e.to_string())
 }
 
 fn write_list_item(content: &[Block], writer: &mut XmlWriter) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new("text:list-item"))).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(BytesStart::new("text:list-item")))
+        .map_err(|e| e.to_string())?;
     write_blocks(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new("text:list-item"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("text:list-item")))
+        .map_err(|e| e.to_string())
 }
 
 fn write_table(content: &[Block], writer: &mut XmlWriter) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new("table:table"))).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(BytesStart::new("table:table")))
+        .map_err(|e| e.to_string())?;
     write_blocks(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new("table:table"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("table:table")))
+        .map_err(|e| e.to_string())
 }
 
 fn write_table_row(content: &[Block], writer: &mut XmlWriter) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new("table:table-row"))).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(BytesStart::new("table:table-row")))
+        .map_err(|e| e.to_string())?;
     write_blocks(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new("table:table-row"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new("table:table-row")))
+        .map_err(|e| e.to_string())
 }
 
-fn write_table_cell(tag: &'static str, content: &[Block], writer: &mut XmlWriter) -> Result<(), String> {
-    writer.write_event(Event::Start(BytesStart::new(tag))).map_err(|e| e.to_string())?;
+fn write_table_cell(
+    tag: &'static str,
+    content: &[Block],
+    writer: &mut XmlWriter,
+) -> Result<(), String> {
+    writer
+        .write_event(Event::Start(BytesStart::new(tag)))
+        .map_err(|e| e.to_string())?;
     write_blocks(content, writer)?;
-    writer.write_event(Event::End(BytesEnd::new(tag))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::End(BytesEnd::new(tag)))
+        .map_err(|e| e.to_string())
 }
 
 fn write_image(src: &str, writer: &mut XmlWriter) -> Result<(), String> {
     let mut frame = BytesStart::new("draw:frame");
     frame.push_attribute(("draw:name", "Image"));
-    writer.write_event(Event::Start(frame)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(frame))
+        .map_err(|e| e.to_string())?;
     let mut img = BytesStart::new("draw:image");
     img.push_attribute(("xlink:href", src));
     img.push_attribute(("xlink:type", "simple"));
     img.push_attribute(("xlink:show", "embed"));
     img.push_attribute(("xlink:actuate", "onLoad"));
-    writer.write_event(Event::Empty(img)).map_err(|e| e.to_string())?;
-    writer.write_event(Event::End(BytesEnd::new("draw:frame"))).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::Empty(img))
+        .map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::End(BytesEnd::new("draw:frame")))
+        .map_err(|e| e.to_string())
 }
 
 /// Writes inline content using style names (for FODT and styles.xml output).
@@ -135,19 +189,31 @@ fn write_image(src: &str, writer: &mut XmlWriter) -> Result<(), String> {
 pub fn write_inlines_with_style(inlines: &[Inline], writer: &mut XmlWriter) -> Result<(), String> {
     for inline in inlines {
         match inline {
-            Inline::Text { text, style_name, .. } => {
+            Inline::Text {
+                text, style_name, ..
+            } => {
                 if let Some(s) = style_name {
                     let mut span = BytesStart::new("text:span");
                     span.push_attribute(("text:style-name", s.as_str()));
-                    writer.write_event(Event::Start(span)).map_err(|e| e.to_string())?;
-                    writer.write_event(Event::Text(BytesText::new(text))).map_err(|e| e.to_string())?;
-                    writer.write_event(Event::End(BytesEnd::new("text:span"))).map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::Start(span))
+                        .map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::Text(BytesText::new(text)))
+                        .map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("text:span")))
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    writer.write_event(Event::Text(BytesText::new(text))).map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::Text(BytesText::new(text)))
+                        .map_err(|e| e.to_string())?;
                 }
             }
             Inline::LineBreak => {
-                writer.write_event(Event::Empty(BytesStart::new("text:line-break"))).map_err(|e| e.to_string())?;
+                writer
+                    .write_event(Event::Empty(BytesStart::new("text:line-break")))
+                    .map_err(|e| e.to_string())?;
             }
         }
     }
@@ -164,15 +230,23 @@ pub fn write_inlines_with_marks(inlines: &[Inline], writer: &mut XmlWriter) -> R
             Inline::Text { text, marks, .. } => {
                 let has_marks = !marks.is_empty();
                 if has_marks {
-                    writer.write_event(Event::Start(BytesStart::new("text:span"))).map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::Start(BytesStart::new("text:span")))
+                        .map_err(|e| e.to_string())?;
                 }
-                writer.write_event(Event::Text(BytesText::new(text))).map_err(|e| e.to_string())?;
+                writer
+                    .write_event(Event::Text(BytesText::new(text)))
+                    .map_err(|e| e.to_string())?;
                 if has_marks {
-                    writer.write_event(Event::End(BytesEnd::new("text:span"))).map_err(|e| e.to_string())?;
+                    writer
+                        .write_event(Event::End(BytesEnd::new("text:span")))
+                        .map_err(|e| e.to_string())?;
                 }
             }
             Inline::LineBreak => {
-                writer.write_event(Event::Empty(BytesStart::new("text:line-break"))).map_err(|e| e.to_string())?;
+                writer
+                    .write_event(Event::Empty(BytesStart::new("text:line-break")))
+                    .map_err(|e| e.to_string())?;
             }
         }
     }

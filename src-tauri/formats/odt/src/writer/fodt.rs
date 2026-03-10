@@ -6,8 +6,8 @@
 
 use std::io::Cursor;
 
-use common_core::{Block, Metadata};
 use common_core::StyleDefinition;
+use common_core::{Block, Metadata};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::{Reader, Writer};
 use std::collections::HashMap;
@@ -40,7 +40,9 @@ pub fn to_xml(
 
     let mut document = BytesStart::new("office:document");
     push_fodt_ns(&mut document);
-    writer.write_event(Event::Start(document)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(document))
+        .map_err(|e| e.to_string())?;
 
     // Write <office:meta>
     writer
@@ -113,25 +115,30 @@ pub fn update_fodt(
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e))
-                if e.name().as_ref() == b"office:text" && skip_depth == 0 =>
-            {
-                writer.write_event(Event::Start(e.clone())).map_err(|err| err.to_string())?;
+            Ok(Event::Start(ref e)) if e.name().as_ref() == b"office:text" && skip_depth == 0 => {
+                writer
+                    .write_event(Event::Start(e.clone()))
+                    .map_err(|err| err.to_string())?;
                 inject_inner_xml(&mut writer, content_xml, "<office:text>", "</office:text>")?;
                 skip_depth = 1;
             }
-            Ok(Event::Start(ref e))
-                if e.name().as_ref() == b"office:meta" && skip_depth == 0 =>
-            {
-                writer.write_event(Event::Start(e.clone())).map_err(|err| err.to_string())?;
+            Ok(Event::Start(ref e)) if e.name().as_ref() == b"office:meta" && skip_depth == 0 => {
+                writer
+                    .write_event(Event::Start(e.clone()))
+                    .map_err(|err| err.to_string())?;
                 inject_inner_xml(&mut writer, meta_xml, "<office:meta>", "</office:meta>")?;
                 skip_depth = 1;
             }
-            Ok(Event::Start(ref e))
-                if e.name().as_ref() == b"office:styles" && skip_depth == 0 =>
-            {
-                writer.write_event(Event::Start(e.clone())).map_err(|err| err.to_string())?;
-                inject_inner_xml(&mut writer, styles_xml, "<office:styles>", "</office:styles>")?;
+            Ok(Event::Start(ref e)) if e.name().as_ref() == b"office:styles" && skip_depth == 0 => {
+                writer
+                    .write_event(Event::Start(e.clone()))
+                    .map_err(|err| err.to_string())?;
+                inject_inner_xml(
+                    &mut writer,
+                    styles_xml,
+                    "<office:styles>",
+                    "</office:styles>",
+                )?;
                 skip_depth = 1;
                 in_styles = true;
             }
@@ -140,7 +147,9 @@ pub fn update_fodt(
             Ok(Event::End(e)) if skip_depth > 0 => {
                 skip_depth -= 1;
                 if skip_depth == 0 {
-                    writer.write_event(Event::End(e)).map_err(|err| err.to_string())?;
+                    writer
+                        .write_event(Event::End(e))
+                        .map_err(|err| err.to_string())?;
                     in_styles = false;
                 }
             }
@@ -209,8 +218,12 @@ fn write_preserved_or_empty(
             .write_event(Event::Text(BytesText::from_escaped(xml)))
             .map_err(|e| e.to_string())?;
     } else {
-        writer.write_event(Event::Start(BytesStart::new(tag))).map_err(|e| e.to_string())?;
-        writer.write_event(Event::End(BytesEnd::new(tag))).map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::Start(BytesStart::new(tag)))
+            .map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::End(BytesEnd::new(tag)))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

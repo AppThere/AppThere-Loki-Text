@@ -55,9 +55,8 @@ fn parse_single_paragraph() {
 
 #[test]
 fn parse_multiple_paragraphs() {
-    let xml = fodt_with_body(
-        r#"<text:p>First</text:p><text:p>Second</text:p><text:p>Third</text:p>"#,
-    );
+    let xml =
+        fodt_with_body(r#"<text:p>First</text:p><text:p>Second</text:p><text:p>Third</text:p>"#);
     let doc = parse_document(&xml).unwrap();
     assert_eq!(doc.blocks.len(), 3);
 }
@@ -185,8 +184,7 @@ fn full_pipeline_fodt_paragraph() {
     let parsed = parse_document(&xml).unwrap();
 
     let tiptap = document_to_tiptap(&parsed.blocks);
-    let reconstructed =
-        tiptap_to_document(tiptap, parsed.styles.clone(), parsed.metadata.clone());
+    let reconstructed = tiptap_to_document(tiptap, parsed.styles.clone(), parsed.metadata.clone());
 
     assert_eq!(reconstructed.blocks.len(), 1);
     if let Block::Paragraph { content, .. } = &reconstructed.blocks[0] {
@@ -204,7 +202,15 @@ fn full_pipeline_fodt_paragraph() {
 
 #[test]
 fn to_xml_empty_document_produces_valid_fodt() {
-    let xml = to_xml(&[], &HashMap::new(), &Metadata::default(), &None, &None, &None).unwrap();
+    let xml = to_xml(
+        &[],
+        &HashMap::new(),
+        &Metadata::default(),
+        &None,
+        &None,
+        &None,
+    )
+    .unwrap();
     assert!(xml.contains("office:document"));
     assert!(xml.contains("office:body"));
 }
@@ -220,8 +226,15 @@ fn to_xml_with_paragraph() {
             marks: vec![],
         }],
     }];
-    let xml = to_xml(&blocks, &HashMap::new(), &Metadata::default(), &None, &None, &None)
-        .unwrap();
+    let xml = to_xml(
+        &blocks,
+        &HashMap::new(),
+        &Metadata::default(),
+        &None,
+        &None,
+        &None,
+    )
+    .unwrap();
     assert!(xml.contains("Written content"));
     assert!(xml.contains("text:p"));
 }

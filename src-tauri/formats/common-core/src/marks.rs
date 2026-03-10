@@ -100,7 +100,9 @@ mod tests {
     #[test]
     fn named_span_style_mark_roundtrip() {
         let mark = TiptapMark::NamedSpanStyle {
-            attrs: TiptapAttrsInline { style_name: Some("Emphasis".to_string()) },
+            attrs: TiptapAttrsInline {
+                style_name: Some("Emphasis".to_string()),
+            },
         };
         let json = serde_json::to_string(&mark).unwrap();
         assert!(json.contains("Emphasis"));
@@ -110,7 +112,10 @@ mod tests {
 
     #[test]
     fn link_attrs_no_target() {
-        let attrs = LinkAttrs { href: "https://example.org".to_string(), target: None };
+        let attrs = LinkAttrs {
+            href: "https://example.org".to_string(),
+            target: None,
+        };
         assert_eq!(attrs.href, "https://example.org");
         assert!(attrs.target.is_none());
     }

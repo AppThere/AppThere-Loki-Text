@@ -30,7 +30,9 @@ pub fn styles_to_xml(
 
     let mut root = BytesStart::new("office:document-styles");
     push_styles_doc_ns(&mut root);
-    writer.write_event(Event::Start(root)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(root))
+        .map_err(|e| e.to_string())?;
 
     write_preserved_section(&mut writer, font_face_decls)?;
     write_styles_section(&mut writer, styles)?;
@@ -93,7 +95,9 @@ fn write_style_definition(
         style_elem.push_attribute(("loki:autocomplete", "true"));
     }
 
-    writer.write_event(Event::Start(style_elem)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(style_elem))
+        .map_err(|e| e.to_string())?;
 
     if style_def.family == StyleFamily::Paragraph {
         write_paragraph_properties(writer, &style_def.attributes)?;
@@ -117,7 +121,9 @@ fn write_paragraph_properties(
             para_props.push_attribute((key.as_str(), coerced.as_str()));
         }
     }
-    writer.write_event(Event::Empty(para_props)).map_err(|e| e.to_string())
+    writer
+        .write_event(Event::Empty(para_props))
+        .map_err(|e| e.to_string())
 }
 
 /// Writes `<style:text-properties>` from the style's attribute map.
@@ -141,7 +147,9 @@ fn write_text_properties(
     }
 
     if has_props {
-        writer.write_event(Event::Empty(text_props)).map_err(|e| e.to_string())?;
+        writer
+            .write_event(Event::Empty(text_props))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -191,11 +199,15 @@ fn write_page_break_style(writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), St
     pb_style.push_attribute(("style:name", "PageBreak"));
     pb_style.push_attribute(("style:family", "paragraph"));
     pb_style.push_attribute(("style:parent-style-name", "Standard"));
-    writer.write_event(Event::Start(pb_style)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Start(pb_style))
+        .map_err(|e| e.to_string())?;
 
     let mut pb_props = BytesStart::new("style:paragraph-properties");
     pb_props.push_attribute(("fo:break-before", "page"));
-    writer.write_event(Event::Empty(pb_props)).map_err(|e| e.to_string())?;
+    writer
+        .write_event(Event::Empty(pb_props))
+        .map_err(|e| e.to_string())?;
 
     writer
         .write_event(Event::End(BytesEnd::new("style:style")))

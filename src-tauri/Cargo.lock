@@ -6,8 +6,10 @@ version = 4
 name = "AppThere-Loki"
 version = "0.1.0"
 dependencies = [
+ "common-core",
  "epub-logic",
  "log",
+ "odt-format",
  "odt-logic",
  "serde",
  "serde_json",

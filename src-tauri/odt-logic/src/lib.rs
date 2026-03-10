@@ -1,3 +1,12 @@
+//! Legacy ODT parsing and generation crate.
+//!
+//! **DEPRECATED since 0.2.0**: This monolithic crate has been superseded by:
+//! - [`common-core`](../common_core): format-agnostic document types
+//! - [`odt-format`](../odt_format): ODT parsing, writing, and Lexical conversion
+//!
+//! This crate is kept for backward compatibility while `epub-logic` migrates.
+//! New code should use `odt-format` and `common-core` instead.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

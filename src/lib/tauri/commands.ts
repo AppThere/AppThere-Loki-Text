@@ -1,11 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { StyleDefinition, Metadata } from '../types/odt';
-import type { TiptapResponse } from '../utils/lexicalAdapter';
+import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/odt';
+
+/** Response from `open_document`: native Lexical editor state + styles + metadata. */
+export interface LexicalResponse {
+    content: LexicalDocumentData;
+    styles: Record<string, StyleDefinition>;
+    metadata: Metadata;
+}
 
 export async function openDocument(
     path: string,
     fileContent?: Uint8Array
-): Promise<TiptapResponse> {
+): Promise<LexicalResponse> {
     return await invoke('open_document', {
         path,
         fileContent: fileContent ? Array.from(fileContent) : null,
@@ -14,7 +20,7 @@ export async function openDocument(
 
 export async function saveDocument(
     path: string,
-    tiptapJson: string,
+    lexicalJson: string,
     styles: Record<string, StyleDefinition>,
     metadata: Metadata,
     originalPath?: string,
@@ -22,7 +28,7 @@ export async function saveDocument(
 ): Promise<Uint8Array | null> {
     const result: number[] | null = await invoke('save_document', {
         path,
-        tiptapJson,
+        lexicalJson,
         styles,
         metadata,
         originalPath: originalPath ?? null,
@@ -33,14 +39,14 @@ export async function saveDocument(
 
 export async function saveEpub(
     path: string,
-    tiptapJson: string,
+    lexicalJson: string,
     styles: Record<string, StyleDefinition>,
     metadata: Metadata,
     fontPaths: string[]
 ): Promise<Uint8Array | null> {
     const result: number[] | null = await invoke('save_epub', {
         path,
-        tiptapJson,
+        lexicalJson,
         styles,
         metadata,
         fontPaths,

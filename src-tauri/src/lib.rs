@@ -1,7 +1,8 @@
 mod commands;
 
+use common_core::{LexicalDocument, Metadata, StyleDefinition};
 use log::info;
-use odt_logic::{Document, Metadata, StyleDefinition, TiptapNode};
+use odt_format::{lexical::from_lexical, Document};
 use std::collections::HashMap;
 
 // Type aliases for easier binding
@@ -14,13 +15,14 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn sync_document(
-    tiptap_json: String,
+    lexical_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
 ) -> Result<Document, String> {
     info!("Synchronizing document...");
-    let json_node: TiptapNode = serde_json::from_str(&tiptap_json).map_err(|e| e.to_string())?;
-    Ok(Document::from_tiptap(json_node, styles, metadata))
+    let lex_doc: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| e.to_string())?;
+    Ok(from_lexical(lex_doc, styles, metadata))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

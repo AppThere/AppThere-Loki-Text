@@ -16,7 +16,7 @@
 //!
 //! ```
 //! use common_core::{Block, Inline, Metadata, StyleDefinition};
-//! use common_core::tiptap::{TiptapNode, TiptapAttrs};
+//! use common_core::lexical::{LexicalDocument, LexicalRoot};
 //!
 //! let para = Block::Paragraph {
 //!     style_name: Some("Standard".to_string()),
@@ -31,6 +31,7 @@
 
 pub mod block;
 pub mod inline;
+pub mod lexical;
 pub mod marks;
 pub mod metadata;
 pub mod style;
@@ -38,6 +39,7 @@ pub mod tiptap;
 
 pub use block::{Block, BlockAttrs, CellAttrs};
 pub use inline::Inline;
+pub use lexical::{LexicalDocument, LexicalNode, LexicalRoot};
 pub use marks::{LinkAttrs, TiptapAttrsInline, TiptapMark};
 pub use metadata::Metadata;
 pub use style::{StyleDefinition, StyleFamily};

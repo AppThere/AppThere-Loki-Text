@@ -5,7 +5,6 @@ import { openDocument, saveDocument, saveEpub } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
-import { convertTiptapToLexical, convertLexicalToTiptap } from '../utils/lexicalAdapter';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
 
@@ -46,8 +45,7 @@ export function useFileOperations() {
             setPath('');
             originalFileBytes = null;
 
-            const lexicalData = convertTiptapToLexical(response.content);
-            setContent(lexicalData);
+            setContent(response.content);
             setStyles(response.styles);
             // Default to 'Untitled Document' for NEW documents from standard template
             setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
@@ -75,8 +73,7 @@ export function useFileOperations() {
             const response = await openDocument(path, fileBytes);
 
             setPath(path);
-            const lexicalData = convertTiptapToLexical(response.content);
-            setContent(lexicalData);
+            setContent(response.content);
             setStyles(response.styles);
             setMetadata(response.metadata);
             addDocument({
@@ -132,8 +129,7 @@ export function useFileOperations() {
                         setPath('');
                         originalFileBytes = null;
 
-                        const lexicalData = convertTiptapToLexical(response.content);
-                        setContent(lexicalData);
+                        setContent(response.content);
                         setStyles(response.styles);
                         setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
                         addTemplate('text', {
@@ -168,10 +164,9 @@ export function useFileOperations() {
         }
 
         try {
-            const tiptapNode = convertLexicalToTiptap(currentContent);
             const newBytes = await saveDocument(
                 currentPath,
-                JSON.stringify(tiptapNode),
+                JSON.stringify(currentContent),
                 styles,
                 metadata,
                 currentPath,
@@ -231,10 +226,9 @@ export function useFileOperations() {
                 const path = typeof selected === 'string' ? selected : (selected as any).path;
                 if (!path) return;
 
-                const tiptapNode = convertLexicalToTiptap(currentContent);
                 const newBytes = await saveDocument(
                     path,
-                    JSON.stringify(tiptapNode),
+                    JSON.stringify(currentContent),
                     styles,
                     metadata,
                     currentPath || undefined,
@@ -282,15 +276,13 @@ export function useFileOperations() {
                 const path = typeof selected === 'string' ? selected : (selected as any).path;
                 if (!path) return;
 
-                const tiptapNode = convertLexicalToTiptap(currentContent);
-
-                // For now, we don't have a sophisticated font locator, 
+                // For now, we don't have a sophisticated font locator,
                 // but we can pass names or empty list if fonts are bundled in the binary
                 const fontPaths: string[] = [];
 
                 const newBytes = await saveEpub(
                     path,
-                    JSON.stringify(tiptapNode),
+                    JSON.stringify(currentContent),
                     styles,
                     metadata,
                     fontPaths

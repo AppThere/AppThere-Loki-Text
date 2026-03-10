@@ -1,4 +1,5 @@
-use odt_logic::{Metadata, StyleDefinition, TiptapNode};
+use common_core::{LexicalDocument, Metadata, StyleDefinition};
+use odt_format::{lexical::from_lexical, tiptap::to_tiptap::document_to_tiptap};
 use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -8,14 +9,23 @@ type CommandResult<T> = Result<T, String>;
 pub async fn save_epub<R: Runtime>(
     app: AppHandle<R>,
     path: String,
-    tiptap_json: String,
+    lexical_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
     font_paths: Vec<String>,
 ) -> CommandResult<Option<Vec<u8>>> {
     app.emit("debug_log", format!("Exporting EPUB to: {}", path)).ok();
 
-    let json_node: TiptapNode = serde_json::from_str(&tiptap_json).map_err(|e| e.to_string())?;
+    // Parse Lexical JSON → Document (common_core types)
+    let lex_doc: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| e.to_string())?;
+    let odt_doc = from_lexical(lex_doc, styles.clone(), metadata.clone());
+
+    // Bridge to odt_logic types via JSON round-trip (epub_logic uses odt_logic::TiptapNode)
+    let common_node = document_to_tiptap(&odt_doc.blocks);
+    let bridge_json = serde_json::to_string(&common_node).map_err(|e| e.to_string())?;
+    let json_node: odt_logic::TiptapNode =
+        serde_json::from_str(&bridge_json).map_err(|e| e.to_string())?;
 
     // Load fonts
     let mut fonts = Vec::new();

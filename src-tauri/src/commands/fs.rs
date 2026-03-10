@@ -1,4 +1,9 @@
-use odt_logic::{Document, Metadata, StyleDefinition, TiptapNode, TiptapResponse};
+use common_core::{LexicalDocument, Metadata, StyleDefinition};
+use odt_format::{
+    lexical::{from_lexical, to_lexical},
+    Document,
+};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     io::{Cursor, Read, Write},
@@ -6,13 +11,21 @@ use std::{
 use tauri::{AppHandle, Emitter, Runtime};
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
+/// Response payload for `open_document`: Lexical editor state + styles + metadata.
+#[derive(Serialize)]
+pub struct LexicalResponse {
+    pub content: LexicalDocument,
+    pub styles: HashMap<String, StyleDefinition>,
+    pub metadata: Metadata,
+}
+
 type CommandResult<T> = Result<T, String>;
 
 #[tauri::command]
 pub async fn save_document<R: Runtime>(
     app: AppHandle<R>,
     path: String,
-    tiptap_json: String,
+    lexical_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
     original_path: Option<String>,
@@ -21,11 +34,11 @@ pub async fn save_document<R: Runtime>(
     app.emit("debug_log", format!("Saving document to {}", path))
         .ok();
 
-    // Deserialize Tiptap JSON
-    let json_node: TiptapNode =
-        serde_json::from_str(&tiptap_json).map_err(|e| format!("Invalid JSON: {}", e))?;
+    // Deserialize Lexical editor state
+    let lex_doc: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| format!("Invalid Lexical JSON: {}", e))?;
 
-    let doc = Document::from_tiptap(json_node, styles, metadata);
+    let doc = from_lexical(lex_doc, styles, metadata);
 
     let mut original_bytes: Option<Vec<u8>> = original_content;
     if original_bytes.is_none() {
@@ -202,7 +215,7 @@ pub async fn open_document<R: Runtime>(
     app: AppHandle<R>,
     path: String,
     file_content: Option<Vec<u8>>,
-) -> CommandResult<TiptapResponse> {
+) -> CommandResult<LexicalResponse> {
     app.emit("debug_log", format!("Opening document: {}", path))
         .ok();
 
@@ -294,8 +307,8 @@ pub async fn open_document<R: Runtime>(
         Document::from_xml(&xml_content)?
     };
 
-    Ok(TiptapResponse {
-        content: doc.to_tiptap(),
+    Ok(LexicalResponse {
+        content: to_lexical(&doc),
         styles: doc.styles,
         metadata: doc.metadata,
     })

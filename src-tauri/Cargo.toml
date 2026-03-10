@@ -1,5 +1,5 @@
 [workspace]
-members = ["odt-logic", "epub-logic"]
+members = ["odt-logic", "epub-logic", "formats/common-core", "formats/odt"]
 
 [package]
 name = "AppThere-Loki"

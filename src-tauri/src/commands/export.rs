@@ -14,7 +14,8 @@ pub async fn save_epub<R: Runtime>(
     metadata: Metadata,
     font_paths: Vec<String>,
 ) -> CommandResult<Option<Vec<u8>>> {
-    app.emit("debug_log", format!("Exporting EPUB to: {}", path)).ok();
+    app.emit("debug_log", format!("Exporting EPUB to: {}", path))
+        .ok();
 
     // Parse Lexical JSON → Document (common_core types)
     let lex_doc: LexicalDocument =
@@ -36,7 +37,7 @@ pub async fn save_epub<R: Runtime>(
                 .and_then(|n| n.to_str())
                 .unwrap_or("font.ttf")
                 .to_string();
-            
+
             // Extract family name from filename (e.g., "CourierPrime-Regular.ttf" -> "Courier Prime")
             let family_name = filename
                 .split('.')
@@ -46,7 +47,7 @@ pub async fn save_epub<R: Runtime>(
                 .next()
                 .unwrap_or("Unknown")
                 .to_string();
-            
+
             fonts.push(epub_logic::FontAsset {
                 family_name,
                 filename,
@@ -55,13 +56,27 @@ pub async fn save_epub<R: Runtime>(
             });
         }
     }
-    
+
+    // Convert common_core types to odt_logic types by JSON round-trip
+    let styles_json = serde_json::to_string(&styles).map_err(|e| e.to_string())?;
+    let odt_styles: HashMap<String, odt_logic::StyleDefinition> =
+        serde_json::from_str(&styles_json).map_err(|e| e.to_string())?;
+
+    let meta_json = serde_json::to_string(&metadata).map_err(|e| e.to_string())?;
+    let odt_metadata: odt_logic::Metadata =
+        serde_json::from_str(&meta_json).map_err(|e| e.to_string())?;
+
     // Create EPUB document
-    let epub_doc = epub_logic::EpubDocument::from_tiptap(json_node, styles, metadata, fonts);
-    
+    let epub_doc =
+        epub_logic::EpubDocument::from_tiptap(json_node, odt_styles, odt_metadata, fonts);
+
     // Write EPUB
     if path.starts_with("content://") {
-        app.emit("debug_log", "Detected content:// URI. Generating EPUB in memory...".to_string()).ok();
+        app.emit(
+            "debug_log",
+            "Detected content:// URI. Generating EPUB in memory...".to_string(),
+        )
+        .ok();
         let mut buffer = std::io::Cursor::new(Vec::new());
         write_epub_zip(&mut buffer, &epub_doc)?;
         let bytes = buffer.into_inner();
@@ -75,65 +90,103 @@ pub async fn save_epub<R: Runtime>(
 
 fn write_epub_zip<W: std::io::Write + std::io::Seek>(
     writer: W,
-    epub_doc: &epub_logic::EpubDocument
+    epub_doc: &epub_logic::EpubDocument,
 ) -> Result<(), String> {
     use std::io::Write;
     let mut zip_writer = zip::ZipWriter::new(writer);
-    
+
     // 1. mimetype (MUST be first, uncompressed)
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Stored)
         .unix_permissions(0o755);
 
-    zip_writer.start_file("mimetype", options).map_err(|e| e.to_string())?;
-    zip_writer.write_all(b"application/epub+zip").map_err(|e| e.to_string())?;
-    
+    zip_writer
+        .start_file("mimetype", options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .write_all(b"application/epub+zip")
+        .map_err(|e| e.to_string())?;
+
     // 2. META-INF/container.xml
     let deflated_options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o755);
-        
-    zip_writer.add_directory("META-INF", options).map_err(|e| e.to_string())?;
-    zip_writer.start_file("META-INF/container.xml", deflated_options).map_err(|e| e.to_string())?;
+
+    zip_writer
+        .add_directory("META-INF", options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .start_file("META-INF/container.xml", deflated_options)
+        .map_err(|e| e.to_string())?;
     let container = r#"<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>"#;
-    zip_writer.write_all(container.as_bytes()).map_err(|e| e.to_string())?;
-    
+    zip_writer
+        .write_all(container.as_bytes())
+        .map_err(|e| e.to_string())?;
+
     // 3. EPUB/package.opf
-    zip_writer.add_directory("OEBPS", options).map_err(|e| e.to_string())?;
-    zip_writer.start_file("OEBPS/content.opf", deflated_options).map_err(|e| e.to_string())?;
-    zip_writer.write_all(epub_doc.to_package_opf().as_bytes()).map_err(|e| e.to_string())?;
-    
+    zip_writer
+        .add_directory("OEBPS", options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .start_file("OEBPS/content.opf", deflated_options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .write_all(epub_doc.to_package_opf().as_bytes())
+        .map_err(|e| e.to_string())?;
+
     // 4. OEBPS/nav.xhtml
-    zip_writer.start_file("OEBPS/nav.xhtml", deflated_options).map_err(|e| e.to_string())?;
-    zip_writer.write_all(epub_doc.to_nav_xhtml().as_bytes()).map_err(|e| e.to_string())?;
-    
+    zip_writer
+        .start_file("OEBPS/nav.xhtml", deflated_options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .write_all(epub_doc.to_nav_xhtml().as_bytes())
+        .map_err(|e| e.to_string())?;
+
     // 5. OEBPS/Text/... (Content)
-    zip_writer.add_directory("OEBPS/Text", options).map_err(|e| e.to_string())?;
+    zip_writer
+        .add_directory("OEBPS/Text", options)
+        .map_err(|e| e.to_string())?;
     for section in &epub_doc.sections {
         let filename = format!("OEBPS/Text/{}.xhtml", section.id);
-        zip_writer.start_file(&filename, deflated_options).map_err(|e| e.to_string())?;
-        zip_writer.write_all(epub_doc.section_to_xhtml(section).as_bytes()).map_err(|e| e.to_string())?;
+        zip_writer
+            .start_file(&filename, deflated_options)
+            .map_err(|e| e.to_string())?;
+        zip_writer
+            .write_all(epub_doc.section_to_xhtml(section).as_bytes())
+            .map_err(|e| e.to_string())?;
     }
-    
+
     // 6. OEBPS/Styles/styles.css
-    zip_writer.add_directory("OEBPS/Styles", options).map_err(|e| e.to_string())?;
-    zip_writer.start_file("OEBPS/Styles/styles.css", deflated_options).map_err(|e| e.to_string())?;
-    zip_writer.write_all(epub_doc.to_css().as_bytes()).map_err(|e| e.to_string())?;
-    
+    zip_writer
+        .add_directory("OEBPS/Styles", options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .start_file("OEBPS/Styles/styles.css", deflated_options)
+        .map_err(|e| e.to_string())?;
+    zip_writer
+        .write_all(epub_doc.to_css().as_bytes())
+        .map_err(|e| e.to_string())?;
+
     // 7. OEBPS/Fonts
     if !epub_doc.fonts.is_empty() {
-        zip_writer.add_directory("OEBPS/Fonts", options).map_err(|e| e.to_string())?;
+        zip_writer
+            .add_directory("OEBPS/Fonts", options)
+            .map_err(|e| e.to_string())?;
         for font in &epub_doc.fonts {
-            zip_writer.start_file(format!("OEBPS/Fonts/{}", font.filename), deflated_options).map_err(|e| e.to_string())?;
-            zip_writer.write_all(&font.data).map_err(|e| e.to_string())?;
+            zip_writer
+                .start_file(format!("OEBPS/Fonts/{}", font.filename), deflated_options)
+                .map_err(|e| e.to_string())?;
+            zip_writer
+                .write_all(&font.data)
+                .map_err(|e| e.to_string())?;
         }
     }
-    
+
     zip_writer.finish().map_err(|e| e.to_string())?;
     Ok(())
 }

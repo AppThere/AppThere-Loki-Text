@@ -59,17 +59,26 @@ pub fn write_styles_section(
         .map_err(|e| e.to_string())?;
 
     for (style_name, style_def) in styles {
-        write_style_definition(writer, style_name, style_def)?;
+        // Standard built-ins are handled explicitly below
+        if style_name != "PageBreak"
+            && style_name != "Strong"
+            && style_name != "Emphasis"
+            && style_name != "Underline"
+            && style_name != "Strike"
+            && style_name != "Superscript"
+            && style_name != "Subscript"
+        {
+            write_style_definition(writer, style_name, style_def)?;
+        }
     }
 
-    write_page_break_style(writer)?;
+    write_builtin_styles(writer)?;
 
     writer
         .write_event(Event::End(BytesEnd::new("office:styles")))
         .map_err(|e| e.to_string())
 }
 
-/// Writes a single `<style:style>` element with all its properties.
 fn write_style_definition(
     writer: &mut Writer<Cursor<Vec<u8>>>,
     style_name: &str,
@@ -193,25 +202,67 @@ fn coerce_line_height(key: &str, value: &str) -> String {
     value.to_string()
 }
 
-/// Writes the built-in `PageBreak` style required by Loki documents.
-fn write_page_break_style(writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), String> {
-    let mut pb_style = BytesStart::new("style:style");
-    pb_style.push_attribute(("style:name", "PageBreak"));
-    pb_style.push_attribute(("style:family", "paragraph"));
-    pb_style.push_attribute(("style:parent-style-name", "Standard"));
-    writer
-        .write_event(Event::Start(pb_style))
-        .map_err(|e| e.to_string())?;
+fn write_builtin_styles(writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), String> {
+    let builtins = [
+        ("PageBreak", "paragraph", Some(("fo:break-before", "page"))),
+        ("Strong", "text", Some(("fo:font-weight", "bold"))),
+        ("Emphasis", "text", Some(("fo:font-style", "italic"))),
+        (
+            "Underline",
+            "text",
+            Some(("style:text-underline-style", "solid")),
+        ),
+        (
+            "Strike",
+            "text",
+            Some(("style:text-line-through-style", "solid")),
+        ),
+        (
+            "Superscript",
+            "text",
+            Some(("style:text-position", "super 58%")),
+        ),
+        (
+            "Subscript",
+            "text",
+            Some(("style:text-position", "sub 58%")),
+        ),
+    ];
 
-    let mut pb_props = BytesStart::new("style:paragraph-properties");
-    pb_props.push_attribute(("fo:break-before", "page"));
-    writer
-        .write_event(Event::Empty(pb_props))
-        .map_err(|e| e.to_string())?;
+    for (name, family, prop) in builtins {
+        let mut style = BytesStart::new("style:style");
+        style.push_attribute(("style:name", name));
+        style.push_attribute(("style:family", family));
+        if name == "PageBreak" {
+            style.push_attribute(("style:parent-style-name", "Standard"));
+        }
+        writer
+            .write_event(Event::Start(style))
+            .map_err(|e| e.to_string())?;
 
-    writer
-        .write_event(Event::End(BytesEnd::new("style:style")))
-        .map_err(|e| e.to_string())
+        if let Some((k, v)) = prop {
+            let prop_name = if family == "paragraph" {
+                "style:paragraph-properties"
+            } else {
+                "style:text-properties"
+            };
+            let mut props = BytesStart::new(prop_name);
+            props.push_attribute((k, v));
+            if name == "Underline" {
+                props.push_attribute(("style:text-underline-width", "auto"));
+                props.push_attribute(("style:text-underline-color", "font-color"));
+            }
+            writer
+                .write_event(Event::Empty(props))
+                .map_err(|e| e.to_string())?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::new("style:style")))
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 /// Writes a preserved raw XML section (or nothing if absent).

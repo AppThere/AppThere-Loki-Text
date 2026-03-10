@@ -122,6 +122,18 @@ pub fn update_fodt(
                 inject_inner_xml(&mut writer, content_xml, "<office:text>", "</office:text>")?;
                 skip_depth = 1;
             }
+            Ok(Event::Empty(ref e)) if e.name().as_ref() == b"office:text" && skip_depth == 0 => {
+                let mut start = BytesStart::new("office:text");
+                start.extend_attributes(e.attributes().filter_map(|a| a.ok()));
+                writer
+                    .write_event(Event::Start(start))
+                    .map_err(|err| err.to_string())?;
+                inject_inner_xml(&mut writer, content_xml, "<office:text>", "</office:text>")?;
+                writer
+                    .write_event(Event::End(BytesEnd::new("office:text")))
+                    .map_err(|err| err.to_string())?;
+            }
+
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"office:meta" && skip_depth == 0 => {
                 writer
                     .write_event(Event::Start(e.clone()))
@@ -129,6 +141,18 @@ pub fn update_fodt(
                 inject_inner_xml(&mut writer, meta_xml, "<office:meta>", "</office:meta>")?;
                 skip_depth = 1;
             }
+            Ok(Event::Empty(ref e)) if e.name().as_ref() == b"office:meta" && skip_depth == 0 => {
+                let mut start = BytesStart::new("office:meta");
+                start.extend_attributes(e.attributes().filter_map(|a| a.ok()));
+                writer
+                    .write_event(Event::Start(start))
+                    .map_err(|err| err.to_string())?;
+                inject_inner_xml(&mut writer, meta_xml, "<office:meta>", "</office:meta>")?;
+                writer
+                    .write_event(Event::End(BytesEnd::new("office:meta")))
+                    .map_err(|err| err.to_string())?;
+            }
+
             Ok(Event::Start(ref e)) if e.name().as_ref() == b"office:styles" && skip_depth == 0 => {
                 writer
                     .write_event(Event::Start(e.clone()))
@@ -141,6 +165,22 @@ pub fn update_fodt(
                 )?;
                 skip_depth = 1;
                 in_styles = true;
+            }
+            Ok(Event::Empty(ref e)) if e.name().as_ref() == b"office:styles" && skip_depth == 0 => {
+                let mut start = BytesStart::new("office:styles");
+                start.extend_attributes(e.attributes().filter_map(|a| a.ok()));
+                writer
+                    .write_event(Event::Start(start))
+                    .map_err(|err| err.to_string())?;
+                inject_inner_xml(
+                    &mut writer,
+                    styles_xml,
+                    "<office:styles>",
+                    "</office:styles>",
+                )?;
+                writer
+                    .write_event(Event::End(BytesEnd::new("office:styles")))
+                    .map_err(|err| err.to_string())?;
             }
             Ok(Event::Start(ref _e)) if skip_depth > 0 => skip_depth += 1,
             Ok(Event::Empty(ref _e)) if skip_depth > 0 => {}

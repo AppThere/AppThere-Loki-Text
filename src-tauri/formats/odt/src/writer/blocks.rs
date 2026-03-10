@@ -6,6 +6,7 @@
 
 use std::io::Cursor;
 
+use common_core::marks::TiptapMark;
 use common_core::{Block, Inline};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::Writer;
@@ -228,19 +229,97 @@ pub fn write_inlines_with_marks(inlines: &[Inline], writer: &mut XmlWriter) -> R
     for inline in inlines {
         match inline {
             Inline::Text { text, marks, .. } => {
-                let has_marks = !marks.is_empty();
-                if has_marks {
-                    writer
-                        .write_event(Event::Start(BytesStart::new("text:span")))
-                        .map_err(|e| e.to_string())?;
+                for mark in marks {
+                    match mark {
+                        TiptapMark::Bold => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Strong"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::Italic => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Emphasis"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::Underline => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Underline"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::Strike => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Strike"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::Superscript => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Superscript"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::Subscript => {
+                            let mut span = BytesStart::new("text:span");
+                            span.push_attribute(("text:style-name", "Subscript"));
+                            writer
+                                .write_event(Event::Start(span))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::NamedSpanStyle { attrs } => {
+                            if let Some(name) = &attrs.style_name {
+                                let mut span = BytesStart::new("text:span");
+                                span.push_attribute(("text:style-name", name.as_str()));
+                                writer
+                                    .write_event(Event::Start(span))
+                                    .map_err(|e| e.to_string())?;
+                            }
+                        }
+                        TiptapMark::Link { attrs } => {
+                            let mut a = BytesStart::new("text:a");
+                            a.push_attribute(("xlink:type", "simple"));
+                            a.push_attribute(("xlink:href", attrs.href.as_str()));
+                            if let Some(t) = &attrs.target {
+                                a.push_attribute(("office:target-frame-name", t.as_str()));
+                            }
+                            writer
+                                .write_event(Event::Start(a))
+                                .map_err(|e| e.to_string())?;
+                        }
+                    }
                 }
+
                 writer
                     .write_event(Event::Text(BytesText::new(text)))
                     .map_err(|e| e.to_string())?;
-                if has_marks {
-                    writer
-                        .write_event(Event::End(BytesEnd::new("text:span")))
-                        .map_err(|e| e.to_string())?;
+
+                for mark in marks.iter().rev() {
+                    match mark {
+                        TiptapMark::Link { .. } => {
+                            writer
+                                .write_event(Event::End(BytesEnd::new("text:a")))
+                                .map_err(|e| e.to_string())?;
+                        }
+                        TiptapMark::NamedSpanStyle { attrs } => {
+                            if attrs.style_name.is_some() {
+                                writer
+                                    .write_event(Event::End(BytesEnd::new("text:span")))
+                                    .map_err(|e| e.to_string())?;
+                            }
+                        }
+                        _ => {
+                            writer
+                                .write_event(Event::End(BytesEnd::new("text:span")))
+                                .map_err(|e| e.to_string())?;
+                        }
+                    }
                 }
             }
             Inline::LineBreak => {

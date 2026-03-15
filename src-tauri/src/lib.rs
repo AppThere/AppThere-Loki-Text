@@ -89,6 +89,8 @@ pub fn run() {
                         &PredefinedMenuItem::paste(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::select_all(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &MenuItem::with_id(app, "menu-find", "Find…", true, Some("CmdOrCtrl+F"))?,
                     ],
                 )?;
 

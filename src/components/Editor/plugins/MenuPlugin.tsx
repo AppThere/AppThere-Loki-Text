@@ -7,7 +7,11 @@ import {
     FORMAT_TEXT_COMMAND
 } from 'lexical';
 
-export function MenuPlugin() {
+interface MenuPluginProps {
+    onFindOpen: () => void;
+}
+
+export function MenuPlugin({ onFindOpen }: MenuPluginProps) {
     const [editor] = useLexicalComposerContext();
 
     useEffect(() => {
@@ -30,9 +34,12 @@ export function MenuPlugin() {
             listen('menu-print', () => {
                 window.print();
             }),
+            listen('menu-find', () => {
+                onFindOpen();
+            }),
         ];
 
-        // Also handle standard keyboard shortcuts for formatting that might not be 
+        // Also handle standard keyboard shortcuts for formatting that might not be
         // covered by the native menu if the user hasn't selected them from the menu
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.metaKey || e.ctrlKey) {
@@ -63,7 +70,7 @@ export function MenuPlugin() {
             unlistenPromises.forEach(async (p) => (await p)());
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [editor]);
+    }, [editor, onFindOpen]);
 
     return null;
 }

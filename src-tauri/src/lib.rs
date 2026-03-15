@@ -112,7 +112,12 @@ pub fn run() {
             commands::fs::open_document,
             commands::export::save_epub,
             commands::session::serialize_document,
-            commands::session::deserialize_document
+            commands::session::deserialize_document,
+            commands::vector::open_vector_document,
+            commands::vector::save_vector_document,
+            commands::vector::new_vector_document,
+            commands::vector::serialize_vector_document,
+            commands::vector::deserialize_vector_document
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

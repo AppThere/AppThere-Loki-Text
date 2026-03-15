@@ -1,0 +1,16 @@
+[package]
+name = "vector-core"
+version = "0.1.0"
+edition = "2021"
+description = "Format-agnostic vector document types for AppThere Loki Vector"
+license = "Apache-2.0"
+
+[dependencies]
+common-core = { path = "../common-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+roxmltree = "0.20"
+quick-xml = { version = "0.37", features = ["serialize"] }
+
+[dev-dependencies]
+tempfile = "3"

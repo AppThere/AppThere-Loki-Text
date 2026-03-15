@@ -2,3 +2,4 @@ pub mod export;
 pub mod fs;
 pub mod odt_zip;
 pub mod session;
+pub mod vector;

@@ -57,13 +57,19 @@ pub(super) fn parse_single_style(
     }
 }
 
-/// Collects all `fo:`, `style:`, and `text:` attributes from style property nodes.
+/// Collects all `fo:`, `style:`, `text:`, and `loki:` attributes from style
+/// property nodes.
+///
+/// The `loki:colour` attribute on `style:text-properties` is captured so that
+/// non-RGB colour values survive a write → read round-trip.
 pub(super) fn collect_style_attributes(
     style_node: roxmltree::Node,
     ns_style: &str,
     ns_fo: &str,
     ns_text: &str,
 ) -> HashMap<String, String> {
+    use crate::loki_ext::LOKI_NS;
+
     let mut attrs = HashMap::new();
     for prop_node in style_node.children() {
         if prop_node.has_tag_name((ns_style, "text-properties"))
@@ -78,7 +84,7 @@ pub(super) fn collect_style_attributes(
         // Also collect from all other property children for legacy compat
         for attr in prop_node.attributes() {
             if let Some(ns) = attr.namespace() {
-                if ns == ns_fo || ns == ns_style || ns == ns_text {
+                if ns == ns_fo || ns == ns_style || ns == ns_text || ns == LOKI_NS {
                     let prefix = ns_prefix(ns);
                     let key = format!("{}{}", prefix, attr.name());
                     attrs.entry(key).or_insert_with(|| attr.value().to_string());

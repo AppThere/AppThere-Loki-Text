@@ -17,13 +17,24 @@ use crate::object::{CommonProps, EllipseObject, LineObject, PathObject, RectObje
 use crate::style::{LineCap, LineJoin, Paint};
 use crate::transform::Transform;
 use crate::units::UnitConverter;
-use common_core::colour_management::ColourContext;
+use common_core::colour_management::{Colour, ColourContext};
+
+/// Loki SVG extension namespace URI.
+/// Used to persist non-RGB colour values and document colour settings.
+const LOKI_NS: &str = "http://appthere.com/ns/loki/1.0";
 
 /// Serialise a VectorDocument to an SVG string.
 ///
 /// The `ctx` parameter is reserved for colour-managed conversion in Phase 2.
 /// In Phase 1, colours are written using `to_svg_colour()` (sRGB fallback),
 /// which is correct for sRGB documents and for SVG interoperability.
+///
+/// Non-RGB colours (CMYK, Lab, Spot, Linked) are written with a sRGB
+/// approximation in `style="..."` and the full colour value as a
+/// `loki:fill` / `loki:stroke` attribute so they round-trip without loss.
+///
+/// The document's [`DocumentColourSettings`] are preserved in
+/// `loki:colour-settings` on the root `<svg>` element.
 pub fn write(doc: &VectorDocument, _ctx: &mut ColourContext) -> Result<String, String> {
     let canvas = &doc.canvas;
     let unit_suffix = UnitConverter::unit_suffix(canvas.display_unit);
@@ -32,11 +43,15 @@ pub fn write(doc: &VectorDocument, _ctx: &mut ColourContext) -> Result<String, S
     let vb_w = format_f64(canvas.width);
     let vb_h = format_f64(canvas.height);
 
+    let colour_settings_json =
+        serde_json::to_string(&doc.colour_settings).unwrap_or_else(|_| "{}".to_string());
+
     let mut out = String::new();
     out.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
     out.push('\n');
     out.push_str(&format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="{w}{unit_suffix}" height="{h}{unit_suffix}" viewBox="0 0 {vb_w} {vb_h}">"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:loki="{LOKI_NS}" width="{w}{unit_suffix}" height="{h}{unit_suffix}" viewBox="0 0 {vb_w} {vb_h}" loki:colour-settings="{}">"#,
+        escape_xml(&colour_settings_json)
     ));
     out.push('\n');
 
@@ -47,10 +62,9 @@ pub fn write(doc: &VectorDocument, _ctx: &mut ColourContext) -> Result<String, S
             r#" display="none""#
         };
         out.push_str(&format!(
-            r#"  <g inkscape:label="{}" inkscape:groupmode="layer" id="{}"{}>"#,
+            r#"  <g inkscape:label="{}" inkscape:groupmode="layer" id="{}"{vis}>"#,
             escape_xml(&layer.name),
             escape_xml(&layer.id),
-            vis
         ));
         out.push('\n');
         for obj in &layer.objects {
@@ -71,12 +85,10 @@ fn write_object(obj: &VectorObject, out: &mut String, indent: usize) {
         VectorObject::Path(p) => write_path(p, out, indent),
         VectorObject::Group(g) => {
             let pad = " ".repeat(indent);
+            let id = escape_xml(&g.common.id.0);
             let transform_attr = transform_attr_str(&g.common.transform);
             let style_str = build_style(&g.common);
-            out.push_str(&format!(
-                r#"{pad}<g id="{}"{transform_attr}{style_str}>"#,
-                escape_xml(&g.common.id.0)
-            ));
+            out.push_str(&format!("{pad}<g id=\"{id}\"{transform_attr}{style_str}>"));
             out.push('\n');
             for child in &g.children {
                 write_object(child, out, indent + 2);
@@ -101,12 +113,18 @@ fn write_rect(r: &RectObject, out: &mut String, indent: usize) {
         String::new()
     };
     out.push_str(&format!(
-        r#"{pad}<rect id="{}" x="{}" y="{}" width="{}" height="{}"{rx}{ry}{transform_attr}{style_str}/>"#,
+        r#"{pad}<rect id="{}" x="{}" y="{}" width="{}" height="{}"{}{}{}{}/>
+"#,
         escape_xml(&r.common.id.0),
-        format_f64(r.x), format_f64(r.y),
-        format_f64(r.width), format_f64(r.height)
+        format_f64(r.x),
+        format_f64(r.y),
+        format_f64(r.width),
+        format_f64(r.height),
+        rx,
+        ry,
+        transform_attr,
+        style_str
     ));
-    out.push('\n');
 }
 
 fn write_ellipse(e: &EllipseObject, out: &mut String, indent: usize) {
@@ -114,14 +132,16 @@ fn write_ellipse(e: &EllipseObject, out: &mut String, indent: usize) {
     let transform_attr = transform_attr_str(&e.common.transform);
     let style_str = build_style(&e.common);
     out.push_str(&format!(
-        r#"{pad}<ellipse id="{}" cx="{}" cy="{}" rx="{}" ry="{}"{transform_attr}{style_str}/>"#,
+        r#"{pad}<ellipse id="{}" cx="{}" cy="{}" rx="{}" ry="{}"{}{}/>
+"#,
         escape_xml(&e.common.id.0),
         format_f64(e.cx),
         format_f64(e.cy),
         format_f64(e.rx),
-        format_f64(e.ry)
+        format_f64(e.ry),
+        transform_attr,
+        style_str
     ));
-    out.push('\n');
 }
 
 fn write_line(l: &LineObject, out: &mut String, indent: usize) {
@@ -129,14 +149,16 @@ fn write_line(l: &LineObject, out: &mut String, indent: usize) {
     let transform_attr = transform_attr_str(&l.common.transform);
     let style_str = build_style(&l.common);
     out.push_str(&format!(
-        r#"{pad}<line id="{}" x1="{}" y1="{}" x2="{}" y2="{}"{transform_attr}{style_str}/>"#,
+        r#"{pad}<line id="{}" x1="{}" y1="{}" x2="{}" y2="{}"{}{}/>
+"#,
         escape_xml(&l.common.id.0),
         format_f64(l.x1),
         format_f64(l.y1),
         format_f64(l.x2),
-        format_f64(l.y2)
+        format_f64(l.y2),
+        transform_attr,
+        style_str
     ));
-    out.push('\n');
 }
 
 fn write_path(p: &PathObject, out: &mut String, indent: usize) {
@@ -144,11 +166,13 @@ fn write_path(p: &PathObject, out: &mut String, indent: usize) {
     let transform_attr = transform_attr_str(&p.common.transform);
     let style_str = build_style(&p.common);
     out.push_str(&format!(
-        r#"{pad}<path id="{}" d="{}"{transform_attr}{style_str}/>"#,
+        r#"{pad}<path id="{}" d="{}"{}{}/>
+"#,
         escape_xml(&p.common.id.0),
-        escape_xml(&p.d)
+        escape_xml(&p.d),
+        transform_attr,
+        style_str
     ));
-    out.push('\n');
 }
 
 fn transform_attr_str(t: &Transform) -> String {
@@ -159,19 +183,42 @@ fn transform_attr_str(t: &Transform) -> String {
     }
 }
 
+/// Build the `style="..."` attribute string and any `loki:*` colour attributes.
+///
+/// For non-RGB colours the sRGB approximation (from `to_svg_colour()`) is
+/// written into the standard `style` attribute so every SVG renderer can
+/// display a reasonable colour. The full lossless colour value is written as
+/// `loki:fill` or `loki:stroke` for round-trip fidelity in Loki.
 fn build_style(common: &CommonProps) -> String {
     let style = &common.style;
     let mut parts: Vec<String> = Vec::new();
+    let mut loki_attrs = String::new();
 
+    // Fill
     let fill_str = match &style.fill {
         Paint::None => "none".to_string(),
-        Paint::Solid { colour } => colour.to_svg_colour(),
+        Paint::Solid { colour } => {
+            if !matches!(colour, Colour::Rgb { .. }) {
+                if let Ok(json) = serde_json::to_string(colour) {
+                    loki_attrs.push_str(&format!(r#" loki:fill="{}""#, escape_xml(&json)));
+                }
+            }
+            colour.to_svg_colour()
+        }
     };
     parts.push(format!("fill:{fill_str}"));
 
+    // Stroke
     let stroke_str = match &style.stroke.paint {
         Paint::None => "none".to_string(),
-        Paint::Solid { colour } => colour.to_svg_colour(),
+        Paint::Solid { colour } => {
+            if !matches!(colour, Colour::Rgb { .. }) {
+                if let Ok(json) = serde_json::to_string(colour) {
+                    loki_attrs.push_str(&format!(r#" loki:stroke="{}""#, escape_xml(&json)));
+                }
+            }
+            colour.to_svg_colour()
+        }
     };
     parts.push(format!("stroke:{stroke_str}"));
 
@@ -195,7 +242,7 @@ fn build_style(common: &CommonProps) -> String {
         parts.push(format!("opacity:{}", format_f64(style.opacity)));
     }
 
-    format!(r#" style="{}""#, parts.join(";"))
+    format!(r#"{loki_attrs} style="{}""#, parts.join(";"))
 }
 
 fn format_f64(v: f64) -> String {

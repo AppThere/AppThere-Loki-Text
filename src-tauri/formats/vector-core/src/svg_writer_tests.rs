@@ -63,6 +63,7 @@ fn make_doc() -> VectorDocument {
         layers: vec![layer],
         metadata: common_core::Metadata::default(),
         colour_settings: DocumentColourSettings::default(),
+        swatch_library: common_core::colour_management::SwatchLibrary::new(),
     }
 }
 
@@ -95,4 +96,43 @@ fn test_write_contains_svg_header() {
     let svg = write(&doc, &mut ctx).unwrap();
     assert!(svg.contains(r#"<?xml version="1.0""#));
     assert!(svg.contains(r#"xmlns="http://www.w3.org/2000/svg""#));
+}
+
+#[test]
+fn test_write_includes_loki_namespace() {
+    let doc = make_doc();
+    let mut ctx = make_ctx();
+    let svg = write(&doc, &mut ctx).unwrap();
+    assert!(
+        svg.contains("xmlns:loki="),
+        "SVG should declare loki namespace"
+    );
+    assert!(
+        svg.contains("loki:colour-settings="),
+        "SVG root should have loki:colour-settings attribute"
+    );
+}
+
+#[test]
+fn test_loki_colour_settings_roundtrip() {
+    use common_core::colour_management::{
+        BuiltInProfile, ColourSpace, DocumentColourSettings, IccProfileRef,
+    };
+    let cmyk_settings = DocumentColourSettings {
+        working_space: ColourSpace::Cmyk {
+            profile: IccProfileRef::BuiltIn(BuiltInProfile::IsoCoatedV2),
+        },
+        ..DocumentColourSettings::default()
+    };
+    let doc = VectorDocument {
+        canvas: crate::canvas::Canvas::new(400.0, 300.0),
+        layers: vec![],
+        metadata: common_core::Metadata::default(),
+        colour_settings: cmyk_settings.clone(),
+        swatch_library: common_core::colour_management::SwatchLibrary::new(),
+    };
+    let mut ctx = make_ctx();
+    let svg = write(&doc, &mut ctx).unwrap();
+    let parsed = parse(&svg).unwrap();
+    assert_eq!(parsed.colour_settings, cmyk_settings);
 }

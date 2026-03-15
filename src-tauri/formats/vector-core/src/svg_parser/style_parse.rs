@@ -15,6 +15,9 @@
 use crate::style::{LineCap, LineJoin, ObjectStyle, Paint, StrokeStyle};
 use common_core::colour_management::Colour;
 
+/// Loki SVG extension namespace URI for non-RGB colour preservation.
+const LOKI_NS: &str = "http://appthere.com/ns/loki/1.0";
+
 pub(crate) fn parse_style(node: &roxmltree::Node) -> ObjectStyle {
     let mut fill = Paint::Solid {
         colour: Colour::black(),
@@ -32,6 +35,27 @@ pub(crate) fn parse_style(node: &roxmltree::Node) -> ObjectStyle {
 
     for attr in node.attributes() {
         apply_style_prop(attr.name(), attr.value(), &mut fill, &mut stroke);
+    }
+
+    // Override fill/stroke with Loki non-RGB colour attributes when present.
+    // These attributes carry the full lossless colour value (CMYK, Lab, Spot,
+    // Linked) that cannot be represented in a standard CSS colour string.
+    if let Some(json) = node
+        .attribute((LOKI_NS, "fill"))
+        .or_else(|| node.attribute("loki:fill"))
+    {
+        if let Ok(colour) = serde_json::from_str::<Colour>(json) {
+            fill = Paint::Solid { colour };
+        }
+    }
+
+    if let Some(json) = node
+        .attribute((LOKI_NS, "stroke"))
+        .or_else(|| node.attribute("loki:stroke"))
+    {
+        if let Ok(colour) = serde_json::from_str::<Colour>(json) {
+            stroke.paint = Paint::Solid { colour };
+        }
     }
 
     ObjectStyle {

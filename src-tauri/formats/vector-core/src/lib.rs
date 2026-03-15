@@ -19,6 +19,7 @@
 //! for professional vector image editing.
 
 pub mod canvas;
+pub mod convert;
 pub mod document;
 pub mod layer;
 pub mod object;

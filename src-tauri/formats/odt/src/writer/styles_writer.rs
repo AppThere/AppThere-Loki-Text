@@ -183,6 +183,7 @@ fn is_text_property(key: &str) -> bool {
         || key.starts_with("fo:font-weight")
         || key.starts_with("fo:font-style")
         || key.starts_with("fo:text-transform")
+        || key == "loki:colour"
 }
 
 /// Normalizes unitless line-height values to ODF percent format.

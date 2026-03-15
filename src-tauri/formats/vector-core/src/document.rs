@@ -14,7 +14,9 @@
 
 use crate::canvas::Canvas;
 use crate::layer::Layer;
-use common_core::colour_management::DocumentColourSettings;
+use common_core::colour_management::{
+    BuiltInProfile, ColourSpace, DocumentColourSettings, IccProfileRef, SwatchLibrary,
+};
 use common_core::Metadata;
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +30,9 @@ pub struct VectorDocument {
     /// Defaults to sRGB with relative colorimetric intent.
     #[serde(default)]
     pub colour_settings: DocumentColourSettings,
+    /// Named colour swatches for this document.
+    #[serde(default)]
+    pub swatch_library: SwatchLibrary,
 }
 
 impl VectorDocument {
@@ -38,6 +43,18 @@ impl VectorDocument {
             layers: vec![Layer::new("Layer 1")],
             metadata: Metadata::default(),
             colour_settings: DocumentColourSettings::default(),
+            swatch_library: SwatchLibrary::new(),
+        }
+    }
+
+    /// Create a new document with custom colour settings and one default layer.
+    pub fn new_with_settings(canvas: Canvas, colour_settings: DocumentColourSettings) -> Self {
+        VectorDocument {
+            canvas,
+            layers: vec![Layer::new("Layer 1")],
+            metadata: Metadata::default(),
+            colour_settings,
+            swatch_library: SwatchLibrary::new(),
         }
     }
 
@@ -47,5 +64,37 @@ impl VectorDocument {
 
     pub fn blank_letter() -> Self {
         VectorDocument::new(Canvas::letter_portrait())
+    }
+
+    /// Create a blank A4 portrait CMYK document.
+    ///
+    /// Uses the ISO Coated v2 press profile — the standard for European offset
+    /// printing on coated stock. Suitable for print-ready PDF export.
+    pub fn blank_a4_cmyk() -> Self {
+        VectorDocument::new_with_settings(
+            Canvas::a4_portrait(),
+            DocumentColourSettings {
+                working_space: ColourSpace::Cmyk {
+                    profile: IccProfileRef::BuiltIn(BuiltInProfile::IsoCoatedV2),
+                },
+                ..DocumentColourSettings::default()
+            },
+        )
+    }
+
+    /// Create a blank US Letter portrait CMYK document.
+    ///
+    /// Uses the SWOP v2 press profile — the standard for North American offset
+    /// printing. Suitable for print-ready PDF export.
+    pub fn blank_letter_cmyk() -> Self {
+        VectorDocument::new_with_settings(
+            Canvas::letter_portrait(),
+            DocumentColourSettings {
+                working_space: ColourSpace::Cmyk {
+                    profile: IccProfileRef::BuiltIn(BuiltInProfile::SwopV2),
+                },
+                ..DocumentColourSettings::default()
+            },
+        )
     }
 }

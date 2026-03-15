@@ -5,10 +5,10 @@ use std::collections::HashMap;
 mod tests;
 
 // Re-use types from common-core
+use common_core::BlockAttrs;
 pub use common_core::{
     Block, Inline, Metadata, StyleDefinition, StyleFamily, TiptapAttrs, TiptapMark, TiptapNode,
 };
-use common_core::BlockAttrs;
 
 /// Represents a section of content in the EPUB
 /// Sections are split at HorizontalRule blocks
@@ -532,30 +532,54 @@ fn tiptap_node_to_block(node: TiptapNode) -> Option<Block> {
             title: attrs.title,
         }),
         TiptapNode::BulletList { content } => Some(Block::BulletList {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::OrderedList { content } => Some(Block::OrderedList {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::ListItem { content } => Some(Block::ListItem {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::Blockquote { content } => Some(Block::Blockquote {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::Table { content } => Some(Block::Table {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::TableRow { content } => Some(Block::TableRow {
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::TableHeader { attrs, content } => Some(Block::TableHeader {
             attrs,
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::TableCell { attrs, content } => Some(Block::TableCell {
             attrs,
-            content: content.into_iter().filter_map(tiptap_node_to_block).collect(),
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
         }),
         TiptapNode::HorizontalRule => Some(Block::HorizontalRule),
         TiptapNode::PageBreak => Some(Block::PageBreak),

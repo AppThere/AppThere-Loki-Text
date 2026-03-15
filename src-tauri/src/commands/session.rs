@@ -92,4 +92,3 @@ pub fn deserialize_document(file_content: Vec<u8>) -> CommandResult<SessionLexic
         metadata: doc.metadata,
     })
 }
-

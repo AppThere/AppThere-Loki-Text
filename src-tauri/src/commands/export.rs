@@ -56,8 +56,7 @@ pub async fn save_epub<R: Runtime>(
     }
 
     // Create EPUB document (epub_logic now uses common_core types directly)
-    let epub_doc =
-        epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts);
+    let epub_doc = epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts);
 
     // Write EPUB
     if path.starts_with("content://") {

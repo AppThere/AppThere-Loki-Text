@@ -57,12 +57,7 @@ fn srgb_grey_is_identity() {
         a: 1.0,
     });
     for (i, &ch) in result.iter().enumerate().take(3) {
-        assert!(
-            (ch - 0.5).abs() < 1e-5,
-            "channel {} mismatch: {}",
-            i,
-            ch
-        );
+        assert!((ch - 0.5).abs() < 1e-5, "channel {} mismatch: {}", i, ch);
     }
 }
 
@@ -124,12 +119,7 @@ fn cmyk_rich_black_converts_near_black() {
         alpha: 1.0,
     });
     for (i, &ch) in result.iter().enumerate().take(3) {
-        assert!(
-            ch < 0.05,
-            "channel {} = {} (expected ~0.0)",
-            i,
-            ch
-        );
+        assert!(ch < 0.05, "channel {} = {} (expected ~0.0)", i, ch);
     }
 }
 

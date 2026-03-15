@@ -5,6 +5,7 @@ import { MetadataDialog } from './components/Dialogs/MetadataDialog';
 import { LandingPage } from './components/LandingPage';
 import { TopBar } from './components/TopBar';
 import { FileTypeDialog, FileType } from './components/Dialogs/FileTypeDialog';
+import { VectorEditor } from './components/VectorEditor/VectorEditor';
 import { listen } from '@tauri-apps/api/event';
 import { useDocumentStore } from './lib/stores/documentStore';
 import { useFileOperations } from './lib/hooks/useFileOperations';
@@ -18,6 +19,7 @@ export default function App() {
     const [styleDialogOpen, setStyleDialogOpen] = useState(false);
     const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
     const [fileTypeDialogOpen, setFileTypeDialogOpen] = useState(false);
+    const [showVectorEditor, setShowVectorEditor] = useState(false);
 
     const {
         currentContent,
@@ -179,7 +181,9 @@ export default function App() {
 
             {/* Editor Area / Landing Page */}
             <div className="flex-1 overflow-hidden w-full min-h-0">
-                {currentContent ? (
+                {showVectorEditor ? (
+                    <VectorEditor onClose={() => setShowVectorEditor(false)} />
+                ) : currentContent ? (
                     <Editor
                         key={metadata.identifier || 'doc'}  // Ensure Editor remounts on new documents
                         initialContent={JSON.stringify(currentContent)}
@@ -195,6 +199,7 @@ export default function App() {
                         onOpenTemplateClick={handleOpenTemplate}
                         onNewClick={handleNew}
                         loadDocument={loadDocument}
+                        onNewVector={() => setShowVectorEditor(true)}
                     />
                 )}
             </div>

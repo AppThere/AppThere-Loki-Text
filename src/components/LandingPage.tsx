@@ -8,6 +8,7 @@ interface LandingPageProps {
     onOpenTemplateClick: () => void;
     onNewClick: () => void;
     loadDocument: (path: string) => Promise<void>;
+    onNewVector?: () => void;
 }
 
 const DOCUMENT_TYPES = [
@@ -58,7 +59,7 @@ const DOCUMENT_TYPES = [
     },
 ];
 
-export function LandingPage({ onOpenClick, onOpenTemplateClick, onNewClick, loadDocument }: LandingPageProps) {
+export function LandingPage({ onOpenClick, onOpenTemplateClick, onNewClick, loadDocument, onNewVector }: LandingPageProps) {
     const { recentDocuments, removeDocument } = useHistoryStore();
 
     const formatTimestamp = (ts: number) => {
@@ -100,7 +101,7 @@ export function LandingPage({ onOpenClick, onOpenTemplateClick, onNewClick, load
                                 <Button
                                     variant="ghost"
                                     className="h-10 rounded-none text-white hover:bg-white/10 border-0"
-                                    onClick={type.id === 'text' ? onNewClick : undefined}
+                                    onClick={type.id === 'text' ? onNewClick : type.id === 'vector' ? onNewVector : undefined}
                                     title="New Blank"
                                 >
                                     <SquarePlus className="h-4 w-4" />

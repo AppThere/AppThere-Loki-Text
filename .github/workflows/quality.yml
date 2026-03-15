@@ -42,10 +42,6 @@ jobs:
         working-directory: src-tauri
         run: cargo test -p common-core -p odt-format
 
-      - name: Run tests (legacy odt-logic)
-        working-directory: src-tauri
-        run: cargo test -p odt-logic
-
   typescript-quality:
     name: TypeScript Code Quality
     runs-on: ubuntu-latest

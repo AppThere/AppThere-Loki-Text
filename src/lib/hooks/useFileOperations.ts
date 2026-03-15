@@ -8,6 +8,7 @@ import { useSessionPersistence } from './useSessionPersistence';
 import { SessionManager } from '../session/SessionManager';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
+import { notifyError } from '@/lib/utils/notifyError';
 
 export function useFileOperations() {
     const [isLoading, setIsLoading] = useState(false);
@@ -31,15 +32,12 @@ export function useFileOperations() {
     } = useDocumentStore();
     const { addDocument, addTemplate } = useHistoryStore();
     const { clearSession } = useSessionPersistence();
-
     // ── Session helpers ────────────────────────────────────────────────────
-
     const startSession = async (originalPath: string): Promise<SessionManager> => {
         const mgr = await SessionManager.create(originalPath);
         setSession(mgr);
         return mgr;
     };
-
     const endSession = async () => {
         const current = useDocumentStore.getState().session;
         if (current) {
@@ -47,9 +45,7 @@ export function useFileOperations() {
             setSession(null);
         }
     };
-
     // ── Public handlers ────────────────────────────────────────────────────
-
     const handleNew = async () => {
         setIsLoading(true);
         try {
@@ -64,18 +60,17 @@ export function useFileOperations() {
             markDirty();
         } catch (error) {
             console.error('Failed to create new document:', error);
+            notifyError('Failed to create new document', error);
             throw error;
         } finally {
             setIsLoading(false);
         }
     };
-
     const handleClose = async () => {
         await endSession();
         clearSession();
         resetStore();
     };
-
     const loadDocument = async (path: string) => {
         setIsLoading(true);
         try {
@@ -105,12 +100,12 @@ export function useFileOperations() {
             markClean();
         } catch (error) {
             console.error('Failed to load document:', error);
+            notifyError('Failed to load document', error);
             throw error;
         } finally {
             setIsLoading(false);
         }
     };
-
     const handleOpen = async () => {
         try {
             const selected = await open({
@@ -123,6 +118,7 @@ export function useFileOperations() {
             }
         } catch (error) {
             console.error('Failed handling open dialog:', error);
+            notifyError('Failed to open document', error);
         }
     };
 
@@ -155,12 +151,14 @@ export function useFileOperations() {
                 markDirty();
             } catch (error) {
                 console.error('Failed to load template:', error);
+                notifyError('Failed to load template', error);
                 throw error;
             } finally {
                 setIsLoading(false);
             }
         } catch (error) {
             console.error('Failed handling template open dialog:', error);
+            notifyError('Failed to open template', error);
             throw error;
         }
     };
@@ -202,6 +200,7 @@ export function useFileOperations() {
             if (background) markSaved(); else markClean();
         } catch (error) {
             console.error('Failed to save:', error);
+            notifyError('Failed to save', error);
             if (background) markClean();
             throw error;
         } finally {
@@ -252,6 +251,7 @@ export function useFileOperations() {
             }
         } catch (error) {
             console.error('Failed handling save as dialog:', error);
+            notifyError('Failed to save document', error);
             throw error;
         } finally {
             setIsLoading(false);
@@ -279,6 +279,7 @@ export function useFileOperations() {
             if (bytes && path.startsWith('content://')) await writeFile(path, bytes);
         } catch (error) {
             console.error('Failed to export EPUB:', error);
+            notifyError('Failed to export EPUB', error);
             throw error;
         } finally {
             setIsLoading(false);

@@ -230,3 +230,53 @@ export function getDisplayRgba(
     }
     return [0, 0, 0, 1];
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4 additions
+// ---------------------------------------------------------------------------
+
+/** Alias for collectNonRgbColours. Used by the PDF export preview. */
+export const collectUniqueColours = collectNonRgbColours;
+
+/**
+ * Collect ALL unique colours from a list of objects (both RGB and non-RGB).
+ * Used for soft-proof preview where all colours need display conversion.
+ */
+export function collectAllUniqueColours(objects: VectorObject[]): Colour[] {
+    const seen = new Set<string>();
+    const result: Colour[] = [];
+
+    function visit(colour: Colour): void {
+        const key = colourCacheKey(colour);
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(colour);
+        }
+    }
+
+    function visitObject(obj: VectorObject): void {
+        const style = obj.style;
+        if (style.fill.type === 'Solid') visit(style.fill.colour);
+        if (style.stroke.paint.type === 'Solid') visit(style.stroke.paint.colour);
+        if (obj.type === 'Group') obj.children.forEach(visitObject);
+    }
+
+    objects.forEach(visitObject);
+    return result;
+}
+
+/**
+ * Get the display CSS string for a colour, respecting soft-proof overrides.
+ *
+ * Priority: softProofOverrides > direct RGB conversion > displayCache > fallback.
+ */
+export function getDisplayColour(
+    colour: Colour,
+    displayCache: Map<string, string>,
+    softProofOverrides: Map<string, string> | null,
+): string {
+    const key = colourCacheKey(colour);
+    if (softProofOverrides?.has(key)) return softProofOverrides.get(key)!;
+    if (colour.type === 'Rgb') return rgbToKonva(colour);
+    return displayCache.get(key) ?? 'rgba(0,0,0,0)';
+}

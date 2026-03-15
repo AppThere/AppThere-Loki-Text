@@ -12,6 +12,9 @@ import {
     cmykProfile,
     displayRgbToCss,
     parseHexColour,
+    collectUniqueColours,
+    collectAllUniqueColours,
+    getDisplayColour,
 } from './colourUtils';
 import type { Colour, VectorObject } from './types';
 import { defaultStyle, identityTransform } from './types';
@@ -252,5 +255,81 @@ describe('parseHexColour', () => {
     it('returns null for invalid input', () => {
         expect(parseHexColour('not-a-colour')).toBeNull();
         expect(parseHexColour('#gggggg')).toBeNull();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4 additions
+// ---------------------------------------------------------------------------
+
+describe('collectUniqueColours (alias for collectNonRgbColours)', () => {
+    it('is the same function as collectNonRgbColours', () => {
+        expect(collectUniqueColours).toBe(collectNonRgbColours);
+    });
+
+    it('excludes RGB colours', () => {
+        const obj = makeRectObject('r1', { type: 'Rgb', r: 1, g: 0, b: 0, a: 1 });
+        expect(collectUniqueColours([obj])).toHaveLength(0);
+    });
+});
+
+describe('collectAllUniqueColours', () => {
+    it('includes RGB colours', () => {
+        const obj = makeRectObject('r1', { type: 'Rgb', r: 1, g: 0, b: 0, a: 1 });
+        expect(collectAllUniqueColours([obj])).toHaveLength(1);
+    });
+
+    it('includes CMYK colours', () => {
+        const cmyk: Colour = { type: 'Cmyk', c: 0, m: 1, y: 1, k: 0, alpha: 1 };
+        const obj = makeRectObject('r1', cmyk);
+        expect(collectAllUniqueColours([obj])).toHaveLength(1);
+    });
+
+    it('deduplicates identical RGB colours', () => {
+        const rgb: Colour = { type: 'Rgb', r: 1, g: 0, b: 0, a: 1 };
+        const obj1 = makeRectObject('r1', rgb);
+        const obj2 = makeRectObject('r2', rgb);
+        expect(collectAllUniqueColours([obj1, obj2])).toHaveLength(1);
+    });
+
+    it('returns multiple unique colours', () => {
+        const rgb: Colour = { type: 'Rgb', r: 1, g: 0, b: 0, a: 1 };
+        const cmyk: Colour = { type: 'Cmyk', c: 0, m: 1, y: 1, k: 0, alpha: 1 };
+        const obj1 = makeRectObject('r1', rgb);
+        const obj2 = makeRectObject('r2', cmyk);
+        expect(collectAllUniqueColours([obj1, obj2])).toHaveLength(2);
+    });
+});
+
+describe('getDisplayColour', () => {
+    const rgb: Colour = { type: 'Rgb', r: 1, g: 0, b: 0, a: 1 };
+    const cmyk: Colour = { type: 'Cmyk', c: 0, m: 1, y: 1, k: 0, alpha: 1 };
+
+    it('returns soft proof override when present', () => {
+        const key = colourCacheKey(rgb);
+        const overrides = new Map([[key, 'rgba(0,128,0,1)']]);
+        const cache = new Map<string, string>();
+        expect(getDisplayColour(rgb, cache, overrides)).toBe('rgba(0,128,0,1)');
+    });
+
+    it('converts Rgb directly when no override', () => {
+        expect(getDisplayColour(rgb, new Map(), null)).toBe('rgba(255,0,0,1)');
+    });
+
+    it('looks up non-Rgb in display cache when no override', () => {
+        const key = colourCacheKey(cmyk);
+        const cache = new Map([[key, 'rgba(255,0,0,1)']]);
+        expect(getDisplayColour(cmyk, cache, null)).toBe('rgba(255,0,0,1)');
+    });
+
+    it('returns fallback for cache miss with no override', () => {
+        expect(getDisplayColour(cmyk, new Map(), null)).toBe('rgba(0,0,0,0)');
+    });
+
+    it('prefers soft proof override over direct RGB conversion', () => {
+        const key = colourCacheKey(rgb);
+        const overrides = new Map([[key, 'rgba(50,50,50,1)']]);
+        // RGB would normally convert to rgba(255,0,0,1) — override wins
+        expect(getDisplayColour(rgb, new Map(), overrides)).toBe('rgba(50,50,50,1)');
     });
 });

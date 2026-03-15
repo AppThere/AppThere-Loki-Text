@@ -83,3 +83,61 @@ export function standardDisplayName(standard: PdfXStandard): string {
             return 'PDF/X-4:2008 (RGB/CMYK, transparency)';
     }
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4 additions — ΔE utilities and violation helpers
+// ---------------------------------------------------------------------------
+
+/** Severity threshold values for ΔE colour difference. */
+export const DELTA_E_THRESHOLDS = {
+    imperceptible: 1.0,
+    slight: 2.0,
+    perceptible: 5.0,
+    // > 5.0 = significant
+} as const;
+
+/** Human-readable label for a ΔE value. */
+export function deltaELabel(deltaE: number): string {
+    if (deltaE < DELTA_E_THRESHOLDS.imperceptible) return 'Imperceptible';
+    if (deltaE < DELTA_E_THRESHOLDS.slight) return 'Slight';
+    if (deltaE < DELTA_E_THRESHOLDS.perceptible) return 'Perceptible';
+    return 'Significant';
+}
+
+/** Tailwind text colour class for a ΔE value. */
+export function deltaEColourClass(deltaE: number): string {
+    if (deltaE < DELTA_E_THRESHOLDS.imperceptible) return 'text-muted-foreground';
+    if (deltaE < DELTA_E_THRESHOLDS.slight) return 'text-yellow-600 dark:text-yellow-400';
+    if (deltaE < DELTA_E_THRESHOLDS.perceptible) return 'text-orange-600 dark:text-orange-400';
+    return 'text-destructive';
+}
+
+/**
+ * Returns true if the violation is auto-fixable.
+ *
+ * Note: ConformanceViolation (from pdfTypes.ts) only has 'rule' and 'message'
+ * fields — there is no auto_fixable field in the current type. This always
+ * returns false until the Rust side adds that field.
+ */
+export function isAutoFixable(_violation: ConformanceViolation): boolean {
+    return false;
+}
+
+/**
+ * Group violations into errors and warnings.
+ *
+ * ConformanceViolation only has 'rule' and 'message' — no 'level' field.
+ * We classify by rule: 'X/empty-document' → warning, everything else → error.
+ */
+export function groupViolationsByLevel(violations: ConformanceViolation[]): {
+    errors: ConformanceViolation[];
+    warnings: ConformanceViolation[];
+} {
+    const errors: ConformanceViolation[] = [];
+    const warnings: ConformanceViolation[] = [];
+    for (const v of violations) {
+        if (v.rule === 'X/empty-document') warnings.push(v);
+        else errors.push(v);
+    }
+    return { errors, warnings };
+}

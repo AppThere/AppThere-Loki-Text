@@ -10,6 +10,7 @@ import type {
     VectorDocument,
 } from './types';
 import { colourCacheKey } from './colourUtils';
+import type { ConformanceViolation, PdfExportSettings } from './pdfTypes';
 
 export async function openVectorDocument(
     path: string,
@@ -185,6 +186,43 @@ export async function searchPantone(
             'search_pantone',
             { query },
         );
+    } catch (e) {
+        throw new Error(String(e));
+    }
+}
+
+/**
+ * Validate a vector document against a PDF/X standard.
+ *
+ * Returns a list of conformance violations. An empty list means the document
+ * is conformant and ready for export.
+ */
+export async function validatePdfXConformance(
+    document: VectorDocument,
+    settings: PdfExportSettings,
+): Promise<ConformanceViolation[]> {
+    try {
+        return await invoke<ConformanceViolation[]>('validate_pdf_x_conformance', {
+            document,
+            settings,
+        });
+    } catch (e) {
+        throw new Error(String(e));
+    }
+}
+
+/**
+ * Export a vector document to a PDF/X file at the given path.
+ *
+ * Throws if the document is not conformant or if the file cannot be written.
+ */
+export async function exportPdfX(
+    document: VectorDocument,
+    settings: PdfExportSettings,
+    path: string,
+): Promise<void> {
+    try {
+        await invoke<void>('export_pdf_x', { document, settings, path });
     } catch (e) {
         throw new Error(String(e));
     }

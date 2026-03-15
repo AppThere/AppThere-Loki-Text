@@ -38,9 +38,12 @@ export function UnitInput({
 }: UnitInputProps) {
     const [displayStr, setDisplayStr] = useState(() => formatDisplay(value, unit, dpi));
     const committedRef = useRef(value);
+    const isFocusedRef = useRef(false);
 
-    // Sync display when external value or unit changes
+    // Sync display when external value or unit changes — but never while the
+    // user is actively editing, to avoid overwriting mid-edit text.
     useEffect(() => {
+        if (isFocusedRef.current) return;
         setDisplayStr(formatDisplay(value, unit, dpi));
         committedRef.current = value;
     }, [value, unit, dpi]);
@@ -91,7 +94,8 @@ export function UnitInput({
                     value={displayStr}
                     disabled={disabled}
                     onChange={(e) => setDisplayStr(e.target.value)}
-                    onBlur={() => { commit(); onBlur?.(); }}
+                    onFocus={() => { isFocusedRef.current = true; }}
+                    onBlur={() => { isFocusedRef.current = false; commit(); onBlur?.(); }}
                     onKeyDown={handleKeyDown}
                     className={cn(
                         'w-full h-8 rounded-md border border-input bg-background px-2 pr-8 text-sm',

@@ -88,7 +88,7 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
                 </div>
 
                 {/* Canvas area */}
-                <div ref={containerRef} className="flex-1 min-w-0 relative bg-muted/30">
+                <div ref={containerRef} className="flex-1 min-w-0 relative overflow-hidden">
                     {containerSize.width > 0 && containerSize.height > 0 && (
                         <VectorCanvas width={containerSize.width} height={containerSize.height} />
                     )}

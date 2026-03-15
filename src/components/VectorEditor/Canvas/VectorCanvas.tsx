@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { Stage, Layer, Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useVectorStore } from '@/lib/vector/store';
 import { ObjectRenderer } from './ObjectRenderer';
@@ -101,8 +101,12 @@ export function VectorCanvas({ width, height }: VectorCanvasProps) {
         : (toolMode === 'rect' || toolMode === 'ellipse' || toolMode === 'line') ? 'crosshair'
         : 'default';
 
+    const canvasW = document?.canvas.width ?? 0;
+    const canvasH = document?.canvas.height ?? 0;
+
     return (
-        <div style={{ cursor, width, height, overflow: 'hidden' }}>
+        // Pasteboard: fixed neutral gray, never adapts to dark mode
+        <div style={{ cursor, width, height, overflow: 'hidden', background: '#c8c8c8' }}>
             <Stage
                 width={width}
                 height={height}
@@ -116,6 +120,21 @@ export function VectorCanvas({ width, height }: VectorCanvasProps) {
                 onMouseUp={handleMouseUp}
                 onClick={handleStageClick}
             >
+                {/* Page background: always white regardless of app theme */}
+                <Layer listening={false}>
+                    <Rect
+                        x={0}
+                        y={0}
+                        width={canvasW}
+                        height={canvasH}
+                        fill="#ffffff"
+                        shadowColor="rgba(0,0,0,0.18)"
+                        shadowBlur={12}
+                        shadowOffsetX={2}
+                        shadowOffsetY={2}
+                    />
+                </Layer>
+
                 {/* Grid layer */}
                 {showGrid && (
                     <Layer listening={false}>

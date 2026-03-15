@@ -136,7 +136,7 @@ fn swatch_pantone_integration() {
 /// Serialisation round-trip for all Colour variants.
 #[test]
 fn colour_serde_round_trip() {
-    let variants = vec![
+    let variants = [
         Colour::Rgb {
             r: 0.5,
             g: 0.3,

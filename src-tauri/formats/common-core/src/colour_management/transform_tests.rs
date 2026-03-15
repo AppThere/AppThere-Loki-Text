@@ -14,7 +14,7 @@
 
 //! Unit tests for transform.rs.
 
-use super::{ColourContext, WorkingTransform};
+use super::ColourContext;
 use crate::colour_management::colour::Colour;
 use crate::colour_management::profile::IccProfileStore;
 use crate::colour_management::space::{
@@ -56,12 +56,12 @@ fn srgb_grey_is_identity() {
         b: 0.5,
         a: 1.0,
     });
-    for i in 0..3 {
+    for (i, &ch) in result.iter().enumerate().take(3) {
         assert!(
-            (result[i] - 0.5).abs() < 1e-5,
+            (ch - 0.5).abs() < 1e-5,
             "channel {} mismatch: {}",
             i,
-            result[i]
+            ch
         );
     }
 }
@@ -95,12 +95,12 @@ fn cmyk_paper_white_converts_near_white() {
         k: 0.0,
         alpha: 1.0,
     });
-    for i in 0..3 {
+    for (i, &ch) in result.iter().enumerate().take(3) {
         assert!(
-            (result[i] - 1.0).abs() < 0.05,
+            (ch - 1.0).abs() < 0.05,
             "channel {} = {} (expected ~1.0)",
             i,
-            result[i]
+            ch
         );
     }
     assert!((result[3] - 1.0).abs() < 1e-5);
@@ -123,12 +123,12 @@ fn cmyk_rich_black_converts_near_black() {
         k: 1.0,
         alpha: 1.0,
     });
-    for i in 0..3 {
+    for (i, &ch) in result.iter().enumerate().take(3) {
         assert!(
-            result[i] < 0.05,
+            ch < 0.05,
             "channel {} = {} (expected ~0.0)",
             i,
-            result[i]
+            ch
         );
     }
 }

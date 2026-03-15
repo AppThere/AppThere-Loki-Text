@@ -106,14 +106,18 @@ fn update_odt_zip<W: Write + std::io::Seek>(
     let mut zip_in = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
     let mut zip_out = ZipWriter::new(writer);
 
-    let options_mimetype = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-    let options_deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let options_mimetype =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let options_deflated =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
     // Write mimetype first (uncompressed) if it exists
     for i in 0..zip_in.len() {
         let mut file = zip_in.by_index(i).map_err(|e| e.to_string())?;
         if file.name() == "mimetype" {
-            zip_out.start_file("mimetype", options_mimetype).map_err(|e| e.to_string())?;
+            zip_out
+                .start_file("mimetype", options_mimetype)
+                .map_err(|e| e.to_string())?;
             std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
             break;
         }
@@ -127,32 +131,48 @@ fn update_odt_zip<W: Write + std::io::Seek>(
             continue;
         }
 
-        zip_out.start_file(&name, options_deflated).map_err(|e| e.to_string())?;
+        zip_out
+            .start_file(&name, options_deflated)
+            .map_err(|e| e.to_string())?;
 
         if name == "content.xml" {
             let mut original = String::new();
             if file.read_to_string(&mut original).is_ok() {
                 if let Ok(updated) = doc.update_fodt(&original) {
-                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(updated.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(doc.to_content_xml()?.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
             } else {
-                zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                zip_out
+                    .write_all(doc.to_content_xml()?.as_bytes())
+                    .map_err(|e| e.to_string())?;
             }
         } else if name == "styles.xml" {
             let mut original = String::new();
             if file.read_to_string(&mut original).is_ok() {
                 if let Ok(updated) = doc.update_fodt(&original) {
-                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(updated.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(doc.styles_to_xml()?.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
             } else {
-                zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                zip_out
+                    .write_all(doc.styles_to_xml()?.as_bytes())
+                    .map_err(|e| e.to_string())?;
             }
         } else if name == "meta.xml" {
-            zip_out.write_all(doc.to_meta_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+            zip_out
+                .write_all(doc.to_meta_xml()?.as_bytes())
+                .map_err(|e| e.to_string())?;
         } else {
             std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
         }
@@ -166,14 +186,16 @@ fn write_odt_zip<W: Write + std::io::Seek>(writer: W, doc: &Document) -> Result<
     let mut zip = ZipWriter::new(writer);
 
     // 1. mimetype (MUST be first, uncompressed)
-    let options_mimetype = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let options_mimetype =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
     zip.start_file("mimetype", options_mimetype)
         .map_err(|e| e.to_string())?;
     zip.write_all(b"application/vnd.oasis.opendocument.text")
         .map_err(|e| e.to_string())?;
 
     // 2. META-INF/manifest.xml
-    let options_deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let options_deflated =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.add_directory("META-INF", options_deflated)
         .map_err(|e| e.to_string())?;
     zip.start_file("META-INF/manifest.xml", options_deflated)
@@ -301,9 +323,8 @@ pub async fn open_document<R: Runtime>(
         doc
     } else {
         // Plain text / XML (FODT)
-        let xml_content = String::from_utf8(bytes).map_err(|e| {
-            format!("Navalozh: Failed to decode text file (not UTF-8): {}", e)
-        })?;
+        let xml_content = String::from_utf8(bytes)
+            .map_err(|e| format!("Navalozh: Failed to decode text file (not UTF-8): {}", e))?;
         Document::from_xml(&xml_content)?
     };
 

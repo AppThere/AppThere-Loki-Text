@@ -48,7 +48,11 @@ fn test_cjk_text_round_trip() {
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "CJK text should parse");
     let restored = round_trip_first_text(&xml);
-    assert_eq!(restored.as_deref(), Some(text), "CJK text should be preserved");
+    assert_eq!(
+        restored.as_deref(),
+        Some(text),
+        "CJK text should be preserved"
+    );
 }
 
 /// Hebrew (right-to-left) text must survive round-trip.
@@ -59,7 +63,11 @@ fn test_rtl_hebrew_round_trip() {
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "Hebrew RTL text should parse");
     let restored = round_trip_first_text(&xml);
-    assert_eq!(restored.as_deref(), Some(text), "Hebrew text should be preserved");
+    assert_eq!(
+        restored.as_deref(),
+        Some(text),
+        "Hebrew text should be preserved"
+    );
 }
 
 /// Arabic (right-to-left) text must survive round-trip.
@@ -70,7 +78,11 @@ fn test_rtl_arabic_round_trip() {
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "Arabic RTL text should parse");
     let restored = round_trip_first_text(&xml);
-    assert_eq!(restored.as_deref(), Some(text), "Arabic text should be preserved");
+    assert_eq!(
+        restored.as_deref(),
+        Some(text),
+        "Arabic text should be preserved"
+    );
 }
 
 /// Zero-width space (U+200B) is a valid XML character and must not panic.
@@ -79,7 +91,10 @@ fn test_zero_width_space() {
     let text = "Hello\u{200B}World";
     let xml = para(text);
     let result = Document::from_xml(&xml);
-    assert!(result.is_ok(), "Zero-width space should parse without error");
+    assert!(
+        result.is_ok(),
+        "Zero-width space should parse without error"
+    );
 }
 
 /// RTL override character (U+202E) is a valid XML character and must not panic.
@@ -97,7 +112,10 @@ fn test_null_byte_rejected() {
     let xml = super::fodt("<text:p>Text\x00Null</text:p>");
     let result = Document::from_xml(&xml);
     // roxmltree rejects null bytes as invalid XML characters.
-    assert!(result.is_err(), "Null bytes in XML content should be rejected");
+    assert!(
+        result.is_err(),
+        "Null bytes in XML content should be rejected"
+    );
 }
 
 /// Mixed scripts (Latin, CJK, emoji, Arabic) in the same paragraph must parse.

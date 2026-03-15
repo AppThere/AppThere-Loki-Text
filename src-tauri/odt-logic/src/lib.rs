@@ -832,8 +832,8 @@ impl Document {
 
     /// Generate content.xml for ODT format (different from FODT)
     pub fn to_content_xml(&self) -> Result<String, String> {
-        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use std::io::Cursor;
 
         let mut writer = Writer::new(Cursor::new(Vec::new()));
@@ -1233,8 +1233,8 @@ impl Document {
     }
 
     pub fn to_xml(&self) -> Result<String, String> {
-        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use std::io::Cursor;
 
         let mut writer = Writer::new(Cursor::new(Vec::new()));
@@ -1761,8 +1761,8 @@ impl Document {
     }
 
     pub fn to_meta_xml(&self) -> Result<String, String> {
-        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use std::io::Cursor;
 
         let mut writer = Writer::new(Cursor::new(Vec::new()));
@@ -1904,8 +1904,8 @@ impl Document {
     }
 
     pub fn styles_to_xml(&self) -> Result<String, String> {
-        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use quick_xml::Writer;
+        use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
         use std::io::Cursor;
 
         let mut writer = Writer::new(Cursor::new(Vec::new()));

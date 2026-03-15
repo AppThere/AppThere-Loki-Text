@@ -73,7 +73,10 @@ fn test_empty_list_item() {
     let body = "<text:list><text:list-item></text:list-item></text:list>";
     let xml = super::fodt(body);
     let result = Document::from_xml(&xml);
-    assert!(result.is_ok(), "Empty list-item should be accepted: {result:?}");
+    assert!(
+        result.is_ok(),
+        "Empty list-item should be accepted: {result:?}"
+    );
 }
 
 /// A `table:table` with no rows should parse without error.

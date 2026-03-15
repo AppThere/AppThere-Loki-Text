@@ -1,23 +1,18 @@
-//! ODT block and inline XML writers.
+//! ODT block XML writers.
 //!
-//! Provides [`write_blocks`] and [`write_inlines_with_style`] for emitting
-//! ODF-compatible XML from the document's block/inline tree. These are used
-//! by both the FODT and the content.xml writers.
+//! Provides [`write_blocks`] for emitting ODF-compatible block-level XML from
+//! the document's block tree. Inline content is delegated to
+//! [`super::inlines`].
 
-use std::io::Cursor;
-
-use common_core::marks::TiptapMark;
 use common_core::{Block, Inline};
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use quick_xml::Writer;
+use quick_xml::events::{BytesEnd, BytesStart, Event};
 
-/// An alias for the XML writer type used throughout the ODT writers.
-pub type XmlWriter = Writer<Cursor<Vec<u8>>>;
+pub use super::inlines::{write_inlines_with_marks, write_inlines_with_style, XmlWriter};
 
 /// Writes a slice of blocks as ODF XML.
 ///
 /// Handles all block types: paragraphs, headings, lists, tables, images,
-/// page breaks, etc. Inline content is written using [`write_inlines_with_style`].
+/// page breaks, etc.
 ///
 /// # Errors
 ///
@@ -29,7 +24,6 @@ pub fn write_blocks(blocks: &[Block], writer: &mut XmlWriter) -> Result<(), Stri
     Ok(())
 }
 
-/// Writes a single block element.
 fn write_single_block(block: &Block, writer: &mut XmlWriter) -> Result<(), String> {
     match block {
         Block::Paragraph {
@@ -181,153 +175,4 @@ fn write_image(src: &str, writer: &mut XmlWriter) -> Result<(), String> {
     writer
         .write_event(Event::End(BytesEnd::new("draw:frame")))
         .map_err(|e| e.to_string())
-}
-
-/// Writes inline content using style names (for FODT and styles.xml output).
-///
-/// Wraps styled text runs in `text:span` elements with the ODT style name.
-/// Used by the FODT writer where style names are the authoritative source.
-pub fn write_inlines_with_style(inlines: &[Inline], writer: &mut XmlWriter) -> Result<(), String> {
-    for inline in inlines {
-        match inline {
-            Inline::Text {
-                text, style_name, ..
-            } => {
-                if let Some(s) = style_name {
-                    let mut span = BytesStart::new("text:span");
-                    span.push_attribute(("text:style-name", s.as_str()));
-                    writer
-                        .write_event(Event::Start(span))
-                        .map_err(|e| e.to_string())?;
-                    writer
-                        .write_event(Event::Text(BytesText::new(text)))
-                        .map_err(|e| e.to_string())?;
-                    writer
-                        .write_event(Event::End(BytesEnd::new("text:span")))
-                        .map_err(|e| e.to_string())?;
-                } else {
-                    writer
-                        .write_event(Event::Text(BytesText::new(text)))
-                        .map_err(|e| e.to_string())?;
-                }
-            }
-            Inline::LineBreak => {
-                writer
-                    .write_event(Event::Empty(BytesStart::new("text:line-break")))
-                    .map_err(|e| e.to_string())?;
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Writes inline content using marks (for content.xml output).
-///
-/// Wraps text runs that have any marks in `text:span` elements.
-/// Used by the content.xml writer where marks (bold/italic) are the source.
-pub fn write_inlines_with_marks(inlines: &[Inline], writer: &mut XmlWriter) -> Result<(), String> {
-    for inline in inlines {
-        match inline {
-            Inline::Text { text, marks, .. } => {
-                for mark in marks {
-                    match mark {
-                        TiptapMark::Bold => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Strong"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::Italic => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Emphasis"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::Underline => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Underline"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::Strike => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Strike"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::Superscript => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Superscript"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::Subscript => {
-                            let mut span = BytesStart::new("text:span");
-                            span.push_attribute(("text:style-name", "Subscript"));
-                            writer
-                                .write_event(Event::Start(span))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::NamedSpanStyle { attrs } => {
-                            if let Some(name) = &attrs.style_name {
-                                let mut span = BytesStart::new("text:span");
-                                span.push_attribute(("text:style-name", name.as_str()));
-                                writer
-                                    .write_event(Event::Start(span))
-                                    .map_err(|e| e.to_string())?;
-                            }
-                        }
-                        TiptapMark::Link { attrs } => {
-                            let mut a = BytesStart::new("text:a");
-                            a.push_attribute(("xlink:type", "simple"));
-                            a.push_attribute(("xlink:href", attrs.href.as_str()));
-                            if let Some(t) = &attrs.target {
-                                a.push_attribute(("office:target-frame-name", t.as_str()));
-                            }
-                            writer
-                                .write_event(Event::Start(a))
-                                .map_err(|e| e.to_string())?;
-                        }
-                    }
-                }
-
-                writer
-                    .write_event(Event::Text(BytesText::new(text)))
-                    .map_err(|e| e.to_string())?;
-
-                for mark in marks.iter().rev() {
-                    match mark {
-                        TiptapMark::Link { .. } => {
-                            writer
-                                .write_event(Event::End(BytesEnd::new("text:a")))
-                                .map_err(|e| e.to_string())?;
-                        }
-                        TiptapMark::NamedSpanStyle { attrs } => {
-                            if attrs.style_name.is_some() {
-                                writer
-                                    .write_event(Event::End(BytesEnd::new("text:span")))
-                                    .map_err(|e| e.to_string())?;
-                            }
-                        }
-                        _ => {
-                            writer
-                                .write_event(Event::End(BytesEnd::new("text:span")))
-                                .map_err(|e| e.to_string())?;
-                        }
-                    }
-                }
-            }
-            Inline::LineBreak => {
-                writer
-                    .write_event(Event::Empty(BytesStart::new("text:line-break")))
-                    .map_err(|e| e.to_string())?;
-            }
-        }
-    }
-    Ok(())
 }

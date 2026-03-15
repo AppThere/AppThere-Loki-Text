@@ -89,7 +89,10 @@ fn test_xxe_parameter_entity_not_expanded() {
 
     if let Ok(doc) = result {
         let out = doc.to_content_xml().unwrap_or_default();
-        assert!(!out.contains("root:"), "Parameter entity must not be loaded");
+        assert!(
+            !out.contains("root:"),
+            "Parameter entity must not be loaded"
+        );
     }
 }
 

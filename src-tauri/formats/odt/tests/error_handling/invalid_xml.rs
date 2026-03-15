@@ -96,7 +96,10 @@ fn test_bare_text_in_body() {
     let xml = super::fodt(body);
     let result = Document::from_xml(&xml);
     // Parser silently skips unrecognised text nodes — valid output expected.
-    assert!(result.is_ok(), "Bare text in body should not panic or error");
+    assert!(
+        result.is_ok(),
+        "Bare text in body should not panic or error"
+    );
 }
 
 /// XML with only a BOM should fail without panicking.

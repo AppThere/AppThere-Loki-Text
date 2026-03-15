@@ -83,9 +83,7 @@ fn heading_level_and_text_preserved() {
         "",
         r#"<text:h text:outline-level="2">Section 2</text:h>"#,
     ));
-    if let (Block::Heading { level: l1, .. }, Block::Heading { level: l2, .. }) =
-        (&b1[0], &b2[0])
-    {
+    if let (Block::Heading { level: l1, .. }, Block::Heading { level: l2, .. }) = (&b1[0], &b2[0]) {
         assert_eq!(l1, l2, "heading level changed");
         assert_eq!(l1, &2u32);
     } else {
@@ -132,12 +130,13 @@ fn bold_text_format_preserved() {
     let inlines2 = paragraph_inlines(&b2[0]);
     assert_eq!(inlines1.len(), inlines2.len());
 
-    if let (
-        Inline::Text { marks: m1, .. },
-        Inline::Text { marks: m2, .. },
-    ) = (&inlines1[0], &inlines2[0])
+    if let (Inline::Text { marks: m1, .. }, Inline::Text { marks: m2, .. }) =
+        (&inlines1[0], &inlines2[0])
     {
-        assert_eq!(m1.contains(&TiptapMark::Bold), m2.contains(&TiptapMark::Bold));
+        assert_eq!(
+            m1.contains(&TiptapMark::Bold),
+            m2.contains(&TiptapMark::Bold)
+        );
     }
 }
 
@@ -174,8 +173,7 @@ fn bullet_list_items_preserved() {
     let (b1, b2) = round_trip(&xml);
     assert_eq!(b1.len(), b2.len(), "list block count changed");
 
-    if let (Block::BulletList { content: c1 }, Block::BulletList { content: c2 }) =
-        (&b1[0], &b2[0])
+    if let (Block::BulletList { content: c1 }, Block::BulletList { content: c2 }) = (&b1[0], &b2[0])
     {
         assert_eq!(c1.len(), c2.len(), "list item count changed");
     } else {
@@ -263,7 +261,10 @@ fn document_metadata_preserved_through_round_trip() {
     let doc2 = from_lexical(lex, doc1.styles.clone(), doc1.metadata.clone());
 
     assert_eq!(doc1.metadata.title, doc2.metadata.title, "title changed");
-    assert_eq!(doc1.metadata.creator, doc2.metadata.creator, "creator changed");
+    assert_eq!(
+        doc1.metadata.creator, doc2.metadata.creator,
+        "creator changed"
+    );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

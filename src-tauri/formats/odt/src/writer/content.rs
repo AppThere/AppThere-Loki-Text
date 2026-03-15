@@ -10,7 +10,7 @@ use quick_xml::Writer;
 
 use common_core::{Block, Inline};
 
-use crate::writer::blocks::write_inlines_with_marks;
+use crate::writer::inlines::write_inlines_with_marks;
 use crate::writer::namespaces::push_content_ns;
 
 /// Generates the `content.xml` string for a ZIP-format ODT file.

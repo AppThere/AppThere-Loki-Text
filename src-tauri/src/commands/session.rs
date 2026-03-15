@@ -80,8 +80,8 @@ pub fn deserialize_document(file_content: Vec<u8>) -> CommandResult<SessionLexic
         doc
     } else {
         // FODT (flat XML)
-        let xml = String::from_utf8(reader.into_inner())
-            .map_err(|e| format!("Not valid UTF-8: {e}"))?;
+        let xml =
+            String::from_utf8(reader.into_inner()).map_err(|e| format!("Not valid UTF-8: {e}"))?;
         Document::from_xml(&xml)?
     };
 

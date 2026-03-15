@@ -86,7 +86,10 @@ fn style_family_preserved() {
     let doc2 = lexical_round_trip(&xml);
 
     let orig = doc1.styles.get("CodeStyle").expect("style present in doc1");
-    let restored = doc2.styles.get("CodeStyle").expect("CodeStyle lost after round-trip");
+    let restored = doc2
+        .styles
+        .get("CodeStyle")
+        .expect("CodeStyle lost after round-trip");
 
     assert_eq!(
         orig.family, restored.family,
@@ -177,7 +180,10 @@ fn heading_style_name_survives_round_trip() {
     let doc2 = lexical_round_trip(&xml);
 
     assert_eq!(doc2.blocks.len(), 1);
-    if let Block::Heading { level, style_name, .. } = &doc2.blocks[0] {
+    if let Block::Heading {
+        level, style_name, ..
+    } = &doc2.blocks[0]
+    {
         assert_eq!(*level, 1);
         assert_eq!(
             style_name.as_deref(),
@@ -209,7 +215,10 @@ fn multiple_paragraph_styles_all_preserved() {
 
     for name in ["Standard", "Body_Text", "Preformat"] {
         assert!(doc1.styles.contains_key(name), "{name} missing from doc1");
-        assert!(doc2.styles.contains_key(name), "{name} missing after round-trip");
+        assert!(
+            doc2.styles.contains_key(name),
+            "{name} missing after round-trip"
+        );
     }
 }
 
@@ -247,7 +256,10 @@ fn style_display_name_preserved() {
     let orig = doc1.styles.get("MyStyle").unwrap();
     let restored = doc2.styles.get("MyStyle").expect("MyStyle lost");
 
-    assert_eq!(orig.display_name, restored.display_name, "display_name changed");
+    assert_eq!(
+        orig.display_name, restored.display_name,
+        "display_name changed"
+    );
     assert_eq!(StyleFamily::Paragraph, restored.family);
 }
 

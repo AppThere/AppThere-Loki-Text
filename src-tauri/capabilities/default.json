@@ -19,7 +19,7 @@
 		"core:image:default",
 		{
 			"identifier": "fs:scope",
-			"allow": ["$HOME/**", "**", "$APPLOCALDATA/**"]
+			"allow": ["$HOME/**", "$APPLOCALDATA/**"]
 		}
 	]
 }

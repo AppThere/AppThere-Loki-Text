@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { INSERT_TABLE_COMMAND } from '@lexical/table';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
     DropdownMenu,
     DropdownMenuContent,

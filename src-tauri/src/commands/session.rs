@@ -6,7 +6,7 @@
 //! user's original file.
 
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read};
 
 use common_core::{LexicalDocument, Metadata, StyleDefinition};
 use odt_format::{
@@ -14,7 +14,8 @@ use odt_format::{
     Document,
 };
 use serde::Serialize;
-use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
+
+use super::odt_zip::write_odt_zip;
 
 type CommandResult<T> = Result<T, String>;
 
@@ -92,47 +93,3 @@ pub fn deserialize_document(file_content: Vec<u8>) -> CommandResult<SessionLexic
     })
 }
 
-fn write_odt_zip<W: Write + std::io::Seek>(writer: W, doc: &Document) -> CommandResult<()> {
-    let mut zip = ZipWriter::new(writer);
-
-    let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-    let deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-
-    zip.start_file("mimetype", stored)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(b"application/vnd.oasis.opendocument.text")
-        .map_err(|e| e.to_string())?;
-
-    zip.add_directory("META-INF", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.start_file("META-INF/manifest.xml", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(MANIFEST.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    zip.start_file("content.xml", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.to_content_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    zip.start_file("styles.xml", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.styles_to_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    zip.start_file("meta.xml", deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.to_meta_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    zip.finish().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3">
- <manifest:file-entry manifest:full-path="/" manifest:version="1.3" manifest:media-type="application/vnd.oasis.opendocument.text"/>
- <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
- <manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>
- <manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/>
-</manifest:manifest>"#;

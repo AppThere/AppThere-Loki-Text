@@ -1,5 +1,6 @@
 use common_core::{LexicalDocument, Metadata, StyleDefinition};
 use odt_format::{lexical::from_lexical, tiptap::to_tiptap::document_to_tiptap};
+
 use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -22,11 +23,8 @@ pub async fn save_epub<R: Runtime>(
         serde_json::from_str(&lexical_json).map_err(|e| e.to_string())?;
     let odt_doc = from_lexical(lex_doc, styles.clone(), metadata.clone());
 
-    // Bridge to odt_logic types via JSON round-trip (epub_logic uses odt_logic::TiptapNode)
+    // Convert blocks to TiptapNode (common_core types used directly by epub_logic)
     let common_node = document_to_tiptap(&odt_doc.blocks);
-    let bridge_json = serde_json::to_string(&common_node).map_err(|e| e.to_string())?;
-    let json_node: odt_logic::TiptapNode =
-        serde_json::from_str(&bridge_json).map_err(|e| e.to_string())?;
 
     // Load fonts
     let mut fonts = Vec::new();
@@ -57,18 +55,9 @@ pub async fn save_epub<R: Runtime>(
         }
     }
 
-    // Convert common_core types to odt_logic types by JSON round-trip
-    let styles_json = serde_json::to_string(&styles).map_err(|e| e.to_string())?;
-    let odt_styles: HashMap<String, odt_logic::StyleDefinition> =
-        serde_json::from_str(&styles_json).map_err(|e| e.to_string())?;
-
-    let meta_json = serde_json::to_string(&metadata).map_err(|e| e.to_string())?;
-    let odt_metadata: odt_logic::Metadata =
-        serde_json::from_str(&meta_json).map_err(|e| e.to_string())?;
-
-    // Create EPUB document
+    // Create EPUB document (epub_logic now uses common_core types directly)
     let epub_doc =
-        epub_logic::EpubDocument::from_tiptap(json_node, odt_styles, odt_metadata, fonts);
+        epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts);
 
     // Write EPUB
     if path.starts_with("content://") {

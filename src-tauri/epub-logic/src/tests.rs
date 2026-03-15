@@ -99,7 +99,7 @@ fn test_page_break_splitting() {
     let mut styles = HashMap::new();
     let mut style_def = StyleDefinition {
         name: "BreakStyle".to_string(),
-        family: odt_logic::StyleFamily::Paragraph,
+        family: StyleFamily::Paragraph,
         parent: None,
         next: None,
         display_name: None,

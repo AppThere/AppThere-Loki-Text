@@ -184,3 +184,29 @@ pub fn preview_colour_conversion(
     let mut ctx = ColourContext::new_for_display(&target_settings, &mut store)?;
     Ok(ctx.convert_batch(&colours))
 }
+
+/// Search the Pantone colour library by name.
+///
+/// Performs a case-insensitive substring search over all known Pantone names.
+/// Returns up to 50 matches, each with the colour name and its CIE Lab reference.
+#[tauri::command]
+pub fn search_pantone(
+    query: String,
+) -> Vec<serde_json::Value> {
+    use common_core::colour_management::pantone::all_pantone_names;
+    use serde_json::json;
+
+    let q = query.to_uppercase();
+    all_pantone_names()
+        .filter(|name| name.contains(q.as_str()))
+        .take(50)
+        .filter_map(|name| {
+            common_core::colour_management::lookup_pantone(name).map(|lab| {
+                json!({
+                    "name": name,
+                    "lab_ref": [lab[0], lab[1], lab[2]],
+                })
+            })
+        })
+        .collect()
+}

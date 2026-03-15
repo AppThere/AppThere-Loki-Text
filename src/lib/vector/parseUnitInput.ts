@@ -1,5 +1,5 @@
 // Utility for parsing user-typed unit input strings.
-// Used by UnitInput component.
+// Used by UnitInput component and colour channel inputs.
 
 import type { LengthUnit } from './types';
 import { toPx, parseSuffix } from './unitConverter';
@@ -39,4 +39,44 @@ export function parseUnitInput(
     }
 
     return toPx(num, unit, dpi);
+}
+
+/**
+ * Parse a user-typed RGB channel string (0–255 integer) into a 0.0–1.0 float.
+ * Accepts strings like "128", "255", "0".
+ * Returns null if the input is not a valid integer in [0, 255].
+ */
+export function parseRgbChannel(raw: string): number | null {
+    const s = raw.trim();
+    if (!s) return null;
+    const num = Math.round(parseFloat(s));
+    if (isNaN(num) || num < 0 || num > 255) return null;
+    return num / 255;
+}
+
+/**
+ * Parse a user-typed CMYK channel string (0–100 percentage) into a 0.0–1.0 float.
+ * Accepts strings like "50", "100", "0", "75.5".
+ * Returns null if the input is not a valid number in [0, 100].
+ */
+export function parseCmykChannel(raw: string): number | null {
+    const s = raw.trim().replace(/%$/, '');
+    if (!s) return null;
+    const num = parseFloat(s);
+    if (isNaN(num) || num < 0 || num > 100) return null;
+    return num / 100;
+}
+
+/**
+ * Format a 0.0–1.0 RGB channel value as a 0–255 integer string.
+ */
+export function formatRgbChannel(value: number): string {
+    return String(Math.round(Math.max(0, Math.min(1, value)) * 255));
+}
+
+/**
+ * Format a 0.0–1.0 CMYK channel value as a 0–100 percentage string (no % suffix).
+ */
+export function formatCmykChannel(value: number): string {
+    return String(Math.round(Math.max(0, Math.min(1, value)) * 100));
 }

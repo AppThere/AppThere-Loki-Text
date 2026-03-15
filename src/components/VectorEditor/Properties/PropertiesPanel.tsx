@@ -1,12 +1,14 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useVectorStore } from '@/lib/vector/store';
+import { useDisplayColours } from '@/lib/vector/useDisplayColours';
 import { FillStrokeTab } from './FillStrokeTab';
 import { TransformTab } from './TransformTab';
 import { LayersTab } from './LayersTab';
-import type { VectorObject } from '@/lib/vector/types';
+import { SwatchPanel } from '../Colour/SwatchPanel';
+import type { VectorObject, Colour } from '@/lib/vector/types';
 import { cn } from '@/lib/utils';
 
-type PanelTab = 'object' | 'layers';
+type PanelTab = 'object' | 'layers' | 'swatches';
 
 interface Props {
     variant: 'sidebar' | 'bottomsheet';
@@ -20,6 +22,20 @@ export function PropertiesPanel({ variant }: Props) {
     const [sheetOpen, setSheetOpen] = useState(false);
     const dragRef = useRef<{ startY: number; startOpen: boolean } | null>(null);
 
+    // Collect all objects for display colour cache
+    const allObjects = useMemo<VectorObject[]>(() => {
+        if (!doc) return [];
+        return doc.layers.flatMap((l) => l.objects);
+    }, [doc]);
+
+    const colourSettings = doc?.colour_settings ?? {
+        working_space: { type: 'Srgb' },
+        rendering_intent: 'RelativeColorimetric' as const,
+        blackpoint_compensation: true,
+    };
+
+    const displayCache = useDisplayColours(allObjects, colourSettings);
+
     const selectedObj: VectorObject | null = (() => {
         if (selectedIds.size !== 1 || !doc) return null;
         const id = [...selectedIds][0];
@@ -29,6 +45,25 @@ export function PropertiesPanel({ variant }: Props) {
         }
         return null;
     })();
+
+    // Extract fill/stroke colours for the SwatchPanel "Add from fill/stroke" buttons
+    const fillColour: Colour | null =
+        selectedObj?.style.fill.type === 'Solid' ? selectedObj.style.fill.colour : null;
+    const strokeColour: Colour | null =
+        selectedObj?.style.stroke.paint.type === 'Solid'
+            ? selectedObj.style.stroke.paint.colour
+            : null;
+
+    const { updateObject } = useVectorStore();
+    const handleApplySwatch = (colour: Colour) => {
+        if (!selectedObj) return;
+        updateObject(selectedObj.id, {
+            style: {
+                ...selectedObj.style,
+                fill: { type: 'Solid', colour },
+            },
+        } as Partial<VectorObject>);
+    };
 
     const tabBtn = (tab: PanelTab, label: string) => (
         <button
@@ -49,6 +84,7 @@ export function PropertiesPanel({ variant }: Props) {
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex border-b border-border shrink-0">
                 {tabBtn('object', 'Object')}
+                {tabBtn('swatches', 'Swatches')}
                 {tabBtn('layers', 'Layers')}
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -57,13 +93,24 @@ export function PropertiesPanel({ variant }: Props) {
                         <>
                             <TransformTab obj={selectedObj} />
                             <div className="border-t border-border" />
-                            <FillStrokeTab obj={selectedObj} />
+                            <FillStrokeTab
+                                obj={selectedObj}
+                                colourSettings={colourSettings}
+                                displayCache={displayCache}
+                            />
                         </>
                     ) : (
                         <div className="flex items-center justify-center h-24 text-xs text-muted-foreground px-4 text-center">
                             Select an object to edit its properties.
                         </div>
                     )
+                ) : activeTab === 'swatches' ? (
+                    <SwatchPanel
+                        displayCache={displayCache}
+                        fillColour={fillColour}
+                        strokeColour={strokeColour}
+                        onApply={handleApplySwatch}
+                    />
                 ) : (
                     <LayersTab />
                 )}

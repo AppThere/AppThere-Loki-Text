@@ -6,6 +6,12 @@ import {
     isDirectlyRenderable,
     collectNonRgbColours,
     defaultColourSettings,
+    colourLabel,
+    colourSpaceBadge,
+    isCmykDocument,
+    cmykProfile,
+    displayRgbToCss,
+    parseHexColour,
 } from './colourUtils';
 import type { Colour, VectorObject } from './types';
 import { defaultStyle, identityTransform } from './types';
@@ -135,5 +141,116 @@ describe('defaultColourSettings', () => {
     it('returns sRGB working space', () => {
         const settings = defaultColourSettings();
         expect(settings.working_space.type).toBe('Srgb');
+    });
+});
+
+describe('colourLabel', () => {
+    it('formats Rgb as integer channels', () => {
+        expect(colourLabel({ type: 'Rgb', r: 1, g: 0, b: 0, a: 1 })).toBe('RGB 255 0 0');
+    });
+
+    it('formats Cmyk as percentages', () => {
+        expect(colourLabel({ type: 'Cmyk', c: 0, m: 1, y: 1, k: 0, alpha: 1 })).toBe('CMYK 0% 100% 100% 0%');
+    });
+
+    it('formats Lab with one decimal place', () => {
+        const label = colourLabel({ type: 'Lab', l: 50, a: 25, b: -10, alpha: 1 });
+        expect(label).toBe('Lab 50.0 25.0 -10.0');
+    });
+
+    it('returns spot colour name', () => {
+        const c: Colour = {
+            type: 'Spot',
+            name: 'PANTONE 186 C',
+            tint: 1.0,
+            lab_ref: [38, 56, 28],
+            cmyk_fallback: { type: 'Cmyk', c: 0, m: 0.91, y: 0.76, k: 0.06, alpha: 1 },
+        };
+        expect(colourLabel(c)).toBe('PANTONE 186 C');
+    });
+
+    it('returns "Linked" for linked colours', () => {
+        expect(colourLabel({ type: 'Linked', id: 'x' })).toBe('Linked');
+    });
+});
+
+describe('colourSpaceBadge', () => {
+    it('returns correct badges', () => {
+        expect(colourSpaceBadge({ type: 'Rgb', r: 0, g: 0, b: 0, a: 1 })).toBe('RGB');
+        expect(colourSpaceBadge({ type: 'Cmyk', c: 0, m: 0, y: 0, k: 0, alpha: 1 })).toBe('CMYK');
+        expect(colourSpaceBadge({ type: 'Lab', l: 0, a: 0, b: 0, alpha: 1 })).toBe('Lab');
+        expect(colourSpaceBadge({ type: 'Linked', id: 'x' })).toBe('Linked');
+    });
+});
+
+describe('isCmykDocument', () => {
+    it('returns false for sRGB document', () => {
+        expect(isCmykDocument(defaultColourSettings())).toBe(false);
+    });
+
+    it('returns true for CMYK document', () => {
+        const settings = {
+            working_space: { type: 'Cmyk' as const, profile: { type: 'BuiltIn' as const, profile: 'IsoCoatedV2' as const } },
+            rendering_intent: 'RelativeColorimetric' as const,
+            blackpoint_compensation: true,
+        };
+        expect(isCmykDocument(settings)).toBe(true);
+    });
+});
+
+describe('cmykProfile', () => {
+    it('returns null for sRGB', () => {
+        expect(cmykProfile(defaultColourSettings())).toBeNull();
+    });
+
+    it('returns profile for CMYK document', () => {
+        const profile = { type: 'BuiltIn' as const, profile: 'IsoCoatedV2' as const };
+        const settings = {
+            working_space: { type: 'Cmyk' as const, profile },
+            rendering_intent: 'RelativeColorimetric' as const,
+            blackpoint_compensation: true,
+        };
+        expect(cmykProfile(settings)).toEqual(profile);
+    });
+});
+
+describe('displayRgbToCss', () => {
+    it('converts opaque red', () => {
+        expect(displayRgbToCss([1, 0, 0, 1])).toBe('rgba(255,0,0,1)');
+    });
+
+    it('converts semi-transparent grey', () => {
+        expect(displayRgbToCss([0.5, 0.5, 0.5, 0.5])).toBe('rgba(128,128,128,0.5)');
+    });
+});
+
+describe('parseHexColour', () => {
+    it('parses 6-digit hex', () => {
+        const c = parseHexColour('#ff0000');
+        expect(c).not.toBeNull();
+        expect(c!.type).toBe('Rgb');
+        if (c!.type === 'Rgb') {
+            expect(c!.r).toBeCloseTo(1, 5);
+            expect(c!.g).toBeCloseTo(0, 5);
+        }
+    });
+
+    it('parses 3-digit shorthand', () => {
+        const c = parseHexColour('#f00');
+        expect(c).not.toBeNull();
+        expect(c!.type).toBe('Rgb');
+    });
+
+    it('parses 8-digit hex with alpha', () => {
+        const c = parseHexColour('#ff000080');
+        expect(c).not.toBeNull();
+        if (c!.type === 'Rgb') {
+            expect(c!.a).toBeCloseTo(128 / 255, 3);
+        }
+    });
+
+    it('returns null for invalid input', () => {
+        expect(parseHexColour('not-a-colour')).toBeNull();
+        expect(parseHexColour('#gggggg')).toBeNull();
     });
 });

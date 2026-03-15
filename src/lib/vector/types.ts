@@ -184,6 +184,51 @@ export interface VectorDocument {
         [key: string]: unknown;
     };
     colour_settings: DocumentColourSettings;
+    /** Named colour swatches for this document. */
+    swatch_library: SwatchLibrary;
+}
+
+/**
+ * A warning produced during colour mode conversion.
+ * Mirrors vector_core::convert::ConversionWarning.
+ */
+export interface ConversionWarning {
+    object_id: string;
+    property: string;   // "fill" | "stroke"
+    message: string;
+}
+
+/**
+ * Response from the convert_document_colour_mode Tauri command.
+ * The Rust side returns a tuple (VectorDocument, Vec<ConversionWarning>),
+ * which serialises as a two-element JSON array.
+ */
+export interface ConvertColourModeResponse {
+    document: VectorDocument;
+    warnings: ConversionWarning[];
+}
+
+/**
+ * Metadata for a built-in ICC output intent profile.
+ * Mirrors the serde_json::Value returned by get_output_intent_profiles.
+ * Note: the Rust command uses "name" (not "display_name").
+ */
+export interface ProfileInfo {
+    id: string;          // matches BuiltInProfile variant name
+    name: string;        // human-readable display name
+    description: string;
+}
+
+/**
+ * A before/after colour pair for the colour mode preview UI.
+ * Constructed on the frontend from two batch_convert_colours calls.
+ */
+export interface ColourPreviewPair {
+    original: Colour;
+    original_display: [number, number, number, number];
+    converted_display: [number, number, number, number];
+    /** Approximate ΔE in display RGB space (0–100). */
+    delta_e: number;
 }
 
 export function identityTransform(): Transform {

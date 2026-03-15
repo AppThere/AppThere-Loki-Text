@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, FileText, Save, FolderOpen, Cloud, CloudOff } from 'lucide-react';
+import { X, FileText, Save, FolderOpen, Cloud, CloudOff, Palette } from 'lucide-react';
 import { useVectorStore } from '@/lib/vector/store';
 import { VectorCanvas } from './Canvas/VectorCanvas';
 import { ToolPalette } from './Tools/ToolPalette';
 import { PropertiesPanel } from './Properties/PropertiesPanel';
 import { NewDocumentDialog } from './Dialogs/NewDocumentDialog';
+import { ColourModeDialog } from './Dialogs/ColourModeDialog';
 import { Button } from '../ui/button';
 import { useVectorFileOps } from '@/lib/vector/useVectorFileOps';
 
@@ -15,6 +16,7 @@ interface VectorEditorProps {
 export function VectorEditor({ onClose }: VectorEditorProps) {
     const { document: doc, isDirty, setSelectedIds, deleteSelected } = useVectorStore();
     const [newDocDialogOpen, setNewDocDialogOpen] = useState(!doc);
+    const [colourModeOpen, setColourModeOpen] = useState(false);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
     const { handleSave, handleOpen } = useVectorFileOps();
@@ -73,6 +75,16 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSave} title="Save">
                     <Save className="h-4 w-4" />
                 </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setColourModeOpen(true)}
+                    title="Document Colour Mode…"
+                    disabled={!doc}
+                >
+                    <Palette className="h-4 w-4" />
+                </Button>
                 {onClose && (
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Close">
                         <X className="h-4 w-4" />
@@ -113,6 +125,10 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
             <NewDocumentDialog
                 open={newDocDialogOpen}
                 onOpenChange={setNewDocDialogOpen}
+            />
+            <ColourModeDialog
+                open={colourModeOpen}
+                onOpenChange={setColourModeOpen}
             />
         </div>
     );

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { VectorDocument, VectorObject } from './types';
+import type { IccProfileRef, SwatchLibrary, VectorDocument, VectorObject } from './types';
 import {
     addObjectToLayer,
     updateObjectInLayers,
@@ -27,6 +27,10 @@ interface VectorEditorState {
     showGrid: boolean;
     snapToGrid: boolean;
     gridSpacingPx: number;
+    /** Whether soft-proof mode is active. */
+    softProofActive: boolean;
+    /** The output intent profile used for soft-proofing, if active. */
+    softProofProfile: IccProfileRef | null;
 
     // Actions
     setDocument: (doc: VectorDocument) => void;
@@ -43,6 +47,8 @@ interface VectorEditorState {
     setActiveLayer: (index: number) => void;
     toggleGrid: () => void;
     toggleSnap: () => void;
+    setSoftProof: (active: boolean, profile: IccProfileRef | null) => void;
+    updateSwatchLibrary: (library: SwatchLibrary) => void;
     reset: () => void;
 }
 
@@ -59,6 +65,8 @@ const initialState = {
     showGrid: true,
     snapToGrid: false,
     gridSpacingPx: 10,
+    softProofActive: false,
+    softProofProfile: null as IccProfileRef | null,
 };
 
 export const useVectorStore = create<VectorEditorState>((set, get) => ({
@@ -103,5 +111,21 @@ export const useVectorStore = create<VectorEditorState>((set, get) => ({
     toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
     toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
 
-    reset: () => set({ ...initialState, selectedIds: new Set<string>() }),
+    setSoftProof: (active, profile) => set({ softProofActive: active, softProofProfile: profile }),
+
+    updateSwatchLibrary: (library) => {
+        const { document } = get();
+        if (!document) return;
+        set({ document: { ...document, swatch_library: library }, isDirty: true });
+    },
+
+    reset: () => set({
+        ...initialState,
+        selectedIds: new Set<string>(),
+        softProofProfile: null,
+    }),
 }));
+
+/** Selector: derive the swatch library from the document (or return empty). */
+export const selectSwatchLibrary = (s: VectorEditorState): SwatchLibrary =>
+    s.document?.swatch_library ?? { swatches: [] };

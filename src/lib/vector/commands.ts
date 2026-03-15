@@ -1,7 +1,15 @@
 // Typed wrappers for Tauri invoke calls for vector editor commands.
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Colour, DocumentColourSettings, VectorDocument } from './types';
+import type {
+    Colour,
+    ColourPreviewPair,
+    ConvertColourModeResponse,
+    DocumentColourSettings,
+    ProfileInfo,
+    VectorDocument,
+} from './types';
+import { colourCacheKey } from './colourUtils';
 
 export async function openVectorDocument(
     path: string,
@@ -29,7 +37,7 @@ export async function saveVectorDocument(
 }
 
 export async function newVectorDocument(
-    preset: 'a4-portrait' | 'a4-landscape' | 'letter-portrait' | 'custom',
+    preset: string,
     widthPx?: number,
     heightPx?: number,
 ): Promise<VectorDocument> {
@@ -76,4 +84,108 @@ export async function batchConvertColours(
         settings,
     });
     return result as Array<[number, number, number, number]>;
+}
+
+/**
+ * Convert all colours in a document to a new colour space.
+ * Returns the converted document and any gamut-clipping warnings.
+ *
+ * Rust command: convert_document_colour_mode(document, target_settings)
+ * Returns a tuple that serialises as [VectorDocument, ConversionWarning[]].
+ */
+export async function convertDocumentColourMode(
+    document: VectorDocument,
+    targetSettings: DocumentColourSettings,
+): Promise<ConvertColourModeResponse> {
+    try {
+        const result = await invoke<[VectorDocument, Array<{ object_id: string; property: string; message: string }>]>(
+            'convert_document_colour_mode',
+            { document, targetSettings },
+        );
+        return { document: result[0], warnings: result[1] };
+    } catch (e) {
+        throw new Error(String(e));
+    }
+}
+
+/**
+ * Returns metadata for all built-in ICC output intent profiles.
+ */
+export async function getOutputIntentProfiles(): Promise<ProfileInfo[]> {
+    try {
+        return await invoke<ProfileInfo[]>('get_output_intent_profiles');
+    } catch (e) {
+        throw new Error(String(e));
+    }
+}
+
+/**
+ * Preview how colours will look after conversion to a different colour space.
+ *
+ * Collects unique colours from the document, converts them with both the
+ * source and target settings, then returns before/after pairs with ΔE values.
+ */
+export async function previewColourConversion(
+    document: VectorDocument,
+    targetSettings: DocumentColourSettings,
+    maxColours = 64,
+): Promise<ColourPreviewPair[]> {
+    const seen = new Set<string>();
+    const colours: Colour[] = [];
+    for (const layer of document.layers) {
+        for (const obj of layer.objects) {
+            if (obj.style.fill.type === 'Solid') {
+                const key = colourCacheKey(obj.style.fill.colour);
+                if (!seen.has(key) && colours.length < maxColours) {
+                    seen.add(key);
+                    colours.push(obj.style.fill.colour);
+                }
+            }
+            if (obj.style.stroke.paint.type === 'Solid') {
+                const key = colourCacheKey(obj.style.stroke.paint.colour);
+                if (!seen.has(key) && colours.length < maxColours) {
+                    seen.add(key);
+                    colours.push(obj.style.stroke.paint.colour);
+                }
+            }
+        }
+    }
+    if (colours.length === 0) return [];
+
+    const [originalDisplays, convertedRaw] = await Promise.all([
+        batchConvertColours(colours, document.colour_settings),
+        invoke<number[][]>('preview_colour_conversion', {
+            document,
+            targetSettings,
+            maxColours,
+        }),
+    ]);
+    const convertedDisplays = convertedRaw as Array<[number, number, number, number]>;
+
+    return colours.map((colour, i) => {
+        const orig = (originalDisplays[i] ?? [0, 0, 0, 1]) as [number, number, number, number];
+        const conv = (convertedDisplays[i] ?? [0, 0, 0, 1]) as [number, number, number, number];
+        const dr = (orig[0] - conv[0]) * 255;
+        const dg = (orig[1] - conv[1]) * 255;
+        const db = (orig[2] - conv[2]) * 255;
+        const delta_e = Math.sqrt(dr * dr + dg * dg + db * db) / Math.sqrt(3);
+        return { original: colour, original_display: orig, converted_display: conv, delta_e };
+    });
+}
+
+/**
+ * Search the Pantone colour library by name.
+ * Returns up to 50 matching entries with Lab reference values.
+ */
+export async function searchPantone(
+    query: string,
+): Promise<Array<{ name: string; lab_ref: [number, number, number] }>> {
+    try {
+        return await invoke<Array<{ name: string; lab_ref: [number, number, number] }>>(
+            'search_pantone',
+            { query },
+        );
+    } catch (e) {
+        throw new Error(String(e));
+    }
 }

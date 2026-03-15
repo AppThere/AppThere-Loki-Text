@@ -121,7 +121,8 @@ pub fn run() {
             commands::vector::batch_convert_colours,
             commands::vector::convert_document_colour_mode,
             commands::vector::get_output_intent_profiles,
-            commands::vector::preview_colour_conversion
+            commands::vector::preview_colour_conversion,
+            commands::vector::search_pantone
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

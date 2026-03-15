@@ -10,6 +10,7 @@ use quick_xml::Writer;
 
 use common_core::{Block, Inline};
 
+use crate::writer::blocks::write_image;
 use crate::writer::inlines::write_inlines_with_marks;
 use crate::writer::namespaces::push_content_ns;
 
@@ -166,7 +167,31 @@ fn write_block_content(block: &Block, writer: &mut Writer<Cursor<Vec<u8>>>) -> R
                 .write_event(Event::End(BytesEnd::new("table:table-row")))
                 .map_err(|e| e.to_string())?;
         }
-        Block::TableCell { content, .. } | Block::TableHeader { content, .. } => {
+        Block::TableCell { attrs, content } => {
+            let mut cell = BytesStart::new("table:table-cell");
+            if let Some(a) = attrs {
+                if let Some(n) = a.colspan.filter(|&v| v > 1) {
+                    cell.push_attribute((
+                        "table:number-columns-spanned",
+                        n.to_string().as_str(),
+                    ));
+                }
+                if let Some(n) = a.rowspan.filter(|&v| v > 1) {
+                    cell.push_attribute((
+                        "table:number-rows-spanned",
+                        n.to_string().as_str(),
+                    ));
+                }
+            }
+            writer
+                .write_event(Event::Start(cell))
+                .map_err(|e| e.to_string())?;
+            write_blocks_content(content, writer)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("table:table-cell")))
+                .map_err(|e| e.to_string())?;
+        }
+        Block::TableHeader { content, .. } => {
             writer
                 .write_event(Event::Start(BytesStart::new("table:table-cell")))
                 .map_err(|e| e.to_string())?;
@@ -181,7 +206,16 @@ fn write_block_content(block: &Block, writer: &mut Writer<Cursor<Vec<u8>>>) -> R
                 .write_event(Event::Empty(BytesStart::new("text:p")))
                 .map_err(|e| e.to_string())?;
         }
-        Block::Image { .. } => {} // Images not supported in content.xml writer
+        Block::Image { src, .. } => {
+            // ODF stores images inside a text:p paragraph wrapper.
+            writer
+                .write_event(Event::Start(BytesStart::new("text:p")))
+                .map_err(|e| e.to_string())?;
+            write_image(src, writer)?;
+            writer
+                .write_event(Event::End(BytesEnd::new("text:p")))
+                .map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }

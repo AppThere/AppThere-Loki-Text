@@ -1,5 +1,5 @@
 [workspace]
-members = ["epub-logic", "formats/common-core", "formats/odt"]
+members = ["epub-logic", "formats/common-core", "formats/odt", "formats/vector-core"]
 
 [package]
 name = "AppThere-Loki"
@@ -32,3 +32,4 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 log = "0.4"
 zip = "8.0.0"
+vector-core = { path = "formats/vector-core" }

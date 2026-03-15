@@ -16,13 +16,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SessionManager, SessionMeta } from '@/lib/session/SessionManager';
-import { useFileOperations } from '@/lib/hooks/useFileOperations';
 import { useDocumentStore } from '@/lib/stores/documentStore';
 
 export function SessionRecovery() {
     const [open, setOpen] = useState(false);
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
-    const { loadDocument } = useFileOperations();
     const setSession = useDocumentStore((s) => s.setSession);
 
     useEffect(() => {

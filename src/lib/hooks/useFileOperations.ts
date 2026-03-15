@@ -60,7 +60,7 @@ export function useFileOperations() {
             setPath('');
             setContent(response.content);
             setStyles(response.styles);
-            setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
+            setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: null });
             markDirty();
         } catch (error) {
             console.error('Failed to create new document:', error);
@@ -146,7 +146,7 @@ export function useFileOperations() {
                 setPath('');
                 setContent(response.content);
                 setStyles(response.styles);
-                setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
+                setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: null });
                 addTemplate('text', {
                     path,
                     name: response.metadata.title || path.split('/').pop() || 'Untitled',

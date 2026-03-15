@@ -6,7 +6,8 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
-		"tauri": "tauri"
+		"tauri": "tauri",
+		"test": "vitest"
 	},
 	"dependencies": {
 		"@lexical/headless": "^0.20.0",

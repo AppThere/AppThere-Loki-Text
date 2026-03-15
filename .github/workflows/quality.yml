@@ -1,0 +1,83 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main, master, "claude/**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  rust-quality:
+    name: Rust Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Check formatting
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy on formats workspace
+        working-directory: src-tauri
+        run: cargo clippy -p common-core -p odt-format --all-targets -- -D warnings
+
+      - name: Check file sizes (formats/)
+        run: bash scripts/check-file-sizes.sh rust
+
+      - name: Run tests (new formats workspace)
+        working-directory: src-tauri
+        run: cargo test -p common-core -p odt-format
+
+      - name: Run tests (legacy odt-logic)
+        working-directory: src-tauri
+        run: cargo test -p odt-logic
+
+  typescript-quality:
+    name: TypeScript Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test -- --run
+
+      - name: Check file sizes (src/)
+        run: bash scripts/check-file-sizes.sh typescript
+
+  file-size-enforcement:
+    name: File Size Limits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Rust file sizes
+        run: bash scripts/check-file-sizes.sh rust
+
+      - name: Check TypeScript file sizes
+        run: bash scripts/check-file-sizes.sh typescript

@@ -1,0 +1,81 @@
+name: Performance
+
+on:
+  push:
+    branches: [main, master, "claude/**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  benchmarks:
+    name: Compile benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      # --no-run compiles all bench binaries but does not run them.
+      # This keeps CI fast while still catching compilation errors.
+      - name: Compile benchmarks (odt-format)
+        working-directory: src-tauri
+        run: cargo bench -p odt-format --no-run
+
+      # Run a short smoke pass: 10 samples, 1 measurement per sample.
+      # This catches crashes and panics without waiting minutes for
+      # full statistical measurement.
+      - name: Smoke-run benchmarks
+        working-directory: src-tauri
+        run: |
+          cargo bench -p odt-format --bench full_pipeline \
+            -- --sample-size 10 --measurement-time 1
+
+      - name: Upload criterion reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-reports
+          path: src-tauri/target/criterion/
+          retention-days: 30
+
+  memory-tests:
+    name: Memory stability tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-mem-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      # Run the non-ignored memory tests in release mode.
+      # These verify correctness and stable memory across 1 000 iterations.
+      - name: Run memory-usage tests (release)
+        working-directory: src-tauri
+        run: cargo test -p odt-format --test memory_usage --release
+
+  file-sizes:
+    name: Bench file size check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Rust file sizes (includes benches/)
+        run: bash scripts/check-file-sizes.sh rust

@@ -1,4 +1,9 @@
-use odt_logic::{Document, Metadata, StyleDefinition, TiptapNode, TiptapResponse};
+use common_core::{LexicalDocument, Metadata, StyleDefinition};
+use odt_format::{
+    lexical::{from_lexical, to_lexical},
+    Document,
+};
+use serde::Serialize;
 use std::{
     collections::HashMap,
     io::{Cursor, Read, Write},
@@ -6,13 +11,21 @@ use std::{
 use tauri::{AppHandle, Emitter, Runtime};
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
+/// Response payload for `open_document`: Lexical editor state + styles + metadata.
+#[derive(Serialize)]
+pub struct LexicalResponse {
+    pub content: LexicalDocument,
+    pub styles: HashMap<String, StyleDefinition>,
+    pub metadata: Metadata,
+}
+
 type CommandResult<T> = Result<T, String>;
 
 #[tauri::command]
 pub async fn save_document<R: Runtime>(
     app: AppHandle<R>,
     path: String,
-    tiptap_json: String,
+    lexical_json: String,
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
     original_path: Option<String>,
@@ -21,11 +34,11 @@ pub async fn save_document<R: Runtime>(
     app.emit("debug_log", format!("Saving document to {}", path))
         .ok();
 
-    // Deserialize Tiptap JSON
-    let json_node: TiptapNode =
-        serde_json::from_str(&tiptap_json).map_err(|e| format!("Invalid JSON: {}", e))?;
+    // Deserialize Lexical editor state
+    let lex_doc: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| format!("Invalid Lexical JSON: {}", e))?;
 
-    let doc = Document::from_tiptap(json_node, styles, metadata);
+    let doc = from_lexical(lex_doc, styles, metadata);
 
     let mut original_bytes: Option<Vec<u8>> = original_content;
     if original_bytes.is_none() {
@@ -93,14 +106,18 @@ fn update_odt_zip<W: Write + std::io::Seek>(
     let mut zip_in = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
     let mut zip_out = ZipWriter::new(writer);
 
-    let options_mimetype = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-    let options_deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let options_mimetype =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let options_deflated =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
     // Write mimetype first (uncompressed) if it exists
     for i in 0..zip_in.len() {
         let mut file = zip_in.by_index(i).map_err(|e| e.to_string())?;
         if file.name() == "mimetype" {
-            zip_out.start_file("mimetype", options_mimetype).map_err(|e| e.to_string())?;
+            zip_out
+                .start_file("mimetype", options_mimetype)
+                .map_err(|e| e.to_string())?;
             std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
             break;
         }
@@ -114,32 +131,48 @@ fn update_odt_zip<W: Write + std::io::Seek>(
             continue;
         }
 
-        zip_out.start_file(&name, options_deflated).map_err(|e| e.to_string())?;
+        zip_out
+            .start_file(&name, options_deflated)
+            .map_err(|e| e.to_string())?;
 
         if name == "content.xml" {
             let mut original = String::new();
             if file.read_to_string(&mut original).is_ok() {
                 if let Ok(updated) = doc.update_fodt(&original) {
-                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(updated.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(doc.to_content_xml()?.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
             } else {
-                zip_out.write_all(doc.to_content_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                zip_out
+                    .write_all(doc.to_content_xml()?.as_bytes())
+                    .map_err(|e| e.to_string())?;
             }
         } else if name == "styles.xml" {
             let mut original = String::new();
             if file.read_to_string(&mut original).is_ok() {
                 if let Ok(updated) = doc.update_fodt(&original) {
-                    zip_out.write_all(updated.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(updated.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                    zip_out
+                        .write_all(doc.styles_to_xml()?.as_bytes())
+                        .map_err(|e| e.to_string())?;
                 }
             } else {
-                zip_out.write_all(doc.styles_to_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+                zip_out
+                    .write_all(doc.styles_to_xml()?.as_bytes())
+                    .map_err(|e| e.to_string())?;
             }
         } else if name == "meta.xml" {
-            zip_out.write_all(doc.to_meta_xml()?.as_bytes()).map_err(|e| e.to_string())?;
+            zip_out
+                .write_all(doc.to_meta_xml()?.as_bytes())
+                .map_err(|e| e.to_string())?;
         } else {
             std::io::copy(&mut file, &mut zip_out).map_err(|e| e.to_string())?;
         }
@@ -153,14 +186,16 @@ fn write_odt_zip<W: Write + std::io::Seek>(writer: W, doc: &Document) -> Result<
     let mut zip = ZipWriter::new(writer);
 
     // 1. mimetype (MUST be first, uncompressed)
-    let options_mimetype = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    let options_mimetype =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
     zip.start_file("mimetype", options_mimetype)
         .map_err(|e| e.to_string())?;
     zip.write_all(b"application/vnd.oasis.opendocument.text")
         .map_err(|e| e.to_string())?;
 
     // 2. META-INF/manifest.xml
-    let options_deflated = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let options_deflated =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     zip.add_directory("META-INF", options_deflated)
         .map_err(|e| e.to_string())?;
     zip.start_file("META-INF/manifest.xml", options_deflated)
@@ -202,7 +237,7 @@ pub async fn open_document<R: Runtime>(
     app: AppHandle<R>,
     path: String,
     file_content: Option<Vec<u8>>,
-) -> CommandResult<TiptapResponse> {
+) -> CommandResult<LexicalResponse> {
     app.emit("debug_log", format!("Opening document: {}", path))
         .ok();
 
@@ -288,14 +323,13 @@ pub async fn open_document<R: Runtime>(
         doc
     } else {
         // Plain text / XML (FODT)
-        let xml_content = String::from_utf8(bytes).map_err(|e| {
-            format!("Navalozh: Failed to decode text file (not UTF-8): {}", e)
-        })?;
+        let xml_content = String::from_utf8(bytes)
+            .map_err(|e| format!("Navalozh: Failed to decode text file (not UTF-8): {}", e))?;
         Document::from_xml(&xml_content)?
     };
 
-    Ok(TiptapResponse {
-        content: doc.to_tiptap(),
+    Ok(LexicalResponse {
+        content: to_lexical(&doc),
         styles: doc.styles,
         metadata: doc.metadata,
     })

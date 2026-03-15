@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/odt';
+import type { SessionManager } from '../session/SessionManager';
 
 interface DocumentState {
     currentPath: string | null;
@@ -10,12 +11,15 @@ interface DocumentState {
     isDirty: boolean;
     isSaving: boolean;
     lastSaved: Date | null;
+    /** Active session manager — null when no document is open. */
+    session: SessionManager | null;
 
     setPath: (path: string) => void;
     setContent: (content: LexicalDocumentData) => void;
     setStyles: (styles: Record<string, StyleDefinition>) => void;
     setMetadata: (metadata: Metadata) => void;
     setStyle: (style: string) => void;
+    setSession: (session: SessionManager | null) => void;
     markDirty: () => void;
     markClean: () => void;
     markSaving: () => void;
@@ -42,12 +46,14 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     isDirty: false,
     isSaving: false,
     lastSaved: null,
+    session: null,
 
     setPath: (path) => set({ currentPath: path }),
     setContent: (content) => set({ currentContent: content, isDirty: true }),
     setStyles: (styles) => set({ styles, isDirty: true }),
     setMetadata: (metadata) => set({ metadata, isDirty: true }),
     setStyle: (style) => set({ currentStyle: style }),
+    setSession: (session) => set({ session }),
     markDirty: () => set({ isDirty: true }),
     markClean: () => set({ isDirty: false, isSaving: false }),
     markSaving: () => set({ isSaving: true, isDirty: false }),
@@ -63,5 +69,6 @@ export const useDocumentStore = create<DocumentState>((set) => ({
         isDirty: false,
         isSaving: false,
         lastSaved: null,
+        session: null,
     }),
 }));

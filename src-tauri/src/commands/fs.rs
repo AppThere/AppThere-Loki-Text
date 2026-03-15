@@ -11,6 +11,8 @@ use std::{
 use tauri::{AppHandle, Emitter, Runtime};
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
+use super::odt_zip::write_odt_zip;
+
 /// Response payload for `open_document`: Lexical editor state + styles + metadata.
 #[derive(Serialize)]
 pub struct LexicalResponse {
@@ -179,56 +181,6 @@ fn update_odt_zip<W: Write + std::io::Seek>(
     }
 
     zip_out.finish().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-fn write_odt_zip<W: Write + std::io::Seek>(writer: W, doc: &Document) -> Result<(), String> {
-    let mut zip = ZipWriter::new(writer);
-
-    // 1. mimetype (MUST be first, uncompressed)
-    let options_mimetype =
-        SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
-    zip.start_file("mimetype", options_mimetype)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(b"application/vnd.oasis.opendocument.text")
-        .map_err(|e| e.to_string())?;
-
-    // 2. META-INF/manifest.xml
-    let options_deflated =
-        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-    zip.add_directory("META-INF", options_deflated)
-        .map_err(|e| e.to_string())?;
-    zip.start_file("META-INF/manifest.xml", options_deflated)
-        .map_err(|e| e.to_string())?;
-    let manifest = r#"<?xml version="1.0" encoding="UTF-8"?>
-<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3">
- <manifest:file-entry manifest:full-path="/" manifest:version="1.3" manifest:media-type="application/vnd.oasis.opendocument.text"/>
- <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
- <manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>
- <manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/>
-</manifest:manifest>"#;
-    zip.write_all(manifest.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    // 3. content.xml
-    zip.start_file("content.xml", options_deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.to_content_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    // 4. styles.xml
-    zip.start_file("styles.xml", options_deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.styles_to_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    // 5. meta.xml
-    zip.start_file("meta.xml", options_deflated)
-        .map_err(|e| e.to_string())?;
-    zip.write_all(doc.to_meta_xml()?.as_bytes())
-        .map_err(|e| e.to_string())?;
-
-    zip.finish().map_err(|e| e.to_string())?;
     Ok(())
 }
 

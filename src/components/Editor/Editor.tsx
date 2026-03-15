@@ -20,8 +20,10 @@ import { PasteSpecialDialog, PasteOption } from '../Dialogs/PasteSpecialDialog';
 import { handleSpecialPaste } from '@/lib/utils/pasteUtils';
 import { useDocumentStore } from '@/lib/stores/documentStore';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { StyleDefinition } from '@/lib/types/odt';
+import { FindReplacePlugin, type FindReplaceHandle } from './plugins/FindReplacePlugin';
+import { FindReplaceBar } from '../FindReplaceBar';
 
 interface EditorProps {
     initialContent?: string;
@@ -40,9 +42,27 @@ export function Editor({
     const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
     const [lastPasteData, setLastPasteData] = useState<PasteData | null>(null);
 
+    // Find & Replace state
+    const [findOpen, setFindOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [replaceTerm, setReplaceTerm] = useState('');
+    const [caseSensitive, setCaseSensitive] = useState(false);
+    const [wholeWord, setWholeWord] = useState(false);
+    const [matchCount, setMatchCount] = useState(0);
+    const [currentMatch, setCurrentMatch] = useState(0);
+    const findReplaceRef = useRef<FindReplaceHandle>(null);
+
     const handleOpenPasteSpecial = useCallback((data: PasteData) => {
         setLastPasteData(data);
         setPasteSpecialOpen(true);
+    }, []);
+
+    const handleFindOpen = useCallback(() => {
+        setFindOpen(true);
+    }, []);
+
+    const handleFindClose = useCallback(() => {
+        setFindOpen(false);
     }, []);
 
     const config = {
@@ -62,6 +82,22 @@ export function Editor({
                 setPasteSpecialOpen={setPasteSpecialOpen}
                 lastPasteData={lastPasteData}
                 handleOpenPasteSpecial={handleOpenPasteSpecial}
+                findOpen={findOpen}
+                searchTerm={searchTerm}
+                replaceTerm={replaceTerm}
+                caseSensitive={caseSensitive}
+                wholeWord={wholeWord}
+                matchCount={matchCount}
+                currentMatch={currentMatch}
+                findReplaceRef={findReplaceRef}
+                setSearchTerm={setSearchTerm}
+                setReplaceTerm={setReplaceTerm}
+                setCaseSensitive={setCaseSensitive}
+                setWholeWord={setWholeWord}
+                setMatchCount={setMatchCount}
+                setCurrentMatch={setCurrentMatch}
+                onFindOpen={handleFindOpen}
+                onFindClose={handleFindClose}
             />
         </LexicalComposer>
     );
@@ -77,7 +113,23 @@ function EditorInner({
     pasteSpecialOpen,
     setPasteSpecialOpen,
     lastPasteData,
-    handleOpenPasteSpecial
+    handleOpenPasteSpecial,
+    findOpen,
+    searchTerm,
+    replaceTerm,
+    caseSensitive,
+    wholeWord,
+    matchCount,
+    currentMatch,
+    findReplaceRef,
+    setSearchTerm,
+    setReplaceTerm,
+    setCaseSensitive,
+    setWholeWord,
+    setMatchCount,
+    setCurrentMatch,
+    onFindOpen,
+    onFindClose,
 }: any) {
     const [editor] = useLexicalComposerContext();
 
@@ -88,8 +140,39 @@ function EditorInner({
         setPasteSpecialOpen(false);
     };
 
+    // Keyboard shortcut for Find (Ctrl/Cmd+F)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                onFindOpen();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onFindOpen]);
+
     return (
         <div className="editor-container h-full flex flex-col relative w-full bg-slate-200 dark:bg-stone-900 min-h-0">
+            <FindReplaceBar
+                open={findOpen}
+                searchTerm={searchTerm}
+                replaceTerm={replaceTerm}
+                caseSensitive={caseSensitive}
+                wholeWord={wholeWord}
+                matchCount={matchCount}
+                currentMatch={currentMatch}
+                onSearchChange={setSearchTerm}
+                onReplaceChange={setReplaceTerm}
+                onCaseSensitiveChange={setCaseSensitive}
+                onWholeWordChange={setWholeWord}
+                onFindNext={() => findReplaceRef.current?.findNext()}
+                onFindPrevious={() => findReplaceRef.current?.findPrevious()}
+                onReplaceOne={() => findReplaceRef.current?.replaceOne()}
+                onReplaceAll={() => findReplaceRef.current?.replaceAll()}
+                onClose={onFindClose}
+            />
+
             <div className="editor-inner relative flex-1 px-8 lg:px-24 pt-5 pb-32 overflow-y-auto max-w-4xl mx-auto w-full min-h-0 bg-background shadow-md border-x text-foreground">
                 <RichTextPlugin
                     contentEditable={
@@ -106,11 +189,21 @@ function EditorInner({
                 <StylePlugin currentStyle={currentStyle} onStyleChange={setStyle} styles={styles} />
                 <NextStylePlugin styles={styles} />
                 <FloatingToolbarPlugin />
-                <MenuPlugin />
+                <MenuPlugin onFindOpen={onFindOpen} />
                 <TablePlugin />
                 <LinkPlugin />
                 <ImagePlugin />
                 <PastePlugin onOpenPasteSpecial={handleOpenPasteSpecial} />
+                <FindReplacePlugin
+                    searchTerm={searchTerm}
+                    replaceTerm={replaceTerm}
+                    caseSensitive={caseSensitive}
+                    wholeWord={wholeWord}
+                    active={findOpen}
+                    onMatchCountChange={setMatchCount}
+                    onCurrentMatchChange={setCurrentMatch}
+                    imperativeRef={findReplaceRef}
+                />
                 <DebouncedOnChangePlugin onChange={(editorState) => {
                     if (_onContentChange) {
                         _onContentChange(JSON.stringify(editorState.toJSON()));

@@ -4,9 +4,10 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod tests;
 
-// Re-use types from odt-logic
-pub use odt_logic::{
-    Block, Inline, Metadata, StyleDefinition, TiptapAttrs, TiptapMark, TiptapNode,
+// Re-use types from common-core
+use common_core::BlockAttrs;
+pub use common_core::{
+    Block, Inline, Metadata, StyleDefinition, StyleFamily, TiptapAttrs, TiptapMark, TiptapNode,
 };
 
 /// Represents a section of content in the EPUB
@@ -83,7 +84,7 @@ impl EpubDocument {
         let blocks = match root {
             TiptapNode::Doc { content } => content
                 .into_iter()
-                .filter_map(odt_logic::Document::tiptap_node_to_block)
+                .filter_map(tiptap_node_to_block)
                 .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
@@ -493,4 +494,115 @@ impl EpubDocument {
             .replace('"', "&quot;")
             .replace('\'', "&apos;")
     }
+}
+
+/// Convert a TiptapNode tree node into a Block.
+/// Returns None for text/inline nodes (Text, HardBreak, Doc).
+fn tiptap_node_to_block(node: TiptapNode) -> Option<Block> {
+    match node {
+        TiptapNode::Paragraph { attrs, content } => {
+            let style_name = attrs.as_ref().and_then(|a| a.style_name.clone());
+            let block_attrs = attrs.map(|a| BlockAttrs {
+                text_align: a.text_align,
+                indent: a.indent,
+            });
+            Some(Block::Paragraph {
+                style_name,
+                attrs: block_attrs,
+                content: tiptap_content_to_inlines(content.unwrap_or_default()),
+            })
+        }
+        TiptapNode::Heading { attrs, content } => {
+            let style_name = attrs.as_ref().and_then(|a| a.style_name.clone());
+            let level = attrs.as_ref().and_then(|a| a.level).unwrap_or(1);
+            let block_attrs = attrs.map(|a| BlockAttrs {
+                text_align: a.text_align,
+                indent: a.indent,
+            });
+            Some(Block::Heading {
+                level,
+                style_name,
+                attrs: block_attrs,
+                content: tiptap_content_to_inlines(content.unwrap_or_default()),
+            })
+        }
+        TiptapNode::Image { attrs } => Some(Block::Image {
+            src: attrs.src,
+            alt: attrs.alt,
+            title: attrs.title,
+        }),
+        TiptapNode::BulletList { content } => Some(Block::BulletList {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::OrderedList { content } => Some(Block::OrderedList {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::ListItem { content } => Some(Block::ListItem {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::Blockquote { content } => Some(Block::Blockquote {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::Table { content } => Some(Block::Table {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::TableRow { content } => Some(Block::TableRow {
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::TableHeader { attrs, content } => Some(Block::TableHeader {
+            attrs,
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::TableCell { attrs, content } => Some(Block::TableCell {
+            attrs,
+            content: content
+                .into_iter()
+                .filter_map(tiptap_node_to_block)
+                .collect(),
+        }),
+        TiptapNode::HorizontalRule => Some(Block::HorizontalRule),
+        TiptapNode::PageBreak => Some(Block::PageBreak),
+        _ => None,
+    }
+}
+
+fn tiptap_content_to_inlines(nodes: Vec<TiptapNode>) -> Vec<Inline> {
+    let mut inlines = Vec::new();
+    for node in nodes {
+        match node {
+            TiptapNode::Text { text, marks } => {
+                inlines.push(Inline::Text {
+                    text,
+                    style_name: None,
+                    marks: marks.unwrap_or_default(),
+                });
+            }
+            TiptapNode::HardBreak => {
+                inlines.push(Inline::LineBreak);
+            }
+            _ => {}
+        }
+    }
+    inlines
 }

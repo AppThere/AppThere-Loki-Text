@@ -158,7 +158,7 @@ fn write_table_cell(
         .map_err(|e| e.to_string())
 }
 
-fn write_image(src: &str, writer: &mut XmlWriter) -> Result<(), String> {
+pub fn write_image(src: &str, writer: &mut XmlWriter) -> Result<(), String> {
     let mut frame = BytesStart::new("draw:frame");
     frame.push_attribute(("draw:name", "Image"));
     writer

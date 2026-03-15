@@ -1,13 +1,5 @@
 mod commands;
 
-// Type aliases for easier binding
-pub struct AppState {}
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     eprintln!("DEBUG: run() starting");
@@ -97,6 +89,8 @@ pub fn run() {
                         &PredefinedMenuItem::paste(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::select_all(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &MenuItem::with_id(app, "menu-find", "Find…", true, Some("CmdOrCtrl+F"))?,
                     ],
                 )?;
 
@@ -114,7 +108,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             commands::fs::save_document,
             commands::fs::open_document,
             commands::export::save_epub,

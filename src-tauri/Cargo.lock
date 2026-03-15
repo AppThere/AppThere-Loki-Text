@@ -10,7 +10,6 @@ dependencies = [
  "epub-logic",
  "log",
  "odt-format",
- "odt-logic",
  "serde",
  "serde_json",
  "tauri",
@@ -1051,7 +1050,7 @@ name = "epub-logic"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "odt-logic",
+ "common-core",
  "serde",
  "serde_json",
  "uuid",
@@ -2631,16 +2630,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
-]
-
-[[package]]
-name = "odt-logic"
-version = "0.1.0"
-dependencies = [
- "quick-xml 0.37.5",
- "roxmltree",
- "serde",
- "serde_json",
 ]
 
 [[package]]

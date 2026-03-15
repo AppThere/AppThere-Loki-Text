@@ -11,6 +11,8 @@ import { useFileOperations } from './lib/hooks/useFileOperations';
 import { useSessionPersistence } from './lib/hooks/useSessionPersistence';
 import { useAutoSave } from './lib/hooks/useAutoSave';
 import { LoadingOverlay } from './components/ui/LoadingOverlay';
+import { Toaster } from './components/ui/toaster';
+import { useWindowTitle } from './lib/hooks/useWindowTitle';
 
 export default function App() {
     const [styleDialogOpen, setStyleDialogOpen] = useState(false);
@@ -44,6 +46,8 @@ export default function App() {
 
     // Enable auto-save (saves every 15 seconds if dirty)
     useAutoSave({ intervalMs: 15000 });
+
+    useWindowTitle();
 
     // Restore session on mount
     useEffect(() => {
@@ -230,6 +234,7 @@ export default function App() {
             />
 
             {isLoading && <LoadingOverlay />}
+            <Toaster />
         </div>
     );
 }

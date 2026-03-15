@@ -145,8 +145,14 @@ fn bleed_produces_larger_media_box() {
         .map(|pos| &no_bleed_text[pos..pos + 60])
         .map(|s| s.contains('-'))
         .unwrap_or(false);
-    assert!(bleed_has_negative, "With-bleed PDF should have negative BleedBox coord");
-    assert!(!no_bleed_negative_bleedbox, "No-bleed PDF should not have negative BleedBox coord");
+    assert!(
+        bleed_has_negative,
+        "With-bleed PDF should have negative BleedBox coord"
+    );
+    assert!(
+        !no_bleed_negative_bleedbox,
+        "No-bleed PDF should not have negative BleedBox coord"
+    );
 }
 
 // ---------------------------------------------------------------------------

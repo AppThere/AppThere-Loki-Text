@@ -244,7 +244,10 @@ fn table_structure_preserved_through_lexical_round_trip() {
     };
     assert_eq!(rows.len(), 2, "expected two rows");
     for (ri, row) in rows.iter().enumerate() {
-        let LexicalNode::TableRow { children: cells, .. } = row else {
+        let LexicalNode::TableRow {
+            children: cells, ..
+        } = row
+        else {
             panic!("expected TableRow at {ri}");
         };
         assert_eq!(cells.len(), 2, "expected two cells in row {ri}");

@@ -87,7 +87,10 @@ fn table_2x2_round_trips_through_content_xml() {
             let Block::TableCell { content: paras, .. } = cell else {
                 panic!("expected Block::TableCell at [{ri}][{ci}]");
             };
-            let Block::Paragraph { content: inlines, .. } = &paras[0] else {
+            let Block::Paragraph {
+                content: inlines, ..
+            } = &paras[0]
+            else {
                 panic!("expected Paragraph in cell [{ri}][{ci}]");
             };
             let Inline::Text { text, .. } = &inlines[0] else {

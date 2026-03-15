@@ -171,16 +171,10 @@ fn write_block_content(block: &Block, writer: &mut Writer<Cursor<Vec<u8>>>) -> R
             let mut cell = BytesStart::new("table:table-cell");
             if let Some(a) = attrs {
                 if let Some(n) = a.colspan.filter(|&v| v > 1) {
-                    cell.push_attribute((
-                        "table:number-columns-spanned",
-                        n.to_string().as_str(),
-                    ));
+                    cell.push_attribute(("table:number-columns-spanned", n.to_string().as_str()));
                 }
                 if let Some(n) = a.rowspan.filter(|&v| v > 1) {
-                    cell.push_attribute((
-                        "table:number-rows-spanned",
-                        n.to_string().as_str(),
-                    ));
+                    cell.push_attribute(("table:number-rows-spanned", n.to_string().as_str()));
                 }
             }
             writer

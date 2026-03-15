@@ -27,8 +27,12 @@ pub fn parse_svg_transform(s: &str) -> Transform {
                 let nums = parse_nums(&rest[..end]);
                 if nums.len() == 6 {
                     let t = Transform {
-                        a: nums[0], b: nums[1], c: nums[2],
-                        d: nums[3], e: nums[4], f: nums[5],
+                        a: nums[0],
+                        b: nums[1],
+                        c: nums[2],
+                        d: nums[3],
+                        e: nums[4],
+                        f: nums[5],
                     };
                     result = result.multiply(&t);
                 }

@@ -46,7 +46,14 @@ fn test_multiply_associativity() {
 
 #[test]
 fn test_svg_matrix_roundtrip() {
-    let t = Transform { a: 1.0, b: 0.5, c: -0.5, d: 1.0, e: 10.0, f: 20.0 };
+    let t = Transform {
+        a: 1.0,
+        b: 0.5,
+        c: -0.5,
+        d: 1.0,
+        e: 10.0,
+        f: 20.0,
+    };
     let s = t.to_svg_matrix();
     let back = Transform::from_svg_matrix(&s).unwrap();
     assert!(eq(t.a, back.a) && eq(t.e, back.e) && eq(t.f, back.f));

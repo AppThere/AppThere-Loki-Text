@@ -30,11 +30,10 @@ pub async fn open_vector_document<R: Runtime>(
         std::fs::read(&path).map_err(|e| format!("Failed to read file '{path}': {e}"))?
     };
 
-    let svg_str = std::str::from_utf8(&bytes)
-        .map_err(|e| format!("File is not valid UTF-8: {e}"))?;
+    let svg_str =
+        std::str::from_utf8(&bytes).map_err(|e| format!("File is not valid UTF-8: {e}"))?;
 
-    svg_parser::parse(svg_str)
-        .map_err(|e| format!("SVG parse failed: {e}"))
+    svg_parser::parse(svg_str).map_err(|e| format!("SVG parse failed: {e}"))
 }
 
 /// Save a vector document to a file path.
@@ -45,8 +44,7 @@ pub async fn save_vector_document<R: Runtime>(
     document: VectorDocument,
 ) -> Result<(), String> {
     let svg = svg_writer::write(&document);
-    std::fs::write(&path, svg.as_bytes())
-        .map_err(|e| format!("Failed to write file '{path}': {e}"))
+    std::fs::write(&path, svg.as_bytes()).map_err(|e| format!("Failed to write file '{path}': {e}"))
 }
 
 /// Create a new vector document from a preset.
@@ -80,6 +78,5 @@ pub fn serialize_vector_document(document: VectorDocument) -> Result<Vec<u8>, St
 pub fn deserialize_vector_document(file_content: Vec<u8>) -> Result<VectorDocument, String> {
     let svg_str = std::str::from_utf8(&file_content)
         .map_err(|e| format!("Content is not valid UTF-8: {e}"))?;
-    svg_parser::parse(svg_str)
-        .map_err(|e| format!("SVG parse failed: {e}"))
+    svg_parser::parse(svg_str).map_err(|e| format!("SVG parse failed: {e}"))
 }

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
 use crate::units::{LengthUnit, UnitConverter};
+use serde::{Deserialize, Serialize};
 
 /// The canvas (page) dimensions and display settings for a vector document.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,15 +53,21 @@ impl Canvas {
     /// A4 portrait: 210mm × 297mm at 96 DPI.
     pub fn a4_portrait() -> Self {
         let c = UnitConverter::new(96.0);
-        Canvas::new(c.to_px(210.0, LengthUnit::Mm), c.to_px(297.0, LengthUnit::Mm))
-            .with_display_unit(LengthUnit::Mm)
+        Canvas::new(
+            c.to_px(210.0, LengthUnit::Mm),
+            c.to_px(297.0, LengthUnit::Mm),
+        )
+        .with_display_unit(LengthUnit::Mm)
     }
 
     /// A4 landscape: 297mm × 210mm at 96 DPI.
     pub fn a4_landscape() -> Self {
         let c = UnitConverter::new(96.0);
-        Canvas::new(c.to_px(297.0, LengthUnit::Mm), c.to_px(210.0, LengthUnit::Mm))
-            .with_display_unit(LengthUnit::Mm)
+        Canvas::new(
+            c.to_px(297.0, LengthUnit::Mm),
+            c.to_px(210.0, LengthUnit::Mm),
+        )
+        .with_display_unit(LengthUnit::Mm)
     }
 
     /// US Letter portrait: 8.5in × 11in at 96 DPI.

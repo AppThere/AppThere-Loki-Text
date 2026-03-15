@@ -16,7 +16,9 @@ use crate::colour::{parse_css_colour, Colour};
 use crate::style::{LineCap, LineJoin, ObjectStyle, Paint, StrokeStyle};
 
 pub(crate) fn parse_style(node: &roxmltree::Node) -> ObjectStyle {
-    let mut fill = Paint::Solid { colour: Colour::black() };
+    let mut fill = Paint::Solid {
+        colour: Colour::black(),
+    };
     let mut stroke = StrokeStyle::none();
 
     if let Some(style_str) = node.attribute("style") {
@@ -32,7 +34,13 @@ pub(crate) fn parse_style(node: &roxmltree::Node) -> ObjectStyle {
         apply_style_prop(attr.name(), attr.value(), &mut fill, &mut stroke);
     }
 
-    ObjectStyle { fill, stroke, opacity: 1.0, fill_opacity: 1.0, stroke_opacity: 1.0 }
+    ObjectStyle {
+        fill,
+        stroke,
+        opacity: 1.0,
+        fill_opacity: 1.0,
+        stroke_opacity: 1.0,
+    }
 }
 
 fn apply_style_prop(key: &str, value: &str, fill: &mut Paint, stroke: &mut StrokeStyle) {

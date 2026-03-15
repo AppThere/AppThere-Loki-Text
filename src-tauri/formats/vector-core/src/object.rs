@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
 use crate::style::ObjectStyle;
 use crate::transform::Transform;
+use serde::{Deserialize, Serialize};
 
 /// A unique identifier for a vector object (UUID string).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

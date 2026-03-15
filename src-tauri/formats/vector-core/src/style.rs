@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
 use crate::colour::Colour;
+use serde::{Deserialize, Serialize};
 
 /// Describes how a shape is filled or stroked.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +74,9 @@ impl StrokeStyle {
 
     pub fn solid_black_1px() -> Self {
         StrokeStyle {
-            paint: Paint::Solid { colour: Colour::black() },
+            paint: Paint::Solid {
+                colour: Colour::black(),
+            },
             width: 1.0,
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
@@ -89,7 +91,9 @@ impl ObjectStyle {
     /// Black fill, no stroke.
     pub fn default_fill() -> Self {
         ObjectStyle {
-            fill: Paint::Solid { colour: Colour::black() },
+            fill: Paint::Solid {
+                colour: Colour::black(),
+            },
             stroke: StrokeStyle::none(),
             opacity: 1.0,
             fill_opacity: 1.0,

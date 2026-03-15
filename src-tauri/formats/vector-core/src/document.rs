@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
 use crate::canvas::Canvas;
 use crate::layer::Layer;
 use common_core::Metadata;
+use serde::{Deserialize, Serialize};
 
 /// A complete vector image document.
 #[derive(Debug, Clone, Serialize, Deserialize)]

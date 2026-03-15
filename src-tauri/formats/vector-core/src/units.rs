@@ -94,19 +94,39 @@ impl UnitConverter {
             return v.trim().parse::<f64>().ok();
         }
         if let Some(v) = s.strip_suffix("mm") {
-            return v.trim().parse::<f64>().ok().map(|n| self.to_px(n, LengthUnit::Mm));
+            return v
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|n| self.to_px(n, LengthUnit::Mm));
         }
         if let Some(v) = s.strip_suffix("cm") {
-            return v.trim().parse::<f64>().ok().map(|n| self.to_px(n, LengthUnit::Cm));
+            return v
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|n| self.to_px(n, LengthUnit::Cm));
         }
         if let Some(v) = s.strip_suffix("in") {
-            return v.trim().parse::<f64>().ok().map(|n| self.to_px(n, LengthUnit::In));
+            return v
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|n| self.to_px(n, LengthUnit::In));
         }
         if let Some(v) = s.strip_suffix("pt") {
-            return v.trim().parse::<f64>().ok().map(|n| self.to_px(n, LengthUnit::Pt));
+            return v
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|n| self.to_px(n, LengthUnit::Pt));
         }
         if let Some(v) = s.strip_suffix("pc") {
-            return v.trim().parse::<f64>().ok().map(|n| self.to_px(n, LengthUnit::Pc));
+            return v
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .map(|n| self.to_px(n, LengthUnit::Pc));
         }
         s.parse::<f64>().ok()
     }
@@ -125,28 +145,52 @@ mod tests {
     #[test]
     fn test_px_roundtrip_96dpi() {
         let c = UnitConverter::new(96.0);
-        let units = [LengthUnit::Px, LengthUnit::Mm, LengthUnit::Cm,
-                     LengthUnit::In, LengthUnit::Pt, LengthUnit::Pc];
+        let units = [
+            LengthUnit::Px,
+            LengthUnit::Mm,
+            LengthUnit::Cm,
+            LengthUnit::In,
+            LengthUnit::Pt,
+            LengthUnit::Pc,
+        ];
         for unit in units {
             let original = 42.0;
             let px = c.to_px(original, unit);
             let back = c.from_px(px, unit);
-            assert!(nearly_eq(original, back),
-                "roundtrip failed for {:?}: {} -> {} -> {}", unit, original, px, back);
+            assert!(
+                nearly_eq(original, back),
+                "roundtrip failed for {:?}: {} -> {} -> {}",
+                unit,
+                original,
+                px,
+                back
+            );
         }
     }
 
     #[test]
     fn test_px_roundtrip_300dpi() {
         let c = UnitConverter::new(300.0);
-        let units = [LengthUnit::Px, LengthUnit::Mm, LengthUnit::Cm,
-                     LengthUnit::In, LengthUnit::Pt, LengthUnit::Pc];
+        let units = [
+            LengthUnit::Px,
+            LengthUnit::Mm,
+            LengthUnit::Cm,
+            LengthUnit::In,
+            LengthUnit::Pt,
+            LengthUnit::Pc,
+        ];
         for unit in units {
             let original = 42.0;
             let px = c.to_px(original, unit);
             let back = c.from_px(px, unit);
-            assert!(nearly_eq(original, back),
-                "roundtrip failed at 300dpi for {:?}: {} -> {} -> {}", unit, original, px, back);
+            assert!(
+                nearly_eq(original, back),
+                "roundtrip failed at 300dpi for {:?}: {} -> {} -> {}",
+                unit,
+                original,
+                px,
+                back
+            );
         }
     }
 

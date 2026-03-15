@@ -36,10 +36,16 @@ pub fn write(doc: &VectorDocument) -> String {
     out.push('\n');
 
     for layer in &doc.layers {
-        let vis = if layer.visible { "" } else { r#" display="none""# };
+        let vis = if layer.visible {
+            ""
+        } else {
+            r#" display="none""#
+        };
         out.push_str(&format!(
             r#"  <g inkscape:label="{}" inkscape:groupmode="layer" id="{}"{}>"#,
-            escape_xml(&layer.name), escape_xml(&layer.id), vis
+            escape_xml(&layer.name),
+            escape_xml(&layer.id),
+            vis
         ));
         out.push('\n');
         for obj in &layer.objects {
@@ -79,8 +85,16 @@ fn write_rect(r: &RectObject, out: &mut String, indent: usize) {
     let pad = " ".repeat(indent);
     let transform_attr = transform_attr_str(&r.common.transform);
     let style_str = build_style(&r.common);
-    let rx = if r.rx != 0.0 { format!(r#" rx="{}""#, format_f64(r.rx)) } else { String::new() };
-    let ry = if r.ry != 0.0 { format!(r#" ry="{}""#, format_f64(r.ry)) } else { String::new() };
+    let rx = if r.rx != 0.0 {
+        format!(r#" rx="{}""#, format_f64(r.rx))
+    } else {
+        String::new()
+    };
+    let ry = if r.ry != 0.0 {
+        format!(r#" ry="{}""#, format_f64(r.ry))
+    } else {
+        String::new()
+    };
     out.push_str(&format!(
         r#"{pad}<rect id="{}" x="{}" y="{}" width="{}" height="{}"{rx}{ry}{transform_attr}{style_str}/>"#,
         escape_xml(&r.common.id.0),
@@ -97,8 +111,10 @@ fn write_ellipse(e: &EllipseObject, out: &mut String, indent: usize) {
     out.push_str(&format!(
         r#"{pad}<ellipse id="{}" cx="{}" cy="{}" rx="{}" ry="{}"{transform_attr}{style_str}/>"#,
         escape_xml(&e.common.id.0),
-        format_f64(e.cx), format_f64(e.cy),
-        format_f64(e.rx), format_f64(e.ry)
+        format_f64(e.cx),
+        format_f64(e.cy),
+        format_f64(e.rx),
+        format_f64(e.ry)
     ));
     out.push('\n');
 }
@@ -110,8 +126,10 @@ fn write_line(l: &LineObject, out: &mut String, indent: usize) {
     out.push_str(&format!(
         r#"{pad}<line id="{}" x1="{}" y1="{}" x2="{}" y2="{}"{transform_attr}{style_str}/>"#,
         escape_xml(&l.common.id.0),
-        format_f64(l.x1), format_f64(l.y1),
-        format_f64(l.x2), format_f64(l.y2)
+        format_f64(l.x1),
+        format_f64(l.y1),
+        format_f64(l.x2),
+        format_f64(l.y2)
     ));
     out.push('\n');
 }
@@ -122,7 +140,8 @@ fn write_path(p: &PathObject, out: &mut String, indent: usize) {
     let style_str = build_style(&p.common);
     out.push_str(&format!(
         r#"{pad}<path id="{}" d="{}"{transform_attr}{style_str}/>"#,
-        escape_xml(&p.common.id.0), escape_xml(&p.d)
+        escape_xml(&p.common.id.0),
+        escape_xml(&p.d)
     ));
     out.push('\n');
 }
@@ -178,7 +197,10 @@ fn format_f64(v: f64) -> String {
     if v == v.trunc() && v.abs() < 1e12 {
         format!("{}", v as i64)
     } else {
-        format!("{:.6}", v).trim_end_matches('0').trim_end_matches('.').to_string()
+        format!("{:.6}", v)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
     }
 }
 
@@ -208,8 +230,12 @@ mod tests {
 
         layer.objects.push(VectorObject::Rect(RectObject {
             common: rect_common,
-            x: 10.0, y: 20.0, width: 100.0, height: 50.0,
-            rx: 0.0, ry: 0.0,
+            x: 10.0,
+            y: 20.0,
+            width: 100.0,
+            height: 50.0,
+            rx: 0.0,
+            ry: 0.0,
         }));
 
         let mut ellipse_common = CommonProps::new("ellipse1");
@@ -217,11 +243,18 @@ mod tests {
 
         layer.objects.push(VectorObject::Ellipse(EllipseObject {
             common: ellipse_common,
-            cx: 200.0, cy: 100.0, rx: 30.0, ry: 20.0,
+            cx: 200.0,
+            cy: 100.0,
+            rx: 30.0,
+            ry: 20.0,
         }));
 
         let canvas = Canvas::new(400.0, 300.0);
-        VectorDocument { canvas, layers: vec![layer], metadata: common_core::Metadata::default() }
+        VectorDocument {
+            canvas,
+            layers: vec![layer],
+            metadata: common_core::Metadata::default(),
+        }
     }
 
     #[test]

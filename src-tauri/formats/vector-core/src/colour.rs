@@ -73,15 +73,30 @@ impl Colour {
     }
 
     pub fn transparent() -> Colour {
-        Colour { r: 0, g: 0, b: 0, a: 0 }
+        Colour {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        }
     }
 
     pub fn black() -> Colour {
-        Colour { r: 0, g: 0, b: 0, a: 255 }
+        Colour {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 255,
+        }
     }
 
     pub fn white() -> Colour {
-        Colour { r: 255, g: 255, b: 255, a: 255 }
+        Colour {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        }
     }
 }
 
@@ -95,19 +110,84 @@ pub fn parse_css_colour(s: &str) -> Option<Colour> {
     match s.to_lowercase().as_str() {
         "black" => Some(Colour::black()),
         "white" => Some(Colour::white()),
-        "red" => Some(Colour { r: 255, g: 0, b: 0, a: 255 }),
-        "green" => Some(Colour { r: 0, g: 128, b: 0, a: 255 }),
-        "blue" => Some(Colour { r: 0, g: 0, b: 255, a: 255 }),
-        "yellow" => Some(Colour { r: 255, g: 255, b: 0, a: 255 }),
-        "cyan" => Some(Colour { r: 0, g: 255, b: 255, a: 255 }),
-        "magenta" => Some(Colour { r: 255, g: 0, b: 255, a: 255 }),
-        "orange" => Some(Colour { r: 255, g: 165, b: 0, a: 255 }),
-        "purple" => Some(Colour { r: 128, g: 0, b: 128, a: 255 }),
-        "pink" => Some(Colour { r: 255, g: 192, b: 203, a: 255 }),
-        "brown" => Some(Colour { r: 165, g: 42, b: 42, a: 255 }),
-        "gray" | "grey" => Some(Colour { r: 128, g: 128, b: 128, a: 255 }),
-        "lime" => Some(Colour { r: 0, g: 255, b: 0, a: 255 }),
-        "navy" => Some(Colour { r: 0, g: 0, b: 128, a: 255 }),
+        "red" => Some(Colour {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 255,
+        }),
+        "green" => Some(Colour {
+            r: 0,
+            g: 128,
+            b: 0,
+            a: 255,
+        }),
+        "blue" => Some(Colour {
+            r: 0,
+            g: 0,
+            b: 255,
+            a: 255,
+        }),
+        "yellow" => Some(Colour {
+            r: 255,
+            g: 255,
+            b: 0,
+            a: 255,
+        }),
+        "cyan" => Some(Colour {
+            r: 0,
+            g: 255,
+            b: 255,
+            a: 255,
+        }),
+        "magenta" => Some(Colour {
+            r: 255,
+            g: 0,
+            b: 255,
+            a: 255,
+        }),
+        "orange" => Some(Colour {
+            r: 255,
+            g: 165,
+            b: 0,
+            a: 255,
+        }),
+        "purple" => Some(Colour {
+            r: 128,
+            g: 0,
+            b: 128,
+            a: 255,
+        }),
+        "pink" => Some(Colour {
+            r: 255,
+            g: 192,
+            b: 203,
+            a: 255,
+        }),
+        "brown" => Some(Colour {
+            r: 165,
+            g: 42,
+            b: 42,
+            a: 255,
+        }),
+        "gray" | "grey" => Some(Colour {
+            r: 128,
+            g: 128,
+            b: 128,
+            a: 255,
+        }),
+        "lime" => Some(Colour {
+            r: 0,
+            g: 255,
+            b: 0,
+            a: 255,
+        }),
+        "navy" => Some(Colour {
+            r: 0,
+            g: 0,
+            b: 128,
+            a: 255,
+        }),
         _ => None,
     }
 }
@@ -144,7 +224,12 @@ mod tests {
 
     #[test]
     fn test_roundtrip_hex_opaque() {
-        let c = Colour { r: 100, g: 200, b: 50, a: 255 };
+        let c = Colour {
+            r: 100,
+            g: 200,
+            b: 50,
+            a: 255,
+        };
         let hex = c.to_hex();
         let back = Colour::from_hex(&hex).unwrap();
         assert_eq!(c, back);
@@ -152,7 +237,12 @@ mod tests {
 
     #[test]
     fn test_roundtrip_hex_transparent() {
-        let c = Colour { r: 100, g: 200, b: 50, a: 128 };
+        let c = Colour {
+            r: 100,
+            g: 200,
+            b: 50,
+            a: 128,
+        };
         let hex = c.to_hex();
         let back = Colour::from_hex(&hex).unwrap();
         assert_eq!(c, back);

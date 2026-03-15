@@ -34,15 +34,36 @@ pub struct Transform {
 
 impl Transform {
     pub fn identity() -> Self {
-        Transform { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+        Transform {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: 0.0,
+            f: 0.0,
+        }
     }
 
     pub fn translate(tx: f64, ty: f64) -> Self {
-        Transform { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: tx, f: ty }
+        Transform {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: tx,
+            f: ty,
+        }
     }
 
     pub fn scale(sx: f64, sy: f64) -> Self {
-        Transform { a: sx, b: 0.0, c: 0.0, d: sy, e: 0.0, f: 0.0 }
+        Transform {
+            a: sx,
+            b: 0.0,
+            c: 0.0,
+            d: sy,
+            e: 0.0,
+            f: 0.0,
+        }
     }
 
     /// Rotate by `angle_deg` degrees (counter-clockwise in SVG coords).
@@ -50,7 +71,14 @@ impl Transform {
         let rad = angle_deg.to_radians();
         let cos = rad.cos();
         let sin = rad.sin();
-        Transform { a: cos, b: sin, c: -sin, d: cos, e: 0.0, f: 0.0 }
+        Transform {
+            a: cos,
+            b: sin,
+            c: -sin,
+            d: cos,
+            e: 0.0,
+            f: 0.0,
+        }
     }
 
     /// Rotate by `angle_deg` degrees around centre (`cx`, `cy`).
@@ -74,12 +102,18 @@ impl Transform {
 
     /// Apply this transform to a point.
     pub fn apply(&self, x: f64, y: f64) -> (f64, f64) {
-        (self.a * x + self.c * y + self.e, self.b * x + self.d * y + self.f)
+        (
+            self.a * x + self.c * y + self.e,
+            self.b * x + self.d * y + self.f,
+        )
     }
 
     /// Return `"matrix(a b c d e f)"` SVG string.
     pub fn to_svg_matrix(&self) -> String {
-        format!("matrix({} {} {} {} {} {})", self.a, self.b, self.c, self.d, self.e, self.f)
+        format!(
+            "matrix({} {} {} {} {} {})",
+            self.a, self.b, self.c, self.d, self.e, self.f
+        )
     }
 
     /// Parse `"matrix(a b c d e f)"` string.
@@ -95,8 +129,12 @@ impl Transform {
             return None;
         }
         Some(Transform {
-            a: nums[0], b: nums[1], c: nums[2],
-            d: nums[3], e: nums[4], f: nums[5],
+            a: nums[0],
+            b: nums[1],
+            c: nums[2],
+            d: nums[3],
+            e: nums[4],
+            f: nums[5],
         })
     }
 
@@ -128,8 +166,12 @@ pub fn parse_svg_transform(s: &str) -> Transform {
                     .collect();
                 if nums.len() == 6 {
                     let t = Transform {
-                        a: nums[0], b: nums[1], c: nums[2],
-                        d: nums[3], e: nums[4], f: nums[5],
+                        a: nums[0],
+                        b: nums[1],
+                        c: nums[2],
+                        d: nums[3],
+                        e: nums[4],
+                        f: nums[5],
                     };
                     result = result.multiply(&t);
                 }
@@ -203,7 +245,9 @@ mod tests {
 
     const EPS: f64 = 1e-9;
 
-    fn eq(a: f64, b: f64) -> bool { (a - b).abs() < EPS }
+    fn eq(a: f64, b: f64) -> bool {
+        (a - b).abs() < EPS
+    }
 
     #[test]
     fn test_identity_apply() {
@@ -245,7 +289,14 @@ mod tests {
 
     #[test]
     fn test_svg_matrix_roundtrip() {
-        let t = Transform { a: 1.0, b: 0.5, c: -0.5, d: 1.0, e: 10.0, f: 20.0 };
+        let t = Transform {
+            a: 1.0,
+            b: 0.5,
+            c: -0.5,
+            d: 1.0,
+            e: 10.0,
+            f: 20.0,
+        };
         let s = t.to_svg_matrix();
         let back = Transform::from_svg_matrix(&s).unwrap();
         assert!(eq(t.a, back.a) && eq(t.e, back.e) && eq(t.f, back.f));

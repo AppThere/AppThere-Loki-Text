@@ -30,7 +30,13 @@ pub enum Colour {
     /// sRGB or linear RGB colour.
     Rgb { r: f32, g: f32, b: f32, a: f32 },
     /// CMYK ink percentages. Each channel: 0.0 (no ink) to 1.0 (full ink).
-    Cmyk { c: f32, m: f32, y: f32, k: f32, alpha: f32 },
+    Cmyk {
+        c: f32,
+        m: f32,
+        y: f32,
+        k: f32,
+        alpha: f32,
+    },
     /// CIE L*a*b* colour. L: 0.0–100.0, a and b: −128.0–127.0.
     Lab { l: f32, a: f32, b: f32, alpha: f32 },
     /// A spot (named) ink colour with a Lab reference and a CMYK fallback.
@@ -97,13 +103,34 @@ impl Colour {
     }
 
     /// Construct a fully opaque black.
-    pub fn black() -> Self { Colour::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 1.0 } }
+    pub fn black() -> Self {
+        Colour::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        }
+    }
 
     /// Construct a fully opaque white.
-    pub fn white() -> Self { Colour::Rgb { r: 1.0, g: 1.0, b: 1.0, a: 1.0 } }
+    pub fn white() -> Self {
+        Colour::Rgb {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        }
+    }
 
     /// Construct a fully transparent colour (black with alpha 0).
-    pub fn transparent() -> Self { Colour::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 0.0 } }
+    pub fn transparent() -> Self {
+        Colour::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        }
+    }
 
     /// Returns the alpha channel value (0.0–1.0).
     /// For Spot colours, returns the tint value.
@@ -126,15 +153,25 @@ impl Colour {
             Colour::Rgb { r, g, b, .. } => Colour::Rgb { r, g, b, a: alpha },
             Colour::Cmyk { c, m, y, k, .. } => Colour::Cmyk { c, m, y, k, alpha },
             Colour::Lab { l, a, b, .. } => Colour::Lab { l, a, b, alpha },
-            Colour::Spot { name, lab_ref, cmyk_fallback, .. } => {
-                Colour::Spot { name, tint: alpha, lab_ref, cmyk_fallback }
-            }
+            Colour::Spot {
+                name,
+                lab_ref,
+                cmyk_fallback,
+                ..
+            } => Colour::Spot {
+                name,
+                tint: alpha,
+                lab_ref,
+                cmyk_fallback,
+            },
             Colour::Linked { .. } => self,
         }
     }
 
     /// Returns true if this colour is fully transparent.
-    pub fn is_transparent(&self) -> bool { self.alpha() == 0.0 }
+    pub fn is_transparent(&self) -> bool {
+        self.alpha() == 0.0
+    }
 
     /// Returns a CSS colour string for SVG/HTML output (always sRGB).
     ///
@@ -163,7 +200,12 @@ impl Colour {
                 let b = (1.0 - y) * (1.0 - k);
                 Colour::Rgb { r, g, b, a: *alpha }.to_css_string()
             }
-            Colour::Lab { l, a: la, b: lb, alpha } => {
+            Colour::Lab {
+                l,
+                a: la,
+                b: lb,
+                alpha,
+            } => {
                 // APPROXIMATION only. Use ColourContext::convert() for accuracy.
                 let r = (*l / 100.0).clamp(0.0, 1.0);
                 let g = ((*la + 128.0) / 255.0).clamp(0.0, 1.0);
@@ -176,7 +218,9 @@ impl Colour {
     }
 
     /// Alias for `to_css_string`. Convenience for SVG attribute generation.
-    pub fn to_svg_colour(&self) -> String { self.to_css_string() }
+    pub fn to_svg_colour(&self) -> String {
+        self.to_css_string()
+    }
 
     /// Returns "#rrggbb" or "#rrggbbaa". Returns None for non-RGB variants.
     pub fn to_hex(&self) -> Option<String> {

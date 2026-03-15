@@ -126,8 +126,16 @@ mod tests {
             BuiltInProfile::GraCol2006,
         ];
         for profile in &profiles {
-            assert!(!profile.display_name().is_empty(), "display_name empty for {:?}", profile);
-            assert!(!profile.description().is_empty(), "description empty for {:?}", profile);
+            assert!(
+                !profile.display_name().is_empty(),
+                "display_name empty for {:?}",
+                profile
+            );
+            assert!(
+                !profile.description().is_empty(),
+                "description empty for {:?}",
+                profile
+            );
         }
     }
 
@@ -135,7 +143,10 @@ mod tests {
     fn document_colour_settings_default() {
         let settings = DocumentColourSettings::default();
         assert_eq!(settings.working_space, ColourSpace::Srgb);
-        assert_eq!(settings.rendering_intent, RenderingIntent::RelativeColorimetric);
+        assert_eq!(
+            settings.rendering_intent,
+            RenderingIntent::RelativeColorimetric
+        );
         assert!(settings.blackpoint_compensation);
     }
 

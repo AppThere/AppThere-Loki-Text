@@ -40,12 +40,11 @@ pub mod transform;
 
 // Public re-exports — the surface that other crates import from.
 pub use colour::Colour;
+pub use pantone::lookup_pantone;
 pub use space::{
-    BuiltInProfile, ColourSpace, DocumentColourSettings,
-    IccProfileRef, RenderingIntent,
+    BuiltInProfile, ColourSpace, DocumentColourSettings, IccProfileRef, RenderingIntent,
 };
 pub use swatch::{ColourSwatch, SwatchId, SwatchLibrary};
-pub use pantone::lookup_pantone;
 
 #[cfg(feature = "colour-management")]
 pub use profile::IccProfileStore;
@@ -58,9 +57,7 @@ pub use transform::ColourContext;
 /// This wires together [`IccProfileStore`] and [`ColourContext`] in one call,
 /// which is the common pattern for Tauri command handlers.
 #[cfg(feature = "colour-management")]
-pub fn create_display_context(
-    settings: &DocumentColourSettings,
-) -> Result<ColourContext, String> {
+pub fn create_display_context(settings: &DocumentColourSettings) -> Result<ColourContext, String> {
     let mut store = IccProfileStore::new();
     ColourContext::new_for_display(settings, &mut store)
 }

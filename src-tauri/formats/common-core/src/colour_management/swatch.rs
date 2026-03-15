@@ -14,8 +14,8 @@
 
 //! Named colour swatches and the document-level swatch library.
 
-use serde::{Deserialize, Serialize};
 use super::colour::Colour;
+use serde::{Deserialize, Serialize};
 
 /// A unique identifier for a colour swatch within a document.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -90,7 +90,9 @@ impl SwatchLibrary {
     /// Look up a swatch by name (case-insensitive). Returns the first match.
     pub fn find_by_name(&self, name: &str) -> Option<&ColourSwatch> {
         let lower = name.to_lowercase();
-        self.swatches.iter().find(|s| s.name.to_lowercase() == lower)
+        self.swatches
+            .iter()
+            .find(|s| s.name.to_lowercase() == lower)
     }
 
     /// Remove a swatch by ID. Returns true if it existed.

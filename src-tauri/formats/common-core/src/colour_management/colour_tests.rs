@@ -85,9 +85,43 @@ fn from_u8_rgba_with_alpha_round_trip() {
 
 #[test]
 fn alpha_for_all_variants() {
-    assert!((Colour::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 0.5 }.alpha() - 0.5).abs() < 1e-6);
-    assert!((Colour::Cmyk { c: 0.0, m: 0.0, y: 0.0, k: 0.0, alpha: 0.3 }.alpha() - 0.3).abs() < 1e-6);
-    assert!((Colour::Lab { l: 50.0, a: 0.0, b: 0.0, alpha: 0.7 }.alpha() - 0.7).abs() < 1e-6);
+    assert!(
+        (Colour::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.5
+        }
+        .alpha()
+            - 0.5)
+            .abs()
+            < 1e-6
+    );
+    assert!(
+        (Colour::Cmyk {
+            c: 0.0,
+            m: 0.0,
+            y: 0.0,
+            k: 0.0,
+            alpha: 0.3
+        }
+        .alpha()
+            - 0.3)
+            .abs()
+            < 1e-6
+    );
+    assert!(
+        (Colour::Lab {
+            l: 50.0,
+            a: 0.0,
+            b: 0.0,
+            alpha: 0.7
+        }
+        .alpha()
+            - 0.7)
+            .abs()
+            < 1e-6
+    );
     let spot = Colour::Spot {
         name: "PANTONE 186 C".to_string(),
         tint: 0.8,
@@ -95,18 +129,39 @@ fn alpha_for_all_variants() {
         cmyk_fallback: Box::new(Colour::black()),
     };
     assert!((spot.alpha() - 0.8).abs() < 1e-6);
-    assert!((Colour::Linked { id: "x".to_string() }.alpha() - 1.0).abs() < 1e-6);
+    assert!(
+        (Colour::Linked {
+            id: "x".to_string()
+        }
+        .alpha()
+            - 1.0)
+            .abs()
+            < 1e-6
+    );
 }
 
 #[test]
 fn with_alpha_rgb() {
-    let c = Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 1.0 }.with_alpha(0.5);
+    let c = Colour::Rgb {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    }
+    .with_alpha(0.5);
     assert!((c.alpha() - 0.5).abs() < 1e-6);
 }
 
 #[test]
 fn with_alpha_cmyk() {
-    let c = Colour::Cmyk { c: 0.1, m: 0.2, y: 0.3, k: 0.4, alpha: 1.0 }.with_alpha(0.0);
+    let c = Colour::Cmyk {
+        c: 0.1,
+        m: 0.2,
+        y: 0.3,
+        k: 0.4,
+        alpha: 1.0,
+    }
+    .with_alpha(0.0);
     assert!(c.alpha().abs() < 1e-6);
 }
 
@@ -119,21 +174,55 @@ fn is_transparent() {
 
 #[test]
 fn to_css_string_rgba_format() {
-    let c = Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 0.5 };
+    let c = Colour::Rgb {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.5,
+    };
     let s = c.to_css_string();
     assert!(s.starts_with("rgba("), "Expected rgba format, got: {}", s);
 }
 
 #[test]
 fn to_css_string_hex_format_when_opaque() {
-    let c = Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
+    let c = Colour::Rgb {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
     let s = c.to_css_string();
     assert_eq!(s, "#ff0000");
 }
 
 #[test]
 fn black_white_transparent_constructors() {
-    assert_eq!(Colour::black(), Colour::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 1.0 });
-    assert_eq!(Colour::white(), Colour::Rgb { r: 1.0, g: 1.0, b: 1.0, a: 1.0 });
-    assert_eq!(Colour::transparent(), Colour::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 0.0 });
+    assert_eq!(
+        Colour::black(),
+        Colour::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0
+        }
+    );
+    assert_eq!(
+        Colour::white(),
+        Colour::Rgb {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0
+        }
+    );
+    assert_eq!(
+        Colour::transparent(),
+        Colour::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0
+        }
+    );
 }

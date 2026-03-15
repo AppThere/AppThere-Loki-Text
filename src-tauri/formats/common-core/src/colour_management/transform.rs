@@ -14,11 +14,11 @@
 
 //! Colour space conversion using lcms2.
 
-use lcms2::{Flags, Intent, PixelFormat, Transform};
-use std::collections::HashMap;
 use super::colour::Colour;
 use super::profile::IccProfileStore;
 use super::space::{ColourSpace, DocumentColourSettings, RenderingIntent};
+use lcms2::{Flags, Intent, PixelFormat, Transform};
+use std::collections::HashMap;
 
 /// Holds either a 3-channel (RGB/Lab) or 4-channel (CMYK) lcms2 transform
 /// to sRGB output, or a naive stub fallback.
@@ -71,15 +71,29 @@ impl ColourContext {
         };
         let srgb_out = lcms2::Profile::new_srgb();
         let lab_transform = {
-            let d50 = lcms2::CIExyY { x: 0.3457, y: 0.3585, Y: 1.0 };
+            let d50 = lcms2::CIExyY {
+                x: 0.3457,
+                y: 0.3585,
+                Y: 1.0,
+            };
             let lab_in = lcms2::Profile::new_lab4_context(lcms2::GlobalContext::new(), &d50)
                 .map_err(|_| "Failed to create Lab profile".to_string())?;
-            Transform::new_flags(&lab_in, PixelFormat::Lab_FLT, &srgb_out,
-                PixelFormat::RGB_FLT, intent, flags)
-                .map_err(|_| "Failed to create Lab→sRGB transform".to_string())?
+            Transform::new_flags(
+                &lab_in,
+                PixelFormat::Lab_FLT,
+                &srgb_out,
+                PixelFormat::RGB_FLT,
+                intent,
+                flags,
+            )
+            .map_err(|_| "Failed to create Lab→sRGB transform".to_string())?
         };
         let working = build_working_transform(settings, store, intent, flags)?;
-        Ok(Self { working, lab_transform, cache: HashMap::new() })
+        Ok(Self {
+            working,
+            lab_transform,
+            cache: HashMap::new(),
+        })
     }
 
     /// Convert a single Colour to display sRGB [r, g, b, a] (0.0–1.0).
@@ -91,7 +105,9 @@ impl ColourContext {
                     return [*r, *g, *b, *a];
                 }
                 let key = [r.to_bits(), g.to_bits(), b.to_bits(), a.to_bits()];
-                if let Some(&cached) = self.cache.get(&key) { return cached; }
+                if let Some(&cached) = self.cache.get(&key) {
+                    return cached;
+                }
                 let mut out = [0.0f32; 3];
                 if let WorkingTransform::ThreeChannel(t) = &self.working {
                     t.transform_pixels(&[[*r, *g, *b]], std::slice::from_mut(&mut out));
@@ -118,14 +134,21 @@ impl ColourContext {
             }
             Colour::Lab { l, a, b, alpha } => {
                 let key = [l.to_bits(), a.to_bits(), b.to_bits(), alpha.to_bits()];
-                if let Some(&cached) = self.cache.get(&key) { return cached; }
+                if let Some(&cached) = self.cache.get(&key) {
+                    return cached;
+                }
                 let mut out = [0.0f32; 3];
-                self.lab_transform.transform_pixels(&[[*l, *a, *b]], std::slice::from_mut(&mut out));
+                self.lab_transform
+                    .transform_pixels(&[[*l, *a, *b]], std::slice::from_mut(&mut out));
                 let result = [out[0], out[1], out[2], *alpha];
                 self.cache.insert(key, result);
                 result
             }
-            Colour::Spot { cmyk_fallback, tint, .. } => {
+            Colour::Spot {
+                cmyk_fallback,
+                tint,
+                ..
+            } => {
                 let rgb = self.convert(cmyk_fallback);
                 let r = 1.0 - tint * (1.0 - rgb[0]);
                 let g = 1.0 - tint * (1.0 - rgb[1]);
@@ -145,10 +168,14 @@ impl ColourContext {
     }
 
     /// Clear the conversion cache. Call when document colour settings change.
-    pub fn clear_cache(&mut self) { self.cache.clear(); }
+    pub fn clear_cache(&mut self) {
+        self.cache.clear();
+    }
 
     /// Returns the number of entries currently in the conversion cache.
-    pub fn cache_size(&self) -> usize { self.cache.len() }
+    pub fn cache_size(&self) -> usize {
+        self.cache.len()
+    }
 }
 
 pub(crate) fn naive_cmyk(c: f32, m: f32, y: f32, k: f32) -> [f32; 3] {
@@ -168,27 +195,42 @@ fn build_working_transform(
     let srgb_out = lcms2::Profile::new_srgb();
     match &settings.working_space {
         ColourSpace::Srgb => Ok(WorkingTransform::SrgbIdentity),
-        ColourSpace::DisplayP3 | ColourSpace::AdobeRgb => {
-            Err(format!("{:?} requires a user-supplied ICC profile.", settings.working_space))
-        }
+        ColourSpace::DisplayP3 | ColourSpace::AdobeRgb => Err(format!(
+            "{:?} requires a user-supplied ICC profile.",
+            settings.working_space
+        )),
         ColourSpace::Cmyk { profile } => {
             if store.is_stub_ref(profile) {
                 eprintln!("WARNING: CMYK profile is a stub. Using naive CMYK→sRGB fallback.");
                 return Ok(WorkingTransform::NaiveCmyk);
             }
-            let input = store.get_or_load(profile)
+            let input = store
+                .get_or_load(profile)
                 .ok_or_else(|| format!("Failed to load CMYK profile: {:?}", profile))?;
-            let t = Transform::new_flags(input, PixelFormat::CMYK_FLT, &srgb_out,
-                PixelFormat::RGB_FLT, intent, flags)
-                .map_err(|_| "Failed to create CMYK→sRGB transform".to_string())?;
+            let t = Transform::new_flags(
+                input,
+                PixelFormat::CMYK_FLT,
+                &srgb_out,
+                PixelFormat::RGB_FLT,
+                intent,
+                flags,
+            )
+            .map_err(|_| "Failed to create CMYK→sRGB transform".to_string())?;
             Ok(WorkingTransform::FourChannel(t))
         }
         ColourSpace::Custom { profile } => {
-            let input = store.get_or_load(profile)
+            let input = store
+                .get_or_load(profile)
                 .ok_or_else(|| format!("Failed to load custom profile: {:?}", profile))?;
-            let t = Transform::new_flags(input, PixelFormat::RGB_FLT, &srgb_out,
-                PixelFormat::RGB_FLT, intent, flags)
-                .map_err(|_| "Failed to create custom profile transform".to_string())?;
+            let t = Transform::new_flags(
+                input,
+                PixelFormat::RGB_FLT,
+                &srgb_out,
+                PixelFormat::RGB_FLT,
+                intent,
+                flags,
+            )
+            .map_err(|_| "Failed to create custom profile transform".to_string())?;
             Ok(WorkingTransform::ThreeChannel(t))
         }
     }

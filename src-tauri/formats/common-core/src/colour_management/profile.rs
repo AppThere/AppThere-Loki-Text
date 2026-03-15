@@ -19,22 +19,18 @@
 //! production. Stub profiles cause a runtime warning and synthetic fallback
 //! profiles are used instead.
 
+use super::space::{BuiltInProfile, IccProfileRef};
 use lcms2::Profile;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use super::space::{BuiltInProfile, IccProfileRef};
 
 /// Raw ICC profile bytes, embedded at compile time.
 /// STUB: Replace with real ICC files before production use.
 /// The icc/ directory is at: src-tauri/formats/common-core/icc/
-const PROFILE_SRGB: &[u8] =
-    include_bytes!("../../icc/sRGB_IEC61966-2-1.icc");
-const PROFILE_ISO_COATED_V2: &[u8] =
-    include_bytes!("../../icc/ISO_Coated_v2.icc");
-const PROFILE_SWOP_V2: &[u8] =
-    include_bytes!("../../icc/SWOP_v2.icc");
-const PROFILE_GRACOL_2006: &[u8] =
-    include_bytes!("../../icc/GRACoL_2006.icc");
+const PROFILE_SRGB: &[u8] = include_bytes!("../../icc/sRGB_IEC61966-2-1.icc");
+const PROFILE_ISO_COATED_V2: &[u8] = include_bytes!("../../icc/ISO_Coated_v2.icc");
+const PROFILE_SWOP_V2: &[u8] = include_bytes!("../../icc/SWOP_v2.icc");
+const PROFILE_GRACOL_2006: &[u8] = include_bytes!("../../icc/GRACoL_2006.icc");
 
 const STUB_MARKER: &[u8] = b"STUB_ICC_PROFILE";
 
@@ -74,8 +70,8 @@ impl IccProfileStore {
     pub fn load_file(&mut self, path: &Path) -> Result<IccProfileRef, String> {
         let bytes = std::fs::read(path)
             .map_err(|e| format!("Failed to read ICC file {:?}: {}", path, e))?;
-        let profile = Profile::new_icc(&bytes)
-            .map_err(|_| format!("Invalid ICC profile: {:?}", path))?;
+        let profile =
+            Profile::new_icc(&bytes).map_err(|_| format!("Invalid ICC profile: {:?}", path))?;
         let key = IccProfileRef::FilePath(path.to_string_lossy().into_owned());
         self.loaded.insert(key.clone(), profile);
         Ok(key)
@@ -131,7 +127,11 @@ impl IccProfileStore {
             // this profile will not be colour-accurate. Use real ICC files
             // for production colour management.
             _ => {
-                let d50 = lcms2::CIExyY { x: 0.3457, y: 0.3585, Y: 1.0 };
+                let d50 = lcms2::CIExyY {
+                    x: 0.3457,
+                    y: 0.3585,
+                    Y: 1.0,
+                };
                 Profile::new_lab4_context(lcms2::GlobalContext::new(), &d50)
                     .unwrap_or_else(|_| Profile::new_srgb())
             }

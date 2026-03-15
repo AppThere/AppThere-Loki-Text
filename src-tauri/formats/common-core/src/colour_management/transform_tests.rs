@@ -16,10 +16,10 @@
 
 use super::{ColourContext, WorkingTransform};
 use crate::colour_management::colour::Colour;
+use crate::colour_management::profile::IccProfileStore;
 use crate::colour_management::space::{
     BuiltInProfile, ColourSpace, DocumentColourSettings, IccProfileRef,
 };
-use crate::colour_management::profile::IccProfileStore;
 
 fn srgb_ctx() -> ColourContext {
     let settings = DocumentColourSettings::default();
@@ -35,7 +35,12 @@ fn construct_srgb_context_succeeds() {
 #[test]
 fn srgb_red_is_identity() {
     let mut ctx = srgb_ctx();
-    let result = ctx.convert(&Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+    let result = ctx.convert(&Colour::Rgb {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    });
     assert!((result[0] - 1.0).abs() < 1e-5);
     assert!(result[1].abs() < 1e-5);
     assert!(result[2].abs() < 1e-5);
@@ -45,9 +50,19 @@ fn srgb_red_is_identity() {
 #[test]
 fn srgb_grey_is_identity() {
     let mut ctx = srgb_ctx();
-    let result = ctx.convert(&Colour::Rgb { r: 0.5, g: 0.5, b: 0.5, a: 1.0 });
+    let result = ctx.convert(&Colour::Rgb {
+        r: 0.5,
+        g: 0.5,
+        b: 0.5,
+        a: 1.0,
+    });
     for i in 0..3 {
-        assert!((result[i] - 0.5).abs() < 1e-5, "channel {} mismatch: {}", i, result[i]);
+        assert!(
+            (result[i] - 0.5).abs() < 1e-5,
+            "channel {} mismatch: {}",
+            i,
+            result[i]
+        );
     }
 }
 
@@ -73,9 +88,20 @@ fn cmyk_paper_white_converts_near_white() {
     };
     let mut store = IccProfileStore::new();
     let mut ctx = ColourContext::new_for_display(&settings, &mut store).unwrap();
-    let result = ctx.convert(&Colour::Cmyk { c: 0.0, m: 0.0, y: 0.0, k: 0.0, alpha: 1.0 });
+    let result = ctx.convert(&Colour::Cmyk {
+        c: 0.0,
+        m: 0.0,
+        y: 0.0,
+        k: 0.0,
+        alpha: 1.0,
+    });
     for i in 0..3 {
-        assert!((result[i] - 1.0).abs() < 0.05, "channel {} = {} (expected ~1.0)", i, result[i]);
+        assert!(
+            (result[i] - 1.0).abs() < 0.05,
+            "channel {} = {} (expected ~1.0)",
+            i,
+            result[i]
+        );
     }
     assert!((result[3] - 1.0).abs() < 1e-5);
 }
@@ -90,15 +116,32 @@ fn cmyk_rich_black_converts_near_black() {
     };
     let mut store = IccProfileStore::new();
     let mut ctx = ColourContext::new_for_display(&settings, &mut store).unwrap();
-    let result = ctx.convert(&Colour::Cmyk { c: 0.0, m: 0.0, y: 0.0, k: 1.0, alpha: 1.0 });
+    let result = ctx.convert(&Colour::Cmyk {
+        c: 0.0,
+        m: 0.0,
+        y: 0.0,
+        k: 1.0,
+        alpha: 1.0,
+    });
     for i in 0..3 {
-        assert!(result[i] < 0.05, "channel {} = {} (expected ~0.0)", i, result[i]);
+        assert!(
+            result[i] < 0.05,
+            "channel {} = {} (expected ~0.0)",
+            i,
+            result[i]
+        );
     }
 }
 
 #[test]
 fn cache_size_increases_on_first_call() {
-    let colour = Colour::Cmyk { c: 0.5, m: 0.3, y: 0.2, k: 0.1, alpha: 1.0 };
+    let colour = Colour::Cmyk {
+        c: 0.5,
+        m: 0.3,
+        y: 0.2,
+        k: 0.1,
+        alpha: 1.0,
+    };
     let settings = DocumentColourSettings {
         working_space: ColourSpace::Cmyk {
             profile: IccProfileRef::BuiltIn(BuiltInProfile::IsoCoatedV2),
@@ -119,8 +162,18 @@ fn cache_size_increases_on_first_call() {
 fn convert_batch_matches_individual() {
     let mut ctx = srgb_ctx();
     let colours = vec![
-        Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 1.0 },
-        Colour::Rgb { r: 0.0, g: 1.0, b: 0.0, a: 1.0 },
+        Colour::Rgb {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        Colour::Rgb {
+            r: 0.0,
+            g: 1.0,
+            b: 0.0,
+            a: 1.0,
+        },
     ];
     let batch = ctx.convert_batch(&colours);
     let mut ctx2 = srgb_ctx();

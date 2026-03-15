@@ -1,7 +1,7 @@
 // Typed wrappers for Tauri invoke calls for vector editor commands.
 
 import { invoke } from '@tauri-apps/api/core';
-import type { VectorDocument } from './types';
+import type { Colour, DocumentColourSettings, VectorDocument } from './types';
 
 export async function openVectorDocument(
     path: string,
@@ -65,4 +65,15 @@ export async function deserializeVectorDocument(
     } catch (e) {
         throw new Error(String(e));
     }
+}
+
+export async function batchConvertColours(
+    colours: Colour[],
+    settings: DocumentColourSettings,
+): Promise<Array<[number, number, number, number]>> {
+    const result = await invoke<number[][]>('batch_convert_colours', {
+        colours,
+        settings,
+    });
+    return result as Array<[number, number, number, number]>;
 }

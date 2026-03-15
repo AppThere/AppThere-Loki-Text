@@ -7,6 +7,8 @@ import { CanvasGrid } from './CanvasGrid';
 import { SelectionHandles } from './SelectionHandles';
 import { handleWheelZoom, buildPreviewObject, buildFinalObject, screenToDoc } from '@/lib/vector/canvasEventHandlers';
 import type { VectorObject } from '@/lib/vector/types';
+import { useDisplayColours } from '@/lib/vector/useDisplayColours';
+import { defaultColourSettings } from '@/lib/vector/colourUtils';
 
 interface VectorCanvasProps {
     width: number;
@@ -101,6 +103,10 @@ export function VectorCanvas({ width, height }: VectorCanvasProps) {
         : (toolMode === 'rect' || toolMode === 'ellipse' || toolMode === 'line') ? 'crosshair'
         : 'default';
 
+    const colourSettings = document?.colour_settings ?? defaultColourSettings();
+    const allObjects = document?.layers.flatMap((l) => l.objects) ?? [];
+    const displayCache = useDisplayColours(allObjects, colourSettings);
+
     const canvasW = document?.canvas.width ?? 0;
     const canvasH = document?.canvas.height ?? 0;
 
@@ -158,6 +164,7 @@ export function VectorCanvas({ width, height }: VectorCanvasProps) {
                                 object={obj}
                                 onSelect={handleObjectSelect}
                                 isSelected={selectedIds.has(obj.id)}
+                                displayCache={displayCache}
                             />
                         ))}
                     </Layer>

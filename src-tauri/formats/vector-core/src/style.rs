@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::colour::Colour;
+use common_core::colour_management::Colour;
 use serde::{Deserialize, Serialize};
 
 /// Describes how a shape is filled or stroked.

@@ -17,9 +17,14 @@ use crate::object::{CommonProps, EllipseObject, LineObject, PathObject, RectObje
 use crate::style::{LineCap, LineJoin, Paint};
 use crate::transform::Transform;
 use crate::units::UnitConverter;
+use common_core::colour_management::ColourContext;
 
 /// Serialise a VectorDocument to an SVG string.
-pub fn write(doc: &VectorDocument) -> String {
+///
+/// The `ctx` parameter is reserved for colour-managed conversion in Phase 2.
+/// In Phase 1, colours are written using `to_svg_colour()` (sRGB fallback),
+/// which is correct for sRGB documents and for SVG interoperability.
+pub fn write(doc: &VectorDocument, _ctx: &mut ColourContext) -> Result<String, String> {
     let canvas = &doc.canvas;
     let unit_suffix = UnitConverter::unit_suffix(canvas.display_unit);
     let w = format_f64(canvas.display_width());
@@ -55,7 +60,7 @@ pub fn write(doc: &VectorDocument) -> String {
     }
 
     out.push_str("</svg>\n");
-    out
+    Ok(out)
 }
 
 fn write_object(obj: &VectorObject, out: &mut String, indent: usize) {
@@ -212,77 +217,5 @@ fn escape_xml(s: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::canvas::Canvas;
-    use crate::document::VectorDocument;
-    use crate::layer::Layer;
-    use crate::object::{CommonProps, EllipseObject, RectObject};
-    use crate::style::ObjectStyle;
-    use crate::svg_parser::parse;
-
-    fn make_doc() -> VectorDocument {
-        let mut layer = Layer::new("Layer 1");
-        layer.id = "layer1".to_string();
-
-        let mut rect_common = CommonProps::new("rect1");
-        rect_common.style = ObjectStyle::default_fill();
-
-        layer.objects.push(VectorObject::Rect(RectObject {
-            common: rect_common,
-            x: 10.0,
-            y: 20.0,
-            width: 100.0,
-            height: 50.0,
-            rx: 0.0,
-            ry: 0.0,
-        }));
-
-        let mut ellipse_common = CommonProps::new("ellipse1");
-        ellipse_common.style = ObjectStyle::default_fill();
-
-        layer.objects.push(VectorObject::Ellipse(EllipseObject {
-            common: ellipse_common,
-            cx: 200.0,
-            cy: 100.0,
-            rx: 30.0,
-            ry: 20.0,
-        }));
-
-        let canvas = Canvas::new(400.0, 300.0);
-        VectorDocument {
-            canvas,
-            layers: vec![layer],
-            metadata: common_core::Metadata::default(),
-        }
-    }
-
-    #[test]
-    fn test_write_and_parse_roundtrip() {
-        let doc = make_doc();
-        let svg = write(&doc);
-        let parsed = parse(&svg).unwrap();
-
-        assert_eq!(parsed.layers[0].objects.len(), 2);
-        if let VectorObject::Rect(r) = &parsed.layers[0].objects[0] {
-            assert!((r.x - 10.0).abs() < 0.01);
-            assert!((r.width - 100.0).abs() < 0.01);
-        } else {
-            panic!("expected rect");
-        }
-        if let VectorObject::Ellipse(e) = &parsed.layers[0].objects[1] {
-            assert!((e.cx - 200.0).abs() < 0.01);
-            assert!((e.ry - 20.0).abs() < 0.01);
-        } else {
-            panic!("expected ellipse");
-        }
-    }
-
-    #[test]
-    fn test_write_contains_svg_header() {
-        let doc = make_doc();
-        let svg = write(&doc);
-        assert!(svg.contains(r#"<?xml version="1.0""#));
-        assert!(svg.contains(r#"xmlns="http://www.w3.org/2000/svg""#));
-    }
-}
+#[path = "svg_writer_tests.rs"]
+mod tests;

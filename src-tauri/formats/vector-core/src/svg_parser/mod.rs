@@ -18,6 +18,7 @@ use crate::layer::Layer;
 use crate::object::{CommonProps, GroupObject, VectorObject};
 use crate::transform::{parse_svg_transform, Transform};
 use crate::units::{LengthUnit, UnitConverter};
+use common_core::colour_management::DocumentColourSettings;
 use common_core::Metadata;
 
 mod nodes;
@@ -69,6 +70,7 @@ pub fn parse(svg: &str) -> Result<VectorDocument, String> {
         canvas,
         layers,
         metadata: Metadata::default(),
+        colour_settings: DocumentColourSettings::default(),
     })
 }
 

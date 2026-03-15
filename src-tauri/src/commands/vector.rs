@@ -43,7 +43,10 @@ pub async fn save_vector_document<R: Runtime>(
     path: String,
     document: VectorDocument,
 ) -> Result<(), String> {
-    let svg = svg_writer::write(&document);
+    use common_core::colour_management::create_display_context;
+
+    let mut ctx = create_display_context(&document.colour_settings)?;
+    let svg = svg_writer::write(&document, &mut ctx)?;
     std::fs::write(&path, svg.as_bytes()).map_err(|e| format!("Failed to write file '{path}': {e}"))
 }
 
@@ -70,7 +73,11 @@ pub fn new_vector_document(
 /// Serialise a vector document to SVG bytes (for session autosave).
 #[tauri::command]
 pub fn serialize_vector_document(document: VectorDocument) -> Result<Vec<u8>, String> {
-    Ok(svg_writer::write(&document).into_bytes())
+    use common_core::colour_management::create_display_context;
+
+    let mut ctx = create_display_context(&document.colour_settings)?;
+    let svg = svg_writer::write(&document, &mut ctx)?;
+    Ok(svg.into_bytes())
 }
 
 /// Deserialise SVG bytes back to a vector document.
@@ -79,4 +86,18 @@ pub fn deserialize_vector_document(file_content: Vec<u8>) -> Result<VectorDocume
     let svg_str = std::str::from_utf8(&file_content)
         .map_err(|e| format!("Content is not valid UTF-8: {e}"))?;
     svg_parser::parse(svg_str).map_err(|e| format!("SVG parse failed: {e}"))
+}
+
+/// Convert a batch of Colour values to display sRGB.
+/// Used by the frontend renderer to avoid per-object IPC calls.
+#[tauri::command]
+pub fn batch_convert_colours(
+    colours: Vec<common_core::colour_management::Colour>,
+    settings: common_core::colour_management::DocumentColourSettings,
+) -> Result<Vec<[f32; 4]>, String> {
+    use common_core::colour_management::{ColourContext, IccProfileStore};
+
+    let mut store = IccProfileStore::new();
+    let mut ctx = ColourContext::new_for_display(&settings, &mut store)?;
+    Ok(ctx.convert_batch(&colours))
 }

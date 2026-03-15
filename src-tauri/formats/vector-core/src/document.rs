@@ -14,6 +14,7 @@
 
 use crate::canvas::Canvas;
 use crate::layer::Layer;
+use common_core::colour_management::DocumentColourSettings;
 use common_core::Metadata;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +24,10 @@ pub struct VectorDocument {
     pub canvas: Canvas,
     pub layers: Vec<Layer>,
     pub metadata: Metadata,
+    /// Colour management settings for this document.
+    /// Defaults to sRGB with relative colorimetric intent.
+    #[serde(default)]
+    pub colour_settings: DocumentColourSettings,
 }
 
 impl VectorDocument {
@@ -32,6 +37,7 @@ impl VectorDocument {
             canvas,
             layers: vec![Layer::new("Layer 1")],
             metadata: Metadata::default(),
+            colour_settings: DocumentColourSettings::default(),
         }
     }
 

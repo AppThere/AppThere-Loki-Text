@@ -18,11 +18,66 @@ export interface Canvas {
     viewbox: ViewBox | null;
 }
 
-export interface Colour {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
+/**
+ * A colour value. The `type` field discriminates the variant.
+ * Field names and variant names must match the Rust Colour enum exactly —
+ * see src-tauri/formats/common-core/src/colour_management/colour.rs.
+ */
+export type Colour =
+    | { type: 'Rgb'; r: number; g: number; b: number; a: number }
+    | { type: 'Cmyk'; c: number; m: number; y: number; k: number; alpha: number }
+    | { type: 'Lab'; l: number; a: number; b: number; alpha: number }
+    | {
+          type: 'Spot';
+          name: string;
+          tint: number;
+          lab_ref: [number, number, number];
+          cmyk_fallback: Colour;
+      }
+    | { type: 'Linked'; id: string };
+
+export type BuiltInProfile =
+    | 'SrgbIec61966'
+    | 'IsoCoatedV2'
+    | 'SwopV2'
+    | 'GraCol2006';
+
+export type IccProfileRef =
+    | { type: 'BuiltIn'; profile: BuiltInProfile }
+    | { type: 'FilePath'; path: string };
+
+export type ColourSpace =
+    | { type: 'Srgb' }
+    | { type: 'DisplayP3' }
+    | { type: 'AdobeRgb' }
+    | { type: 'Cmyk'; profile: IccProfileRef }
+    | { type: 'Custom'; profile: IccProfileRef };
+
+export type RenderingIntent =
+    | 'Perceptual'
+    | 'RelativeColorimetric'
+    | 'Saturation'
+    | 'AbsoluteColorimetric';
+
+export interface DocumentColourSettings {
+    working_space: ColourSpace;
+    rendering_intent: RenderingIntent;
+    blackpoint_compensation: boolean;
+}
+
+export interface SwatchId {
+    id: string;
+}
+
+export interface ColourSwatch {
+    id: SwatchId;
+    name: string;
+    colour: Colour;
+    is_spot: boolean;
+}
+
+export interface SwatchLibrary {
+    swatches: ColourSwatch[];
 }
 
 export interface Transform {
@@ -128,6 +183,7 @@ export interface VectorDocument {
         description: string | null;
         [key: string]: unknown;
     };
+    colour_settings: DocumentColourSettings;
 }
 
 export function identityTransform(): Transform {
@@ -136,7 +192,7 @@ export function identityTransform(): Transform {
 
 export function defaultStyle(): ObjectStyle {
     return {
-        fill: { type: 'Solid', colour: { r: 0, g: 0, b: 0, a: 255 } },
+        fill: { type: 'Solid', colour: { type: 'Rgb', r: 0, g: 0, b: 0, a: 1 } },
         stroke: {
             paint: { type: 'None' },
             width: 1,

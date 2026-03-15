@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "ODT document format parser and writer for AppThere Loki"
 license = "Apache-2.0"
+# Disable auto-discovery so benches/generators.rs is not compiled as a
+# standalone benchmark binary (it's a shared helper module, not a bench).
+autobenches = false
 
 [dependencies]
 common-core = { path = "../common-core" }
@@ -14,6 +17,7 @@ quick-xml = "0.37"
 
 [dev-dependencies]
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[test]]
 name = "integration"
@@ -30,3 +34,23 @@ path = "tests/round_trip.rs"
 [[test]]
 name = "proptest_roundtrip"
 path = "tests/proptest_roundtrip.rs"
+
+[[test]]
+name = "memory_usage"
+path = "tests/memory_usage.rs"
+
+[[bench]]
+name = "parsing"
+harness = false
+
+[[bench]]
+name = "writing"
+harness = false
+
+[[bench]]
+name = "lexical_conversion"
+harness = false
+
+[[bench]]
+name = "full_pipeline"
+harness = false

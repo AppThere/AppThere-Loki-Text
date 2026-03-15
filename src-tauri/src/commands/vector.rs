@@ -190,9 +190,7 @@ pub fn preview_colour_conversion(
 /// Performs a case-insensitive substring search over all known Pantone names.
 /// Returns up to 50 matches, each with the colour name and its CIE Lab reference.
 #[tauri::command]
-pub fn search_pantone(
-    query: String,
-) -> Vec<serde_json::Value> {
+pub fn search_pantone(query: String) -> Vec<serde_json::Value> {
     use common_core::colour_management::pantone::all_pantone_names;
     use serde_json::json;
 

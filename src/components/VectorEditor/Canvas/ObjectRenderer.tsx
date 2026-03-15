@@ -1,16 +1,17 @@
 import { Rect, Ellipse, Line, Path, Group } from 'react-konva';
 import type { VectorObject, Paint, Transform } from '@/lib/vector/types';
-import { colourToKonva } from '@/lib/vector/colourUtils';
+import { getDisplayColour } from '@/lib/vector/colourUtils';
 
 function paintToKonvaFill(
     paint: Paint,
     displayCache: Map<string, string>,
+    softProofOverrides: Map<string, string> | null,
 ): { fill: string; fillEnabled: boolean } {
     if (paint.type === 'None') {
         return { fill: 'transparent', fillEnabled: false };
     }
     return {
-        fill: colourToKonva(paint.colour, displayCache),
+        fill: getDisplayColour(paint.colour, displayCache, softProofOverrides),
         fillEnabled: true,
     };
 }
@@ -18,12 +19,13 @@ function paintToKonvaFill(
 function paintToKonvaStroke(
     paint: Paint,
     displayCache: Map<string, string>,
+    softProofOverrides: Map<string, string> | null,
 ): { stroke: string; strokeEnabled: boolean } {
     if (paint.type === 'None') {
         return { stroke: 'transparent', strokeEnabled: false };
     }
     return {
-        stroke: colourToKonva(paint.colour, displayCache),
+        stroke: getDisplayColour(paint.colour, displayCache, softProofOverrides),
         strokeEnabled: true,
     };
 }
@@ -48,14 +50,15 @@ interface Props {
     onSelect?: (id: string) => void;
     isSelected?: boolean;
     displayCache?: Map<string, string>;
+    softProofOverrides?: Map<string, string> | null;
 }
 
-export function ObjectRenderer({ object, onSelect, isSelected, displayCache = new Map() }: Props) {
+export function ObjectRenderer({ object, onSelect, isSelected, displayCache = new Map(), softProofOverrides = null }: Props) {
     const { transform, style, visible, locked, id } = object;
     const { x, y, rotation } = decomposeTransform(transform);
 
-    const { fill: fillColor, fillEnabled } = paintToKonvaFill(style.fill, displayCache);
-    const { stroke: strokeColor, strokeEnabled } = paintToKonvaStroke(style.stroke.paint, displayCache);
+    const { fill: fillColor, fillEnabled } = paintToKonvaFill(style.fill, displayCache, softProofOverrides);
+    const { stroke: strokeColor, strokeEnabled } = paintToKonvaStroke(style.stroke.paint, displayCache, softProofOverrides);
     const strokeWidth = strokeEnabled ? style.stroke.width : 0;
     const opacity = style.opacity;
 
@@ -135,6 +138,7 @@ export function ObjectRenderer({ object, onSelect, isSelected, displayCache = ne
                         onSelect={onSelect}
                         isSelected={isSelected}
                         displayCache={displayCache}
+                        softProofOverrides={softProofOverrides}
                     />
                 ))}
             </Group>

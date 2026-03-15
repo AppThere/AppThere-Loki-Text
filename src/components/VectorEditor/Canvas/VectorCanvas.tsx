@@ -13,9 +13,10 @@ import { defaultColourSettings } from '@/lib/vector/colourUtils';
 interface VectorCanvasProps {
     width: number;
     height: number;
+    softProofOverrides?: Map<string, string> | null;
 }
 
-export function VectorCanvas({ width, height }: VectorCanvasProps) {
+export function VectorCanvas({ width, height, softProofOverrides = null }: VectorCanvasProps) {
     const {
         document, toolMode, zoom, panX, panY,
         selectedIds, showGrid, gridSpacingPx,
@@ -165,6 +166,7 @@ export function VectorCanvas({ width, height }: VectorCanvasProps) {
                                 onSelect={handleObjectSelect}
                                 isSelected={selectedIds.has(obj.id)}
                                 displayCache={displayCache}
+                                softProofOverrides={softProofOverrides}
                             />
                         ))}
                     </Layer>

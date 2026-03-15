@@ -5,10 +5,9 @@ import { openDocument, saveDocument, saveEpub } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
+import { SessionManager } from '../session/SessionManager';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
-
-let originalFileBytes: Uint8Array | null = null;
 
 export function useFileOperations() {
     const [isLoading, setIsLoading] = useState(false);
@@ -18,10 +17,12 @@ export function useFileOperations() {
         currentContent,
         styles,
         metadata,
+        session,
         setPath,
         setContent,
         setStyles,
         setMetadata,
+        setSession,
         markClean,
         markDirty,
         markSaving,
@@ -31,45 +32,56 @@ export function useFileOperations() {
     const { addDocument, addTemplate } = useHistoryStore();
     const { clearSession } = useSessionPersistence();
 
+    // ── Session helpers ────────────────────────────────────────────────────
+
+    const startSession = async (originalPath: string): Promise<SessionManager> => {
+        const mgr = await SessionManager.create(originalPath);
+        setSession(mgr);
+        return mgr;
+    };
+
+    const endSession = async () => {
+        const current = useDocumentStore.getState().session;
+        if (current) {
+            try { await current.cleanup(); } catch { /* best-effort */ }
+            setSession(null);
+        }
+    };
+
+    // ── Public handlers ────────────────────────────────────────────────────
+
     const handleNew = async () => {
         setIsLoading(true);
         try {
+            await endSession();
             clearSession();
-
-            // Generate bytes from the raw template string
             const templateBytes = new TextEncoder().encode(standardTemplate);
-
-            // Use openDocument to process the template
             const response = await openDocument('internal://standard.fodt', templateBytes);
-
             setPath('');
-            originalFileBytes = null;
-
             setContent(response.content);
             setStyles(response.styles);
-            // Default to 'Untitled Document' for NEW documents from standard template
             setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
             markDirty();
         } catch (error) {
-            console.error("Failed to create new document from template:", error);
+            console.error('Failed to create new document:', error);
             throw error;
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleClose = () => {
+    const handleClose = async () => {
+        await endSession();
         clearSession();
         resetStore();
-        originalFileBytes = null;
     };
 
     const loadDocument = async (path: string) => {
         setIsLoading(true);
         try {
-            const fileBytes = await readFile(path);
-            originalFileBytes = fileBytes;
+            await endSession();
 
+            const fileBytes = await readFile(path);
             const response = await openDocument(path, fileBytes);
 
             setPath(path);
@@ -79,11 +91,20 @@ export function useFileOperations() {
             addDocument({
                 path,
                 name: response.metadata.title || path.split('/').pop() || 'Untitled',
-                type: 'text'
+                type: 'text',
             });
+
+            // Create session AFTER content is in the store
+            const mgr = await startSession(path);
+            await mgr.autoSave({
+                content: response.content,
+                styles: response.styles,
+                metadata: response.metadata,
+            });
+
             markClean();
         } catch (error) {
-            console.error("Failed to load document:", error);
+            console.error('Failed to load document:', error);
             throw error;
         } finally {
             setIsLoading(false);
@@ -94,18 +115,14 @@ export function useFileOperations() {
         try {
             const selected = await open({
                 title: 'Open AppThere Document',
-                filters: [{ name: 'Document', extensions: ['odt', 'fodt'] }]
+                filters: [{ name: 'Document', extensions: ['odt', 'fodt'] }],
             });
-
             if (selected) {
                 const path = typeof selected === 'string' ? selected : (selected as any).path;
-                if (path) {
-                    clearSession(); // Added clearSession
-                    await loadDocument(path);
-                }
+                if (path) await loadDocument(path);
             }
         } catch (error) {
-            console.error("Failed handling open dialog:", error);
+            console.error('Failed handling open dialog:', error);
         }
     };
 
@@ -113,91 +130,82 @@ export function useFileOperations() {
         try {
             const selected = await open({
                 title: 'New Document from Template',
-                filters: [{ name: 'Template', extensions: ['ott', 'odt', 'fodt'] }]
+                filters: [{ name: 'Template', extensions: ['ott', 'odt', 'fodt'] }],
             });
+            if (!selected) return;
+            const path = typeof selected === 'string' ? selected : (selected as any).path;
+            if (!path) return;
 
-            if (selected) {
-                const path = typeof selected === 'string' ? selected : (selected as any).path;
-                if (path) {
-                    clearSession(); // Added clearSession
-                    setIsLoading(true);
-                    try {
-                        const fileBytes = await readFile(path);
-                        const response = await openDocument(path, fileBytes);
+            setIsLoading(true);
+            try {
+                await endSession();
+                clearSession();
+                const fileBytes = await readFile(path);
+                const response = await openDocument(path, fileBytes);
 
-                        // Treat as new unsaved document
-                        setPath('');
-                        originalFileBytes = null;
-
-                        setContent(response.content);
-                        setStyles(response.styles);
-                        setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
-                        addTemplate('text', {
-                            path,
-                            name: response.metadata.title || path.split('/').pop() || 'Untitled',
-                            type: 'text'
-                        });
-                        markDirty(); // Unsaved immediately
-                    } catch (error) {
-                        console.error("Failed to load template:", error);
-                        throw error;
-                    } finally {
-                        setIsLoading(false);
-                    }
-                }
+                setPath('');
+                setContent(response.content);
+                setStyles(response.styles);
+                setMetadata({ ...response.metadata, title: 'Untitled Document', identifier: undefined });
+                addTemplate('text', {
+                    path,
+                    name: response.metadata.title || path.split('/').pop() || 'Untitled',
+                    type: 'text',
+                });
+                markDirty();
+            } catch (error) {
+                console.error('Failed to load template:', error);
+                throw error;
+            } finally {
+                setIsLoading(false);
             }
         } catch (error) {
-            console.error("Failed handling template open dialog:", error);
+            console.error('Failed handling template open dialog:', error);
             throw error;
         }
     };
 
-    const handleSave = async (background: boolean = false) => {
-        if (!currentPath || !currentContent) {
-            return handleSaveAs();
-        }
+    /**
+     * Save the document to disk (user-initiated).
+     *
+     * Routes through the active session so that autosave and explicit save
+     * stay in sync. Falls back to `saveDocument` when there is no session
+     * (e.g. new/unsaved document that has no original path yet).
+     */
+    const handleSave = async (background = false) => {
+        if (!currentPath || !currentContent) return handleSaveAs();
 
-        if (background) {
-            markSaving();
-        } else {
-            setIsLoading(true);
-        }
+        if (background) markSaving(); else setIsLoading(true);
 
         try {
-            const newBytes = await saveDocument(
-                currentPath,
-                JSON.stringify(currentContent),
-                styles,
-                metadata,
-                currentPath,
-                originalFileBytes || undefined
-            );
-
-            if (newBytes) {
-                if (currentPath.startsWith('content://')) {
-                    await writeFile(currentPath, newBytes);
+            if (session && currentPath) {
+                // Safe path: write through session (keeps session in sync)
+                await session.saveToOriginal({
+                    content: currentContent,
+                    styles,
+                    metadata,
+                });
+            } else {
+                // Fallback for content:// URIs or when session is unavailable
+                const bytes = await saveDocument(
+                    currentPath,
+                    JSON.stringify(currentContent),
+                    styles,
+                    metadata,
+                    currentPath,
+                );
+                if (bytes && currentPath.startsWith('content://')) {
+                    await writeFile(currentPath, bytes);
                 }
-                originalFileBytes = newBytes;
-
-                if (background) {
-                    markSaved();
-                } else {
-                    markClean();
-                }
-            } else if (background) {
-                // If it aborted or failed quietly
-                markClean();
             }
+
+            if (background) markSaved(); else markClean();
         } catch (error) {
-            console.error("Failed to save:", error);
-            if (background) {
-                markClean(); // Don't leave in saving state
-            }
+            console.error('Failed to save:', error);
+            if (background) markClean();
             throw error;
         } finally {
-            if (!background) {
-                setIsLoading(false);
-            }
+            if (!background) setIsLoading(false);
         }
     };
 
@@ -205,52 +213,45 @@ export function useFileOperations() {
         if (!currentContent) return;
 
         try {
-            // Sanitize title for filename
             const cleanTitle = (metadata.title || 'Untitled')
-                .replace(/[<>:"/\\|?*]/g, '_') // Remove illegal chars
+                .replace(/[<>:"/\\|?*]/g, '_')
                 .trim();
-
             const ext = explicitType || 'odt';
-            const defaultPath = `${cleanTitle}.${ext}`;
-
             const selected = await save({
                 title: 'Save AppThere Document As',
-                defaultPath,
+                defaultPath: `${cleanTitle}.${ext}`,
                 filters: explicitType
                     ? [{ name: explicitType === 'odt' ? 'ODT Document' : 'Flat XML ODT', extensions: [ext] }]
-                    : [{ name: 'Document', extensions: ['odt', 'fodt'] }]
+                    : [{ name: 'Document', extensions: ['odt', 'fodt'] }],
             });
+            if (!selected) return;
 
-            if (selected) {
-                setIsLoading(true);
-                const path = typeof selected === 'string' ? selected : (selected as any).path;
-                if (!path) return;
+            setIsLoading(true);
+            const path = typeof selected === 'string' ? selected : (selected as any).path;
+            if (!path) return;
 
-                const newBytes = await saveDocument(
+            const bytes = await saveDocument(
+                path,
+                JSON.stringify(currentContent),
+                styles,
+                metadata,
+                currentPath || undefined,
+            );
+            if (bytes) {
+                if (path.startsWith('content://')) await writeFile(path, bytes);
+                setPath(path);
+                // Start a new session for the new path
+                await endSession();
+                await startSession(path);
+                addDocument({
                     path,
-                    JSON.stringify(currentContent),
-                    styles,
-                    metadata,
-                    currentPath || undefined,
-                    originalFileBytes || undefined
-                );
-
-                if (newBytes) {
-                    if (path.startsWith('content://')) {
-                        await writeFile(path, newBytes);
-                    }
-                    originalFileBytes = newBytes;
-                    setPath(path);
-                    addDocument({
-                        path,
-                        name: metadata.title || path.split('/').pop() || 'Untitled',
-                        type: 'text'
-                    });
-                    markClean();
-                }
+                    name: metadata.title || path.split('/').pop() || 'Untitled',
+                    type: 'text',
+                });
+                markClean();
             }
         } catch (error) {
-            console.error("Failed handling save as dialog:", error);
+            console.error('Failed handling save as dialog:', error);
             throw error;
         } finally {
             setIsLoading(false);
@@ -259,42 +260,25 @@ export function useFileOperations() {
 
     const handleExportEPUB = async () => {
         if (!currentContent) return;
-
         try {
             const cleanTitle = (metadata.title || 'Untitled')
                 .replace(/[<>:"/\\|?*]/g, '_')
                 .trim();
-
             const selected = await save({
                 title: 'Export to EPUB',
                 defaultPath: `${cleanTitle}.epub`,
-                filters: [{ name: 'EPUB Ebook', extensions: ['epub'] }]
+                filters: [{ name: 'EPUB Ebook', extensions: ['epub'] }],
             });
+            if (!selected) return;
 
-            if (selected) {
-                setIsLoading(true);
-                const path = typeof selected === 'string' ? selected : (selected as any).path;
-                if (!path) return;
+            setIsLoading(true);
+            const path = typeof selected === 'string' ? selected : (selected as any).path;
+            if (!path) return;
 
-                // For now, we don't have a sophisticated font locator,
-                // but we can pass names or empty list if fonts are bundled in the binary
-                const fontPaths: string[] = [];
-
-                const newBytes = await saveEpub(
-                    path,
-                    JSON.stringify(currentContent),
-                    styles,
-                    metadata,
-                    fontPaths
-                );
-
-                if (newBytes && path.startsWith('content://')) {
-                    await writeFile(path, newBytes);
-                }
-                // Don't mark clean as EPUB is an export, not the source file
-            }
+            const bytes = await saveEpub(path, JSON.stringify(currentContent), styles, metadata, []);
+            if (bytes && path.startsWith('content://')) await writeFile(path, bytes);
         } catch (error) {
-            console.error("Failed to export EPUB:", error);
+            console.error('Failed to export EPUB:', error);
             throw error;
         } finally {
             setIsLoading(false);
@@ -310,6 +294,6 @@ export function useFileOperations() {
         handleClose,
         handleExportEPUB,
         loadDocument,
-        isLoading
+        isLoading,
     };
 }

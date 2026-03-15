@@ -11,3 +11,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 roxmltree = "0.20"
 quick-xml = "0.37"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+[[test]]
+name = "style_preservation"
+path = "tests/style_preservation.rs"
+
+[[test]]
+name = "round_trip"
+path = "tests/round_trip.rs"

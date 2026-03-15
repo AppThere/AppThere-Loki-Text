@@ -37,6 +37,23 @@ export async function saveDocument(
     return result ? new Uint8Array(result) : null;
 }
 
+/**
+ * Serialise a Lexical document to ODT bytes without writing to disk.
+ * Used by `SessionManager.autoSave` and `saveToOriginal`.
+ */
+export async function serializeDocument(
+    lexicalJson: string,
+    styles: Record<string, StyleDefinition>,
+    metadata: Metadata,
+): Promise<Uint8Array> {
+    const result: number[] = await invoke('serialize_document', {
+        lexicalJson,
+        styles,
+        metadata,
+    });
+    return new Uint8Array(result);
+}
+
 export async function saveEpub(
     path: string,
     lexicalJson: string,

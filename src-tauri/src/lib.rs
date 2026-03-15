@@ -117,7 +117,9 @@ pub fn run() {
             greet,
             commands::fs::save_document,
             commands::fs::open_document,
-            commands::export::save_epub
+            commands::export::save_epub,
+            commands::session::serialize_document,
+            commands::session::deserialize_document
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

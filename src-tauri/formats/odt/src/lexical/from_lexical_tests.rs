@@ -5,6 +5,7 @@ use common_core::marks::TiptapMark;
 use common_core::{Block, Inline, Metadata};
 
 use super::{decode_format, from_lexical, node_to_block, node_to_inlines};
+use crate::lexical::to_lexical;
 
 fn make_lex(children: Vec<LexicalNode>) -> LexicalDocument {
     LexicalDocument {
@@ -171,5 +172,81 @@ fn table_cell_header_state_selects_variant() {
         assert_eq!(attrs.unwrap().colspan, Some(2));
     } else {
         panic!("expected TableCell");
+    }
+}
+
+fn text_node(text: &str) -> LexicalNode {
+    LexicalNode::Text {
+        text: text.to_string(),
+        format: 0,
+        style: String::new(),
+        mode: "normal".to_string(),
+        detail: 0,
+        style_name: None,
+        version: 1,
+    }
+}
+
+fn para_node(text: &str) -> LexicalNode {
+    LexicalNode::ParagraphStyle {
+        style_name: String::new(),
+        children: vec![text_node(text)],
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    }
+}
+
+fn cell_node(text: &str, col_span: u32) -> LexicalNode {
+    LexicalNode::TableCell {
+        col_span,
+        row_span: 1,
+        header_state: 0,
+        children: vec![para_node(text)],
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    }
+}
+
+fn row_node(cells: Vec<LexicalNode>) -> LexicalNode {
+    LexicalNode::TableRow {
+        children: cells,
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    }
+}
+
+/// A table with two rows and two cells each must survive from_lexical → to_lexical.
+#[test]
+fn table_structure_preserved_through_lexical_round_trip() {
+    let lex = make_lex(vec![LexicalNode::Table {
+        children: vec![
+            row_node(vec![cell_node("R1C1", 1), cell_node("R1C2", 1)]),
+            row_node(vec![cell_node("R2C1", 1), cell_node("R2C2", 1)]),
+        ],
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    }]);
+
+    let doc = from_lexical(lex, HashMap::new(), Metadata::default());
+    let lex2 = to_lexical(&doc);
+
+    assert_eq!(lex2.root.children.len(), 1, "expected one table node");
+    let LexicalNode::Table { children: rows, .. } = &lex2.root.children[0] else {
+        panic!("expected Table node");
+    };
+    assert_eq!(rows.len(), 2, "expected two rows");
+    for (ri, row) in rows.iter().enumerate() {
+        let LexicalNode::TableRow { children: cells, .. } = row else {
+            panic!("expected TableRow at {ri}");
+        };
+        assert_eq!(cells.len(), 2, "expected two cells in row {ri}");
     }
 }

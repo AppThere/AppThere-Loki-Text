@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 
+use common_core::block::CellAttrs;
 use common_core::{Block, TiptapMark};
 
 use crate::parser::inlines::parse_inlines;
@@ -167,10 +168,24 @@ fn parse_table(
         for cell in row.children() {
             if cell.has_tag_name((ns_table, "table-cell")) {
                 let content = parse_blocks(cell, ns_text, ns_table, ns_draw, ns_xlink, style_map);
-                cells.push(Block::TableCell {
-                    attrs: None,
-                    content,
-                });
+                let col_span = cell
+                    .attribute((ns_table, "number-columns-spanned"))
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .filter(|&v| v > 1);
+                let row_span = cell
+                    .attribute((ns_table, "number-rows-spanned"))
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .filter(|&v| v > 1);
+                let attrs = if col_span.is_some() || row_span.is_some() {
+                    Some(CellAttrs {
+                        colspan: col_span,
+                        rowspan: row_span,
+                        colwidth: None,
+                    })
+                } else {
+                    None
+                };
+                cells.push(Block::TableCell { attrs, content });
             }
         }
         rows.push(Block::TableRow { content: cells });

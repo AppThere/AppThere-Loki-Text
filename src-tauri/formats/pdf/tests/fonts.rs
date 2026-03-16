@@ -14,9 +14,9 @@
 
 //! Integration tests for Phase 7 font subsetting and embedding.
 
-use loki_pdf::fonts::subset::{create_subset, UsedGlyphs};
 use loki_pdf::fonts::embed::embed_font;
 use loki_pdf::fonts::resolver::{FontResolver, MapFontResolver};
+use loki_pdf::fonts::subset::{create_subset, UsedGlyphs};
 use pdf_writer::Pdf;
 
 /// Minimal valid TTF fixture for testing — uses the public "Public Sans" woff.
@@ -53,7 +53,9 @@ fn map_resolver_add_and_resolve() {
     // Use trivial bytes — not a real font, but sufficient to test the HashMap lookup.
     r.add_font("sans", 400, false, vec![0u8; 16]);
     r.add_font("sans", 700, false, vec![1u8; 16]);
-    let regular = r.resolve("sans", 400, false).expect("should resolve regular");
+    let regular = r
+        .resolve("sans", 400, false)
+        .expect("should resolve regular");
     assert_eq!(regular[0], 0u8);
     let bold = r.resolve("sans", 700, false).expect("should resolve bold");
     assert_eq!(bold[0], 1u8);
@@ -64,7 +66,9 @@ fn map_resolver_case_insensitive_key() {
     let mut r = MapFontResolver::new("sans");
     r.add_font("Public Sans", 400, false, vec![42u8; 8]);
     // Resolver normalises to lowercase on add and on resolve.
-    let resolved = r.resolve("public sans", 400, false).expect("should resolve");
+    let resolved = r
+        .resolve("public sans", 400, false)
+        .expect("should resolve");
     assert_eq!(resolved[0], 42u8);
 }
 
@@ -90,12 +94,11 @@ fn create_subset_empty_chars_empty_map() {
     // Attempt to read a real font. If the binary is not available, skip gracefully.
     // In CI the fonts are embedded via include_bytes! in the Tauri binary, not here.
     // So we skip rather than fail.
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -116,12 +119,11 @@ fn create_subset_empty_chars_empty_map() {
 /// Verify that `create_subset` maps characters to valid GIDs for a real font.
 #[test]
 fn create_subset_maps_latin_chars() {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -141,12 +143,11 @@ fn create_subset_maps_latin_chars() {
 /// Verify that true subsetting reduces the file size significantly.
 #[test]
 fn subset_is_smaller_than_original() {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -156,25 +157,29 @@ fn subset_is_smaller_than_original() {
     let mut used = UsedGlyphs::new();
     used.extend("Hello World".chars());
     let subset = create_subset(&font_bytes, &used).expect("create_subset should succeed");
-    
+
     assert!(
         subset.bytes.len() < font_bytes.len(),
         "Subset ({} bytes) should be smaller than original ({} bytes)",
-        subset.bytes.len(), font_bytes.len()
+        subset.bytes.len(),
+        font_bytes.len()
     );
-    // For "Hello World", we expect a very high reduction. 
+    // For "Hello World", we expect a very high reduction.
     // PublicSans-Variable is ~180KB, subset should be < 30KB.
-    assert!(subset.bytes.len() < 50000, "Subset is still too large: {} bytes", subset.bytes.len());
+    assert!(
+        subset.bytes.len() < 50000,
+        "Subset is still too large: {} bytes",
+        subset.bytes.len()
+    );
 }
 
 #[test]
 fn subset_contains_only_used_glyphs() {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -182,9 +187,9 @@ fn subset_contains_only_used_glyphs() {
     };
 
     let mut used = UsedGlyphs::new();
-    used.extend("ABC".chars()); // A, B, C, space... 
+    used.extend("ABC".chars()); // A, B, C, space...
     let subset = create_subset(&font_bytes, &used).expect("create_subset should succeed");
-    
+
     let face = ttf_parser::Face::parse(&subset.bytes, 0).expect("Subset should be a valid font");
     // .notdef + A + B + C + space = 5 glyphs (approx, might have components)
     assert!(
@@ -196,12 +201,11 @@ fn subset_contains_only_used_glyphs() {
 
 #[test]
 fn subset_renders_correct_glyphs() {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -211,18 +215,25 @@ fn subset_renders_correct_glyphs() {
     let mut used = UsedGlyphs::new();
     used.extend("Hello".chars());
     let subset = create_subset(&font_bytes, &used).expect("create_subset should succeed");
-    
+
     let face = ttf_parser::Face::parse(&subset.bytes, 0).expect("Subset should be a valid font");
-    let original_face = ttf_parser::Face::parse(&font_bytes, 0).expect("Original font should be parseable");
-    
+    let original_face =
+        ttf_parser::Face::parse(&font_bytes, 0).expect("Original font should be parseable");
+
     for (ch, &subset_gid) in &subset.unicode_map {
         // The GID in the subsetted font should correspond to the same glyph as original
-        let original_gid = original_face.glyph_index(*ch).expect("Char must be in original font");
-        
+        let original_gid = original_face
+            .glyph_index(*ch)
+            .expect("Char must be in original font");
+
         let original_bbox = original_face.glyph_bounding_box(original_gid);
         let subset_bbox = face.glyph_bounding_box(subset_gid);
-        
-        assert_eq!(original_bbox, subset_bbox, "Glyph bbox mismatch for '{}' (original GID {:?}, subset GID {:?})", ch, original_gid, subset_gid);
+
+        assert_eq!(
+            original_bbox, subset_bbox,
+            "Glyph bbox mismatch for '{}' (original GID {:?}, subset GID {:?})",
+            ch, original_gid, subset_gid
+        );
         assert!(subset_gid.0 < face.number_of_glyphs());
     }
 }
@@ -230,12 +241,11 @@ fn subset_renders_correct_glyphs() {
 /// Verify that variable font axes correctly affect the horizontal advance widths.
 #[test]
 fn subset_handles_variation_axes() {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
 
     let font_bytes = match font_path.and_then(|p| std::fs::read(p).ok()) {
         Some(b) => b,
@@ -243,15 +253,18 @@ fn subset_handles_variation_axes() {
     };
 
     let used: UsedGlyphs = "H".chars().collect();
-    
+
     let subset_reg = create_subset(&font_bytes, &used).expect("Regular subset should succeed");
 
     // Create a bold subset (weight 700)
     let subset_bold = create_subset(&font_bytes, &used).expect("Bold subset should succeed");
 
     let gid_reg = subset_reg.unicode_map.get(&'H').expect("H must be in reg");
-    let gid_bold = subset_bold.unicode_map.get(&'H').expect("H must be in bold");
-    
+    let gid_bold = subset_bold
+        .unicode_map
+        .get(&'H')
+        .expect("H must be in bold");
+
     let adv_reg = subset_reg.advance_widths.get(gid_reg).expect("Adv reg");
     let adv_bold = subset_bold.advance_widths.get(gid_bold).expect("Adv bold");
 
@@ -260,8 +273,11 @@ fn subset_handles_variation_axes() {
     // returned valid data shows the plumbing works.
     assert!(*adv_reg > 0);
     assert!(*adv_bold > 0);
-    
+
     // In Public Sans, bold 'H' usually has a slightly larger advance or at least is different.
     // If they are exactly equal, it might mean the axis isn't affecting advance width for this glyph.
-    println!("Regular H advance: {}, Bold H advance: {}", adv_reg, adv_bold);
+    println!(
+        "Regular H advance: {}, Bold H advance: {}",
+        adv_reg, adv_bold
+    );
 }

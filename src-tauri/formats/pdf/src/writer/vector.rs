@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::content::{build_content_stream, build_flattened_content};
+use super::image;
+use super::metadata::build_xmp_packet;
+use super::page::compute_page_geometry;
 use crate::conformance::validate;
 use crate::error::PdfError;
 use crate::export_settings::PdfExportSettings;
 use crate::flatten::{FlattenedItem, RasterRegion};
-use super::content::{build_content_stream, build_flattened_content};
-use super::metadata::build_xmp_packet;
-use super::page::compute_page_geometry;
-use super::image;
 use pdf_writer::types::OutputIntentSubtype;
 use pdf_writer::{Name, Pdf, Rect, Ref, TextStr};
 use vector_core::document::VectorDocument;

@@ -20,5 +20,5 @@ mod types;
 mod vector;
 
 pub use text::validate_text;
-pub use types::{ConformanceViolation, ConformanceReport};
+pub use types::{ConformanceReport, ConformanceViolation};
 pub use vector::validate;

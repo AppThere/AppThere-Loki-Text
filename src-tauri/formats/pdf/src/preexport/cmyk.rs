@@ -19,7 +19,9 @@
 //! to naive math when the profile is a stub in development builds).
 
 use crate::error::PdfError;
-use common_core::colour_management::{BuiltInProfile, Colour, ColourSpace, IccProfileRef, IccProfileStore};
+use common_core::colour_management::{
+    BuiltInProfile, Colour, ColourSpace, IccProfileRef, IccProfileStore,
+};
 use lcms2::{Flags, Intent, PixelFormat, Transform};
 use vector_core::document::VectorDocument;
 use vector_core::object::VectorObject;
@@ -115,7 +117,11 @@ fn build_cmyk_mode(target: &IccProfileRef) -> CmykMode {
         Err(_) => return CmykMode::Naive,
     };
 
-    let d50 = lcms2::CIExyY { x: 0.3457, y: 0.3585, Y: 1.0 };
+    let d50 = lcms2::CIExyY {
+        x: 0.3457,
+        y: 0.3585,
+        Y: 1.0,
+    };
     let lab_profile = match lcms2::Profile::new_lab4_context(lcms2::GlobalContext::new(), &d50) {
         Ok(p) => p,
         Err(_) => return CmykMode::Naive,
@@ -164,7 +170,13 @@ fn to_cmyk(colour: &Colour, mode: &CmykMode) -> Result<Colour, PdfError> {
                 }
                 CmykMode::Naive => naive_rgb_to_cmyk(*r, *g, *b),
             };
-            Colour::Cmyk { c, m, y, k, alpha: *a }
+            Colour::Cmyk {
+                c,
+                m,
+                y,
+                k,
+                alpha: *a,
+            }
         }
         Colour::Lab { l, a, b, alpha } => {
             let [c, m, y, k] = match mode {
@@ -175,7 +187,13 @@ fn to_cmyk(colour: &Colour, mode: &CmykMode) -> Result<Colour, PdfError> {
                 }
                 CmykMode::Naive => naive_lab_to_cmyk(*l, *a, *b),
             };
-            Colour::Cmyk { c, m, y, k, alpha: *alpha }
+            Colour::Cmyk {
+                c,
+                m,
+                y,
+                k,
+                alpha: *alpha,
+            }
         }
         Colour::Linked { id } => {
             return Err(PdfError::ColourProfile(format!(

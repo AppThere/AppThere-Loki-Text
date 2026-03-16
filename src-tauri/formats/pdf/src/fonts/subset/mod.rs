@@ -14,7 +14,7 @@
 
 /*
 FINDINGS - Phase 9
-1. StyleDefinition layout fields: Uses `attributes: HashMap<String, String>`. 
+1. StyleDefinition layout fields: Uses `attributes: HashMap<String, String>`.
    Does NOT have structured fields for text_align, space_before, etc.
 2. Property Resolution: Layout engine currently looks up from `attributes` map.
 3. Line Height: Currently `font_size * 1.35` (fixed multiple).
@@ -24,10 +24,10 @@ FINDINGS - Phase 9
 
 //! Font subsetting using the production-quality `subsetter` crate.
 
-use std::collections::{HashMap, HashSet};
-use ttf_parser::{Face, GlyphId, Tag};
-use subsetter;
 use crate::error::{PdfError, PdfResult};
+use std::collections::{HashMap, HashSet};
+use subsetter;
+use ttf_parser::{Face, GlyphId, Tag};
 
 /// A set of Unicode code points required by a single font variant.
 pub type UsedGlyphs = HashSet<char>;
@@ -68,10 +68,7 @@ pub struct VariationCoordinate {
 }
 
 /// Prepare a font for PDF embedding by stripping unused glyphs.
-pub fn create_subset(
-    font_bytes: &[u8],
-    used_chars: &UsedGlyphs,
-) -> PdfResult<FontSubset> {
+pub fn create_subset(font_bytes: &[u8], used_chars: &UsedGlyphs) -> PdfResult<FontSubset> {
     // 1. Parse the original face to collect glyph IDs and metrics
     let face = Face::parse(font_bytes, 0)
         .map_err(|e| PdfError::FontLoad(format!("Failed to parse font: {:?}", e)))?;
@@ -97,7 +94,7 @@ pub fn create_subset(
     // 4. Run the subsetter
     let mut remapper = subsetter::GlyphRemapper::new();
     let mut original_to_new: HashMap<u16, u16> = HashMap::new();
-    
+
     // CID fonts in PDF often expect .notdef at GID 0.
     // Ensure 0 is remapped first if it exists.
     let new_notdef = remapper.remap(0);
@@ -123,14 +120,17 @@ pub fn create_subset(
         }
     }
 
-    let glyph_id_map: HashMap<GlyphId, GlyphId> = original_to_new.iter()
+    let glyph_id_map: HashMap<GlyphId, GlyphId> = original_to_new
+        .iter()
         .map(|(&orig, &new)| (GlyphId(orig), GlyphId(new)))
         .collect();
 
     // 6. Extract metrics and advance widths
     let mut advance_widths = HashMap::new();
     for (&orig, &new) in &original_to_new {
-        let adv = face.glyph_hor_advance(GlyphId(orig)).unwrap_or(face.units_per_em());
+        let adv = face
+            .glyph_hor_advance(GlyphId(orig))
+            .unwrap_or(face.units_per_em());
         advance_widths.insert(GlyphId(new), adv);
     }
 
@@ -146,17 +146,20 @@ pub fn create_subset(
 }
 
 fn extract_metrics(face: &Face) -> PdfResult<FontMetrics> {
-    let family_name = face.names().into_iter()
+    let family_name = face
+        .names()
+        .into_iter()
         .find(|n| n.name_id == ttf_parser::name_id::FULL_NAME && n.is_unicode())
         .or_else(|| {
-            face.names().into_iter()
+            face.names()
+                .into_iter()
                 .find(|n| n.name_id == ttf_parser::name_id::FAMILY && n.is_unicode())
         })
         .and_then(|n| n.to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
     let bbox = face.global_bounding_box();
-    
+
     Ok(FontMetrics {
         family_name,
         units_per_em: face.units_per_em(),
@@ -183,21 +186,33 @@ pub fn find_variation_coordinates(
     }
 
     let mut coords = Vec::new();
-    
+
     for axis in face.variation_axes() {
         let tag = axis.tag;
         let value = if tag == Tag::from_bytes(b"wght") {
-            if bold { 700.0 } else { 400.0 }
+            if bold {
+                700.0
+            } else {
+                400.0
+            }
         } else if tag == Tag::from_bytes(b"ital") {
-            if italic { 1.0 } else { 0.0 }
+            if italic {
+                1.0
+            } else {
+                0.0
+            }
         } else if tag == Tag::from_bytes(b"slnt") {
-            if italic { -12.0 } else { 0.0 }
+            if italic {
+                -12.0
+            } else {
+                0.0
+            }
         } else {
             axis.def_value
         };
         coords.push((tag, value));
     }
-    
+
     if coords.is_empty() {
         None
     } else {

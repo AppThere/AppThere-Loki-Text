@@ -14,7 +14,6 @@
 
 //! PDF content stream operator emission for text runs.
 
-
 use crate::fonts::subset::FontSubset;
 
 /// Write a BT...ET block for a single text run to `out`.
@@ -40,7 +39,11 @@ pub fn write_text_run(
     // Build glyph hex string for TJ operator.
     let mut hex_glyphs = String::new();
     for ch in text.chars() {
-        let gid: u16 = subset.unicode_map.get(&ch).map(|ttf_parser::GlyphId(g)| *g).unwrap_or(0);
+        let gid: u16 = subset
+            .unicode_map
+            .get(&ch)
+            .map(|ttf_parser::GlyphId(g)| *g)
+            .unwrap_or(0);
         hex_glyphs.push_str(&format!("{:04X}", gid));
     }
 

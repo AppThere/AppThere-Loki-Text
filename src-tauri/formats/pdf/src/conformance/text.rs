@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use super::types::ConformanceViolation;
+use super::vector::check_output_condition;
+use crate::export_settings::{PdfExportSettings, PdfXStandard};
 use common_core::block::Block;
 use common_core::colour_management::Colour;
 use common_core::style::StyleDefinition;
 use common_core::Metadata;
-use crate::export_settings::{PdfExportSettings, PdfXStandard};
-use super::types::ConformanceViolation;
-use super::vector::check_output_condition;
+use std::collections::HashMap;
 
 /// Validate a text document (blocks + styles + metadata) against PDF/X settings.
 pub fn validate_text(
@@ -79,10 +79,20 @@ pub fn check_text_colours_in_styles(
 ) {
     for (name, style) in styles {
         if let Some(colour) = &style.font_colour {
-            check_text_colour(colour, standard, &format!("font_colour in style '{}'" , name), violations);
+            check_text_colour(
+                colour,
+                standard,
+                &format!("font_colour in style '{}'", name),
+                violations,
+            );
         }
         if let Some(colour) = &style.background_colour {
-            check_text_colour(colour, standard, &format!("background_colour in style '{}'", name), violations);
+            check_text_colour(
+                colour,
+                standard,
+                &format!("background_colour in style '{}'", name),
+                violations,
+            );
         }
     }
 }

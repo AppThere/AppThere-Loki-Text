@@ -89,7 +89,13 @@ fn sanitise_font_name(name: &str) -> String {
     // PDF font names must be valid Name strings: ASCII, no whitespace or
     // special chars.
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -107,7 +113,11 @@ fn font_flags(metrics: &FontMetrics) -> FontFlags {
 fn stem_v(metrics: &FontMetrics) -> i32 {
     // Standard approximation: 10 + 220 * (weight - 400) / 600
     // We don't have weight info, so use 80 for regular, 120 for bold.
-    if metrics.is_bold { 120 } else { 80 }
+    if metrics.is_bold {
+        120
+    } else {
+        80
+    }
 }
 
 fn write_font_descriptor(

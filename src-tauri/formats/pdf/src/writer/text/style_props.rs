@@ -14,8 +14,8 @@
 
 //! Style property resolution and ODF attribute parsing.
 
-use std::collections::HashMap;
 use common_core::style::StyleDefinition;
+use std::collections::HashMap;
 
 /// Text alignment within a paragraph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,8 +64,6 @@ impl Default for ParagraphProps {
     }
 }
 
-
-
 /// Resolve paragraph properties by merging named style attributes into defaults.
 pub fn resolve_paragraph_props(
     style_name: Option<&str>,
@@ -81,24 +79,27 @@ pub fn resolve_paragraph_props(
             })
         })
         .unwrap_or_default();
-    
+
     // 1. Apply named style if it exists
     if let Some(style) = style_name.and_then(|n| styles.get(n)) {
-        if let Some(family) = style.attributes.get("fo:font-family")
-            .or_else(|| style.attributes.get("style:font-name")) {
+        if let Some(family) = style
+            .attributes
+            .get("fo:font-family")
+            .or_else(|| style.attributes.get("style:font-name"))
+        {
             props.font_family = family.to_lowercase();
         }
-        
+
         if let Some(size_str) = style.attributes.get("fo:font-size") {
             if let Some(size) = parse_length(size_str) {
                 props.font_size = size;
             }
         }
-        
+
         if let Some(lh_str) = style.attributes.get("fo:line-height") {
             props.line_height_factor = parse_line_height(lh_str, props.font_size);
         }
-        
+
         if let Some(align_str) = style.attributes.get("fo:text-align") {
             props.text_align = match align_str.as_str() {
                 "center" => TextAlign::Center,
@@ -107,7 +108,7 @@ pub fn resolve_paragraph_props(
                 _ => TextAlign::Left,
             };
         }
-        
+
         if let Some(val) = style.attributes.get("fo:margin-left") {
             props.margin_left = parse_length(val).unwrap_or(0.0);
         }
@@ -123,14 +124,14 @@ pub fn resolve_paragraph_props(
         if let Some(val) = style.attributes.get("fo:margin-bottom") {
             props.space_after = parse_length(val).unwrap_or(0.0);
         }
-        
+
         if let Some(val) = style.attributes.get("fo:break-before") {
             props.break_before = val == "page";
         }
         if let Some(val) = style.attributes.get("fo:keep-with-next") {
             props.keep_with_next = val == "always" || val == "true";
         }
-        
+
         if let Some(val) = style.attributes.get("fo:font-weight") {
             props.bold = val == "bold" || val.parse::<u16>().map(|w| w >= 700).unwrap_or(false);
         }
@@ -138,23 +139,25 @@ pub fn resolve_paragraph_props(
             props.italic = val == "italic";
         }
     }
-    
+
     props
 }
 
 /// Parse a length string (e.g. "12pt", "1in", "2.54cm") into points.
 pub fn parse_length(s: &str) -> Option<f64> {
     let s = s.trim();
-    if s.is_empty() { return None; }
-    
+    if s.is_empty() {
+        return None;
+    }
+
     if s.ends_with("pt") {
-        s[..s.len()-2].parse::<f64>().ok()
+        s[..s.len() - 2].parse::<f64>().ok()
     } else if s.ends_with("in") {
-        s[..s.len()-2].parse::<f64>().ok().map(|v| v * 72.0)
+        s[..s.len() - 2].parse::<f64>().ok().map(|v| v * 72.0)
     } else if s.ends_with("cm") {
-        s[..s.len()-2].parse::<f64>().ok().map(|v| v * 28.346)
+        s[..s.len() - 2].parse::<f64>().ok().map(|v| v * 28.346)
     } else if s.ends_with("mm") {
-        s[..s.len()-2].parse::<f64>().ok().map(|v| v * 2.8346)
+        s[..s.len() - 2].parse::<f64>().ok().map(|v| v * 2.8346)
     } else {
         s.parse::<f64>().ok()
     }
@@ -165,7 +168,11 @@ pub fn parse_length(s: &str) -> Option<f64> {
 pub fn parse_line_height(s: &str, font_size: f64) -> f64 {
     let s = s.trim();
     if s.ends_with('%') {
-        s[..s.len()-1].parse::<f64>().ok().map(|v| v / 100.0).unwrap_or(1.35)
+        s[..s.len() - 1]
+            .parse::<f64>()
+            .ok()
+            .map(|v| v / 100.0)
+            .unwrap_or(1.35)
     } else if s.ends_with("pt") || s.ends_with("in") || s.ends_with("cm") || s.ends_with("mm") {
         parse_length(s).map(|v| v / font_size).unwrap_or(1.35)
     } else if let Ok(factor) = s.parse::<f64>() {

@@ -24,5 +24,5 @@ pub mod resources;
 pub(crate) mod text;
 mod vector;
 
-pub use vector::write_pdf_x;
 pub use text::write_text_pdf;
+pub use vector::write_pdf_x;

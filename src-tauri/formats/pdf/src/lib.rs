@@ -24,12 +24,12 @@
 //! The writer internally re-validates and will refuse to produce output for
 //! a non-conformant document.
 
+pub(crate) mod compress;
 pub mod conformance;
 pub mod error;
 pub mod export_settings;
-pub mod fonts;
-pub(crate) mod compress;
 pub(crate) mod flatten;
+pub mod fonts;
 pub(crate) mod preexport;
 pub mod writer;
 

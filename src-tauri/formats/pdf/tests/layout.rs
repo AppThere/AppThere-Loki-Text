@@ -27,12 +27,11 @@ use loki_pdf::{write_text_pdf, MapFontResolver};
 // ---------------------------------------------------------------------------
 
 fn load_public_sans() -> Option<Vec<u8>> {
-    let font_path =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
+    let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|root| root.join("src/assets/fonts/PublicSans-Variable.ttf"));
     font_path.and_then(|p| std::fs::read(p).ok())
 }
 
@@ -76,7 +75,10 @@ fn make_style(name: &str, attrs: HashMap<&str, &str>) -> (String, StyleDefinitio
             parent: None,
             next: None,
             display_name: None,
-            attributes: attrs.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+            attributes: attrs
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
             text_transform: None,
             outline_level: None,
             autocomplete: None,
@@ -99,7 +101,7 @@ fn test_alignment_rendering() {
         None => return,
     };
     let resolver = make_resolver_with_font(font_bytes);
-    
+
     let mut styles = HashMap::new();
     let (n, s) = make_style("Centered", HashMap::from([("fo:text-align", "center")]));
     styles.insert(n, s);
@@ -111,10 +113,13 @@ fn test_alignment_rendering() {
         simple_paragraph("A very long paragraph that should be justified. This needs enough text to wrap onto multiple lines so we can see the Tw operator in action in the PDF stream if we were inspecting it manually, but for this automated test we just ensure it succeeds.", Some("Justified")),
     ];
 
-    let metadata = Metadata { title: Some("Alignment Test".to_string()), ..Default::default() };
+    let metadata = Metadata {
+        title: Some("Alignment Test".to_string()),
+        ..Default::default()
+    };
     let bytes = write_text_pdf(&blocks, &styles, &metadata, &default_settings(), &resolver)
         .expect("Alignment export should succeed");
-    
+
     assert!(bytes.starts_with(b"%PDF-"));
 }
 
@@ -125,12 +130,12 @@ fn test_paragraph_spacing() {
         None => return,
     };
     let resolver = make_resolver_with_font(font_bytes);
-    
+
     let mut styles = HashMap::new();
-    let (n, s) = make_style("Spaced", HashMap::from([
-        ("fo:margin-top", "24pt"),
-        ("fo:margin-bottom", "12pt")
-    ]));
+    let (n, s) = make_style(
+        "Spaced",
+        HashMap::from([("fo:margin-top", "24pt"), ("fo:margin-bottom", "12pt")]),
+    );
     styles.insert(n, s);
 
     let blocks = vec![
@@ -139,10 +144,13 @@ fn test_paragraph_spacing() {
         simple_paragraph("Paragraph 3", None),
     ];
 
-    let metadata = Metadata { title: Some("Spacing Test".to_string()), ..Default::default() };
+    let metadata = Metadata {
+        title: Some("Spacing Test".to_string()),
+        ..Default::default()
+    };
     let bytes = write_text_pdf(&blocks, &styles, &metadata, &default_settings(), &resolver)
         .expect("Spacing export should succeed");
-    
+
     assert!(bytes.starts_with(b"%PDF-"));
 }
 
@@ -153,23 +161,29 @@ fn test_indentation_and_margins() {
         None => return,
     };
     let resolver = make_resolver_with_font(font_bytes);
-    
+
     let mut styles = HashMap::new();
-    let (n, s) = make_style("Indented", HashMap::from([
-        ("fo:margin-left", "36pt"),
-        ("fo:margin-right", "36pt"),
-        ("fo:text-indent", "18pt")
-    ]));
+    let (n, s) = make_style(
+        "Indented",
+        HashMap::from([
+            ("fo:margin-left", "36pt"),
+            ("fo:margin-right", "36pt"),
+            ("fo:text-indent", "18pt"),
+        ]),
+    );
     styles.insert(n, s);
 
     let blocks = vec![
         simple_paragraph("A paragraph with indentation and secondary margins. The first line should be pushed further than the rest, and both sides should be narrowed by the margin-left and margin-right attributes.", Some("Indented")),
     ];
 
-    let metadata = Metadata { title: Some("Indentation Test".to_string()), ..Default::default() };
+    let metadata = Metadata {
+        title: Some("Indentation Test".to_string()),
+        ..Default::default()
+    };
     let bytes = write_text_pdf(&blocks, &styles, &metadata, &default_settings(), &resolver)
         .expect("Indentation export should succeed");
-    
+
     assert!(bytes.starts_with(b"%PDF-"));
 }
 
@@ -180,35 +194,47 @@ fn test_page_breaks_and_orphan_logic() {
         None => return,
     };
     let resolver = make_resolver_with_font(font_bytes);
-    
+
     let mut styles = HashMap::new();
     let (n, s) = make_style("BreakBefore", HashMap::from([("fo:break-before", "page")]));
     styles.insert(n, s);
-    let (n, s) = make_style("KeepWithNext", HashMap::from([("fo:keep-with-next", "always")]));
+    let (n, s) = make_style(
+        "KeepWithNext",
+        HashMap::from([("fo:keep-with-next", "always")]),
+    );
     styles.insert(n, s);
 
     let mut blocks = Vec::new();
     blocks.push(simple_paragraph("Start of document.", None));
-    
+
     // Force many paragraphs to get near the bottom of the page
     for _ in 0..40 {
         blocks.push(simple_paragraph("Filling space...", None));
     }
-    
-    // Now a KeepWithNext paragraph. It and the next one should move together.
-    blocks.push(simple_paragraph("This paragraph must stay with the next.", Some("KeepWithNext")));
-    blocks.push(simple_paragraph("I am the next paragraph.", None));
-    
-    // And a BreakBefore paragraph.
-    blocks.push(simple_paragraph("Forced to start on a new page.", Some("BreakBefore")));
 
-    let metadata = Metadata { title: Some("Layout Logic Test".to_string()), ..Default::default() };
+    // Now a KeepWithNext paragraph. It and the next one should move together.
+    blocks.push(simple_paragraph(
+        "This paragraph must stay with the next.",
+        Some("KeepWithNext"),
+    ));
+    blocks.push(simple_paragraph("I am the next paragraph.", None));
+
+    // And a BreakBefore paragraph.
+    blocks.push(simple_paragraph(
+        "Forced to start on a new page.",
+        Some("BreakBefore"),
+    ));
+
+    let metadata = Metadata {
+        title: Some("Layout Logic Test".to_string()),
+        ..Default::default()
+    };
     let bytes = write_text_pdf(&blocks, &styles, &metadata, &default_settings(), &resolver)
         .expect("Layout logic export should succeed");
-    
+
     let content = String::from_utf8_lossy(&bytes);
     let page_count = content.split("/Type /Page").count() - 1;
-    // We expect at least 3 pages if the break-before and keep-with-next worked as intended 
+    // We expect at least 3 pages if the break-before and keep-with-next worked as intended
     // (though keep-with-next depends on exact height, break-before is guaranteed).
     assert!(page_count >= 2);
 }
@@ -220,26 +246,43 @@ fn test_heading_defaults() {
         None => return,
     };
     let resolver = make_resolver_with_font(font_bytes);
-    
+
     let blocks = vec![
         Block::Heading {
             level: 1,
             style_name: None, // No style name, should use "Heading 1" defaults
             attrs: None,
-            content: vec![Inline::Text { text: "Implicit H1".to_string(), style_name: None, marks: vec![] }],
+            content: vec![Inline::Text {
+                text: "Implicit H1".to_string(),
+                style_name: None,
+                marks: vec![],
+            }],
         },
         Block::Heading {
             level: 2,
             style_name: Some("Heading_20_2".to_string()), // Should match "Heading 2" defaults
             attrs: None,
-            content: vec![Inline::Text { text: "Explicit H2".to_string(), style_name: None, marks: vec![] }],
+            content: vec![Inline::Text {
+                text: "Explicit H2".to_string(),
+                style_name: None,
+                marks: vec![],
+            }],
         },
         simple_paragraph("Standard body text follows the headings.", None),
     ];
 
-    let metadata = Metadata { title: Some("Heading Defaults Test".to_string()), ..Default::default() };
-    let bytes = write_text_pdf(&blocks, &HashMap::new(), &metadata, &default_settings(), &resolver)
-        .expect("Heading defaults export should succeed");
-    
+    let metadata = Metadata {
+        title: Some("Heading Defaults Test".to_string()),
+        ..Default::default()
+    };
+    let bytes = write_text_pdf(
+        &blocks,
+        &HashMap::new(),
+        &metadata,
+        &default_settings(),
+        &resolver,
+    )
+    .expect("Heading defaults export should succeed");
+
     assert!(bytes.starts_with(b"%PDF-"));
 }

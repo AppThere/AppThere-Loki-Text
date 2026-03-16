@@ -70,7 +70,13 @@ fn rgb_font_colour_round_trips() {
 
 #[test]
 fn cmyk_font_colour_round_trips_via_loki_attr() {
-    let cmyk = Colour::Cmyk { c: 0.0, m: 1.0, y: 1.0, k: 0.0, alpha: 1.0 };
+    let cmyk = Colour::Cmyk {
+        c: 0.0,
+        m: 1.0,
+        y: 1.0,
+        k: 0.0,
+        alpha: 1.0,
+    };
     let loki_json = xml_escape(&serde_json::to_string(&cmyk).unwrap());
     let styles = format!(
         r##"<style:style style:name="CmykRed" style:family="text">
@@ -87,7 +93,12 @@ fn cmyk_font_colour_round_trips_via_loki_attr() {
 
 #[test]
 fn lab_font_colour_round_trips_via_loki_attr() {
-    let lab = Colour::Lab { l: 53.0, a: 80.0, b: 67.0, alpha: 1.0 };
+    let lab = Colour::Lab {
+        l: 53.0,
+        a: 80.0,
+        b: 67.0,
+        alpha: 1.0,
+    };
     let loki_json = xml_escape(&serde_json::to_string(&lab).unwrap());
     let styles = format!(
         r##"<style:style style:name="LabRed" style:family="text">
@@ -123,7 +134,9 @@ fn background_colour_round_trips() {
              </style:style>"##,
     );
     let style = get_style(&xml, "Highlighted");
-    let bg = style.background_colour.expect("background_colour should be Some");
+    let bg = style
+        .background_colour
+        .expect("background_colour should be Some");
     assert_eq!(bg, Colour::from_u8_rgb(255, 255, 0));
 }
 
@@ -152,7 +165,13 @@ fn both_colours_round_trip_together() {
 #[test]
 fn loki_colour_takes_precedence_over_fo_color() {
     // fo:color is a hex approximation; loki:colour has the exact CMYK value.
-    let cmyk = Colour::Cmyk { c: 1.0, m: 0.0, y: 0.0, k: 0.0, alpha: 1.0 };
+    let cmyk = Colour::Cmyk {
+        c: 1.0,
+        m: 0.0,
+        y: 0.0,
+        k: 0.0,
+        alpha: 1.0,
+    };
     let loki_json = xml_escape(&serde_json::to_string(&cmyk).unwrap());
     let styles = format!(
         r##"<style:style style:name="Cyan" style:family="text">
@@ -163,7 +182,11 @@ fn loki_colour_takes_precedence_over_fo_color() {
     let style = get_style(&xml, "Cyan");
     let fc = style.font_colour.expect("font_colour");
     // Should be the CMYK value, not the RGB fallback.
-    assert!(matches!(fc, Colour::Cmyk { .. }), "expected CMYK, got {:?}", fc);
+    assert!(
+        matches!(fc, Colour::Cmyk { .. }),
+        "expected CMYK, got {:?}",
+        fc
+    );
 }
 
 // ── Test 8: sRGB stored only in fo:color parses to typed Rgb colour ───────────
@@ -177,6 +200,10 @@ fn srgb_in_fo_color_only_parses_to_rgb_colour() {
     );
     let style = get_style(&xml, "Blue");
     let fc = style.font_colour.expect("font_colour");
-    assert!(matches!(fc, Colour::Rgb { .. }), "expected Rgb, got {:?}", fc);
+    assert!(
+        matches!(fc, Colour::Rgb { .. }),
+        "expected Rgb, got {:?}",
+        fc
+    );
     assert_eq!(fc, Colour::from_u8_rgb(0, 0, 255));
 }

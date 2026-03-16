@@ -76,7 +76,10 @@ pub fn break_words(text: &str, subset: &FontSubset, font_size: f64) -> Vec<Word>
     text.split_whitespace()
         .map(|w| {
             let width = measure_text(w, &subset.bytes, font_size);
-            Word { text: w.to_string(), width }
+            Word {
+                text: w.to_string(),
+                width,
+            }
         })
         .collect()
 }
@@ -98,8 +101,12 @@ pub fn wrap_words_with_indent(
     let mut is_first_line = true;
 
     for word in words {
-        let max_width = if is_first_line { first_line_width } else { subsequent_line_width };
-        
+        let max_width = if is_first_line {
+            first_line_width
+        } else {
+            subsequent_line_width
+        };
+
         let needed = if current_line.is_empty() {
             word.width
         } else {

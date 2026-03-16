@@ -15,10 +15,10 @@
 use std::collections::HashMap;
 
 use common_core::{LexicalDocument, Metadata, StyleDefinition};
+use loki_pdf::conformance::validate;
 use loki_pdf::conformance::validate_text;
 use loki_pdf::export_settings::PdfExportSettings;
 use loki_pdf::{write_pdf_x, write_text_pdf};
-use loki_pdf::conformance::validate;
 use odt_format::lexical::from_lexical;
 use vector_core::document::VectorDocument;
 
@@ -95,8 +95,8 @@ pub fn export_text_pdf_x(
     settings: PdfExportSettings,
     path: String,
 ) -> Result<(), String> {
-    let lex: LexicalDocument = serde_json::from_str(&lexical_json)
-        .map_err(|e| format!("Invalid Lexical JSON: {e}"))?;
+    let lex: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| format!("Invalid Lexical JSON: {e}"))?;
     let doc = from_lexical(lex, styles, metadata.clone());
     let resolver = crate::fonts::build_font_resolver();
     let bytes = write_text_pdf(&doc.blocks, &doc.styles, &metadata, &settings, &resolver)

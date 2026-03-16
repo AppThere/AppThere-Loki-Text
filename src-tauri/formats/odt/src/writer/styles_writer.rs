@@ -159,7 +159,11 @@ fn write_text_properties(
     // Pre-compute typed colour attribute strings so they outlive the loop.
     let typed_font: Option<(String, Option<String>)> = font_colour.map(|c| {
         let hex = colour_to_odf_string(c);
-        let loki = if needs_loki_attr(c) { colour_to_attr(c) } else { None };
+        let loki = if needs_loki_attr(c) {
+            colour_to_attr(c)
+        } else {
+            None
+        };
         (hex, loki)
     });
     let typed_bg: Option<String> = background_colour.map(colour_to_odf_string);

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{Deserialize, Serialize};
 use crate::error::PdfError;
 use crate::export_settings::PdfXStandard;
+use serde::{Deserialize, Serialize};
 
 /// A single conformance violation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

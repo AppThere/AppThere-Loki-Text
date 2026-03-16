@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
+use crate::fonts::subset::UsedGlyphs;
 use common_core::block::Block;
 use common_core::inline::Inline;
 use common_core::marks::TiptapMark;
 use common_core::style::StyleDefinition;
-use crate::fonts::subset::UsedGlyphs;
+use std::collections::HashMap;
 
 /// (family_id, weight_100_900, italic)
 pub type FontKey = (String, u16, bool);
@@ -39,11 +39,17 @@ pub fn inline_font_key(
     // Determine font family: inline style → block style → default.
     let family = style_name
         .and_then(|n| styles.get(n))
-        .and_then(|s| s.attributes.get("fo:font-family").or_else(|| s.attributes.get("style:font-name")))
+        .and_then(|s| {
+            s.attributes
+                .get("fo:font-family")
+                .or_else(|| s.attributes.get("style:font-name"))
+        })
         .or_else(|| {
-            block_style_name
-                .and_then(|n| styles.get(n))
-                .and_then(|s| s.attributes.get("fo:font-family").or_else(|| s.attributes.get("style:font-name")))
+            block_style_name.and_then(|n| styles.get(n)).and_then(|s| {
+                s.attributes
+                    .get("fo:font-family")
+                    .or_else(|| s.attributes.get("style:font-name"))
+            })
         })
         .map(|s| s.as_str())
         .unwrap_or(DEFAULT_FONT_FAMILY);
@@ -70,8 +76,16 @@ fn collect_from_block(
     out: &mut HashMap<FontKey, UsedGlyphs>,
 ) {
     match block {
-        Block::Paragraph { style_name, content, .. }
-        | Block::Heading { style_name, content, .. } => {
+        Block::Paragraph {
+            style_name,
+            content,
+            ..
+        }
+        | Block::Heading {
+            style_name,
+            content,
+            ..
+        } => {
             let sname = style_name.as_deref();
             for inline in content {
                 collect_from_inline(inline, sname, styles, out);
@@ -99,7 +113,12 @@ fn collect_from_inline(
     styles: &HashMap<String, StyleDefinition>,
     out: &mut HashMap<FontKey, UsedGlyphs>,
 ) {
-    if let Inline::Text { text, style_name, marks } = inline {
+    if let Inline::Text {
+        text,
+        style_name,
+        marks,
+    } = inline
+    {
         let key = inline_font_key(marks, style_name.as_deref(), styles, block_style);
         out.entry(key).or_default().extend(text.chars());
     }

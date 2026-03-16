@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::iter::{for_each_colour, for_each_object};
+use super::types::{ConformanceReport, ConformanceViolation};
 use crate::export_settings::{PdfExportSettings, PdfXStandard};
 use common_core::colour_management::{Colour, ColourSpace};
 use std::collections::HashMap;
 use vector_core::document::VectorDocument;
-use super::iter::{for_each_colour, for_each_object};
-use super::types::{ConformanceViolation, ConformanceReport};
 
 /// Validate a document against the given export settings.
 pub fn validate(document: &VectorDocument, settings: &PdfExportSettings) -> ConformanceReport {
@@ -186,7 +186,10 @@ pub fn check_bleed(settings: &PdfExportSettings, violations: &mut Vec<Conformanc
     }
 }
 
-pub fn check_document_not_empty(document: &VectorDocument, violations: &mut Vec<ConformanceViolation>) {
+pub fn check_document_not_empty(
+    document: &VectorDocument,
+    violations: &mut Vec<ConformanceViolation>,
+) {
     let has_objects = document.layers.iter().any(|l| !l.objects.is_empty());
     if !has_objects {
         violations.push(ConformanceViolation::new(

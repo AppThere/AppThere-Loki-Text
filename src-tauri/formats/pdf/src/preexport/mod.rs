@@ -107,8 +107,8 @@ fn resolve_linked(
 mod tests {
     use super::*;
     use common_core::colour_management::{
-        BuiltInProfile, ColourSpace, ColourSwatch, DocumentColourSettings, IccProfileRef,
-        SwatchId, SwatchLibrary,
+        BuiltInProfile, ColourSpace, ColourSwatch, DocumentColourSettings, IccProfileRef, SwatchId,
+        SwatchLibrary,
     };
     use vector_core::canvas::Canvas;
     use vector_core::object::{CommonProps, ObjectId, RectObject, VectorObject};
@@ -168,7 +168,13 @@ mod tests {
 
     #[test]
     fn expand_linked_colour_resolves_to_swatch_colour() {
-        let target = Colour::Cmyk { c: 0.1, m: 0.2, y: 0.3, k: 0.0, alpha: 1.0 };
+        let target = Colour::Cmyk {
+            c: 0.1,
+            m: 0.2,
+            y: 0.3,
+            k: 0.0,
+            alpha: 1.0,
+        };
         let mut lib = SwatchLibrary::new();
         let sid = SwatchId("sw-1".into());
         lib.add(ColourSwatch {
@@ -192,13 +198,20 @@ mod tests {
 
     #[test]
     fn missing_swatch_returns_error() {
-        let doc = doc_with_fill(Colour::Linked { id: "nonexistent".into() });
+        let doc = doc_with_fill(Colour::Linked {
+            id: "nonexistent".into(),
+        });
         assert!(prepare_for_export(&doc, &x4()).is_err());
     }
 
     #[test]
     fn rgb_to_cmyk_conversion_for_x1a() {
-        let doc = doc_with_fill(Colour::Rgb { r: 1.0, g: 0.0, b: 0.0, a: 1.0 });
+        let doc = doc_with_fill(Colour::Rgb {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        });
         let prepared = prepare_for_export(&doc, &x1a()).unwrap();
         let obj = &prepared.layers[0].objects[0];
         if let Paint::Solid { colour } = &obj.common().style.fill {
@@ -214,22 +227,42 @@ mod tests {
 
     #[test]
     fn x4_preparation_does_not_convert_rgb_colours() {
-        let doc = doc_with_fill(Colour::Rgb { r: 0.5, g: 0.5, b: 0.5, a: 1.0 });
+        let doc = doc_with_fill(Colour::Rgb {
+            r: 0.5,
+            g: 0.5,
+            b: 0.5,
+            a: 1.0,
+        });
         let prepared = prepare_for_export(&doc, &x4()).unwrap();
         let obj = &prepared.layers[0].objects[0];
         assert!(
-            matches!(obj.common().style.fill, Paint::Solid { colour: Colour::Rgb { .. } }),
+            matches!(
+                obj.common().style.fill,
+                Paint::Solid {
+                    colour: Colour::Rgb { .. }
+                }
+            ),
             "X-4 should not convert RGB colours"
         );
     }
 
     #[test]
     fn original_document_is_not_mutated() {
-        let original = doc_with_fill(Colour::Rgb { r: 0.5, g: 0.5, b: 0.5, a: 1.0 });
+        let original = doc_with_fill(Colour::Rgb {
+            r: 0.5,
+            g: 0.5,
+            b: 0.5,
+            a: 1.0,
+        });
         let _ = prepare_for_export(&original, &x1a()).unwrap();
         let obj = &original.layers[0].objects[0];
         assert!(
-            matches!(obj.common().style.fill, Paint::Solid { colour: Colour::Rgb { .. } }),
+            matches!(
+                obj.common().style.fill,
+                Paint::Solid {
+                    colour: Colour::Rgb { .. }
+                }
+            ),
             "Original document must not be mutated"
         );
     }

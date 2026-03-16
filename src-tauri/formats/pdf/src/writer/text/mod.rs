@@ -19,12 +19,13 @@ mod layout;
 mod measure;
 pub mod named_styles;
 mod operators;
+mod para;
 mod renderer;
 pub mod style_props;
 
 pub use collector::{collect_used_glyphs, FontKey};
-pub use renderer::{emit_blocks, LayoutResult};
 pub use layout::PageContent;
+pub use renderer::{emit_blocks, LayoutResult};
 
 use crate::error::PdfError;
 use crate::export_settings::PdfExportSettings;
@@ -39,7 +40,7 @@ pub fn write_text_pdf(
 ) -> Result<Vec<u8>, PdfError> {
     use crate::conformance::validate_text;
     use crate::fonts::{create_subset, embed_font};
-    use pdf_writer::{Pdf, Ref, Name};
+    use pdf_writer::{Name, Pdf, Ref};
 
     // 1. Validate — reject hard (non-auto-fixable) violations.
     let violations = validate_text(blocks, styles, metadata, settings);
@@ -76,7 +77,8 @@ pub fn write_text_pdf(
                 ))
             })?;
 
-        let _coords = crate::fonts::subset::find_variation_coordinates(&font_bytes, *weight > 400, *italic);
+        let _coords =
+            crate::fonts::subset::find_variation_coordinates(&font_bytes, *weight > 400, *italic);
 
         let subset = create_subset(&font_bytes, used_chars)
             .map_err(|e| PdfError::FontLoad(format!("Subset failed for '{}': {}", family, e)))?;
@@ -84,16 +86,25 @@ pub fn write_text_pdf(
         let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)
             .map_err(|e| PdfError::FontLoad(format!("Embed failed for '{}': {}", family, e)))?;
 
-        font_map.insert((family.to_string(), *weight, *italic), (pdf_name, font_ref, subset));
+        font_map.insert(
+            (family.to_string(), *weight, *italic),
+            (pdf_name, font_ref, subset),
+        );
     }
 
     if font_map.is_empty() {
         let fallback_bytes = font_resolver
             .resolve(font_resolver.fallback_family(), 400, false)
-            .ok_or_else(|| PdfError::FontLoad(
-                format!("Fallback font '{}' not available", font_resolver.fallback_family())
-            ))?;
-        let all_chars: crate::fonts::UsedGlyphs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.".chars().collect();
+            .ok_or_else(|| {
+                PdfError::FontLoad(format!(
+                    "Fallback font '{}' not available",
+                    font_resolver.fallback_family()
+                ))
+            })?;
+        let all_chars: crate::fonts::UsedGlyphs =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,."
+                .chars()
+                .collect();
         let subset = create_subset(&fallback_bytes, &all_chars)?;
         let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)?;
         let key: FontKey = (font_resolver.fallback_family().to_lowercase(), 400, false);
@@ -107,16 +118,25 @@ pub fn write_text_pdf(
     let bleed = settings.bleed_pt;
 
     // 5. Generate content streams (Pass 2).
-    let emit_map: std::collections::HashMap<FontKey, (String, crate::fonts::FontSubset)> = 
-        font_map.iter().map(|(k, v)| (k.clone(), (v.0.clone(), v.2.clone()))).collect();
-        
-    let layout_result = emit_blocks(blocks, styles, &emit_map, page_width_pt, page_height_pt, margin_pt)?;
+    let emit_map: std::collections::HashMap<FontKey, (String, crate::fonts::FontSubset)> = font_map
+        .iter()
+        .map(|(k, v)| (k.clone(), (v.0.clone(), v.2.clone())))
+        .collect();
+
+    let layout_result = emit_blocks(
+        blocks,
+        styles,
+        &emit_map,
+        page_width_pt,
+        page_height_pt,
+        margin_pt,
+    )?;
 
     // 6. Write PDF structure.
     let catalog_ref = Ref::new(1);
     let pages_ref = Ref::new(2);
     let xmp_ref = Ref::new(5);
-    
+
     let mut page_refs = Vec::new();
     let mut content_refs = Vec::new();
     for _ in 0..layout_result.pages.len() {
@@ -191,5 +211,3 @@ pub fn write_text_pdf(
 
     Ok(pdf.finish())
 }
-
-

@@ -51,8 +51,15 @@ impl MapFontResolver {
     }
 
     /// Register a font variant.
-    pub fn add_font(&mut self, family: impl Into<String>, weight: u16, italic: bool, bytes: Vec<u8>) {
-        self.fonts.insert((family.into().to_lowercase(), weight, italic), bytes);
+    pub fn add_font(
+        &mut self,
+        family: impl Into<String>,
+        weight: u16,
+        italic: bool,
+        bytes: Vec<u8>,
+    ) {
+        self.fonts
+            .insert((family.into().to_lowercase(), weight, italic), bytes);
     }
 }
 
@@ -62,7 +69,7 @@ impl FontResolver for MapFontResolver {
         if let Some(b) = self.fonts.get(&key) {
             return Some(b.clone());
         }
-        
+
         // Fallback logic for weight ranges
         let target_weight = if weight >= 600 { 700 } else { 400 };
         let fallback_key = (family.to_lowercase(), target_weight, italic);

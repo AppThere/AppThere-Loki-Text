@@ -1,5 +1,35 @@
 import { useEffect } from 'react';
 import type { StyleDefinition } from '@/lib/types/odt';
+import type { Colour } from '@/lib/vector/types';
+
+/** Convert a typed Colour to a CSS string suitable for use as a color value. */
+function colourToCss(c: Colour): string {
+    if (c.type === 'Rgb') {
+        const r = Math.round(c.r * 255);
+        const g = Math.round(c.g * 255);
+        const b = Math.round(c.b * 255);
+        return c.a >= 1.0
+            ? `rgb(${r}, ${g}, ${b})`
+            : `rgba(${r}, ${g}, ${b}, ${c.a})`;
+    }
+    if (c.type === 'Cmyk') {
+        const r = Math.round((1 - c.c) * (1 - c.k) * 255);
+        const g = Math.round((1 - c.m) * (1 - c.k) * 255);
+        const b = Math.round((1 - c.y) * (1 - c.k) * 255);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    if (c.type === 'Lab') {
+        // Naive approximation; accurate rendering requires ICC profile conversion.
+        const r = Math.round((c.l / 100) * 255);
+        const g = Math.round(((c.a + 128) / 255) * 255);
+        const b = Math.round(((c.b + 128) / 255) * 255);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    if (c.type === 'Spot') {
+        return colourToCss(c.cmyk_fallback);
+    }
+    return '#000000';
+}
 
 interface DocumentStylesPluginProps {
     styles: Record<string, StyleDefinition>;
@@ -17,21 +47,23 @@ export function DocumentStylesPlugin({ styles }: DocumentStylesPluginProps) {
         let css = '';
 
         // Helper to resolve inherited attributes
-        const resolveStyle = (styleName: string, visited = new Set<string>()): { attributes: Record<string, string>, textTransform: string | null } => {
-            if (visited.has(styleName)) return { attributes: {}, textTransform: null };
+        const resolveStyle = (styleName: string, visited = new Set<string>()): { attributes: Record<string, string>, textTransform: string | null, fontColour: import('@/lib/vector/types').Colour | null, backgroundColour: import('@/lib/vector/types').Colour | null } => {
+            if (visited.has(styleName)) return { attributes: {}, textTransform: null, fontColour: null, backgroundColour: null };
             visited.add(styleName);
 
             const def = styles[styleName];
-            if (!def) return { attributes: {}, textTransform: null };
+            if (!def) return { attributes: {}, textTransform: null, fontColour: null, backgroundColour: null };
 
-            let parentData: { attributes: Record<string, string>, textTransform: string | null } = { attributes: {}, textTransform: null };
+            let parentData: { attributes: Record<string, string>, textTransform: string | null, fontColour: import('@/lib/vector/types').Colour | null, backgroundColour: import('@/lib/vector/types').Colour | null } = { attributes: {}, textTransform: null, fontColour: null, backgroundColour: null };
             if (def.parent && styles[def.parent]) {
                 parentData = resolveStyle(def.parent, visited);
             }
 
             return {
                 attributes: { ...parentData.attributes, ...def.attributes },
-                textTransform: def.textTransform || parentData.textTransform
+                textTransform: def.textTransform || parentData.textTransform,
+                fontColour: def.fontColour ?? parentData.fontColour,
+                backgroundColour: def.backgroundColour ?? parentData.backgroundColour,
             };
         };
 
@@ -69,7 +101,9 @@ export function DocumentStylesPlugin({ styles }: DocumentStylesPluginProps) {
             if (attrs['fo:font-style']) {
                 rule += `font-style: ${attrs['fo:font-style']}; `;
             }
-            if (attrs['fo:color']) {
+            if (resolved.fontColour) {
+                rule += `color: ${colourToCss(resolved.fontColour)}; `;
+            } else if (attrs['fo:color']) {
                 rule += `color: ${attrs['fo:color']}; `;
             }
             if (attrs['fo:text-align']) {

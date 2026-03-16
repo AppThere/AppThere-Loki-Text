@@ -159,6 +159,8 @@ export function useStyleDialog({
             textTransform: textTransform || null,
             outlineLevel: outlineLevel === 'none' ? null : parseInt(outlineLevel, 10),
             autocomplete: null,
+            fontColour: null,
+            backgroundColour: null,
         };
         onSave(style);
         onOpenChange(false);

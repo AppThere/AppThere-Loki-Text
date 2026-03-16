@@ -27,6 +27,8 @@
 pub mod conformance;
 pub mod error;
 pub mod export_settings;
+pub(crate) mod flatten;
+pub(crate) mod preexport;
 pub mod writer;
 
 // Re-export the most commonly used types.

@@ -25,8 +25,6 @@ use crate::export_settings::{PdfExportSettings, PdfXStandard};
 use common_core::colour_management::{Colour, ColourSpace};
 use iter::{for_each_colour, for_each_object};
 use vector_core::document::VectorDocument;
-use vector_core::object::VectorObject;
-use vector_core::style::Paint;
 
 /// A single conformance violation.
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +33,9 @@ pub struct ConformanceViolation {
     pub rule: String,
     /// Human-readable description of the violation.
     pub message: String,
+    /// Whether the export pipeline will resolve this violation automatically.
+    /// When true, the violation does not block export; the pipeline handles it.
+    pub auto_fixable: bool,
 }
 
 impl ConformanceViolation {
@@ -42,6 +43,15 @@ impl ConformanceViolation {
         ConformanceViolation {
             rule: rule.into(),
             message: message.into(),
+            auto_fixable: false,
+        }
+    }
+
+    fn auto_fixable(rule: impl Into<String>, message: impl Into<String>) -> Self {
+        ConformanceViolation {
+            rule: rule.into(),
+            message: message.into(),
+            auto_fixable: true,
         }
     }
 }
@@ -82,8 +92,8 @@ pub fn validate(document: &VectorDocument, settings: &PdfExportSettings) -> Conf
     let mut violations = Vec::new();
 
     check_output_condition(settings, &mut violations);
-    check_colour_spaces(document, standard, &mut violations);
-    check_transparency(document, standard, &mut violations);
+    check_colour_spaces(document, settings, &mut violations);
+    check_transparency(document, settings, &mut violations);
     check_linked_colours(document, &mut violations);
     check_bleed(settings, &mut violations);
     check_document_not_empty(document, &mut violations);
@@ -114,17 +124,22 @@ fn check_output_condition(
 /// Check that all colours are compatible with the target standard.
 fn check_colour_spaces(
     document: &VectorDocument,
-    standard: PdfXStandard,
+    settings: &PdfExportSettings,
     violations: &mut Vec<ConformanceViolation>,
 ) {
-    // For X-1a: document working space must be CMYK.
+    let standard = settings.standard;
+    // For X-1a: document working space will be converted to CMYK by the
+    // pre-export pass — report as auto_fixable rather than a hard error.
     if standard.requires_cmyk_only() {
         match &document.colour_settings.working_space {
             ColourSpace::Cmyk { .. } => {}
             other => {
-                violations.push(ConformanceViolation::new(
+                violations.push(ConformanceViolation::auto_fixable(
                     "X1a/working-space-must-be-cmyk",
-                    format!("PDF/X-1a requires CMYK working space; found {:?}", other),
+                    format!(
+                        "Working space {:?} will be converted to CMYK automatically during export",
+                        other
+                    ),
                 ));
             }
         }
@@ -145,10 +160,11 @@ fn check_colour_compatibility(
     match colour {
         Colour::Rgb { .. } => {
             if !standard.allows_rgb() {
-                violations.push(ConformanceViolation::new(
+                // The pre-export pass converts RGB → CMYK automatically.
+                violations.push(ConformanceViolation::auto_fixable(
                     "X1a/no-rgb",
                     format!(
-                        "PDF/X-1a does not allow RGB colours (found at {})",
+                        "RGB colour at {} will be converted to CMYK automatically during export",
                         location
                     ),
                 ));
@@ -156,11 +172,12 @@ fn check_colour_compatibility(
         }
         Colour::Lab { .. } => {
             // Lab is device-independent; allowed in X-4 but not X-1a.
+            // The pre-export pass converts Lab → CMYK automatically.
             if standard.requires_cmyk_only() {
-                violations.push(ConformanceViolation::new(
+                violations.push(ConformanceViolation::auto_fixable(
                     "X1a/no-lab",
                     format!(
-                        "PDF/X-1a does not allow Lab colours (found at {})",
+                        "Lab colour at {} will be converted to CMYK automatically during export",
                         location
                     ),
                 ));
@@ -182,41 +199,46 @@ fn check_colour_compatibility(
 }
 
 /// PDF/X-1a forbids any transparency (opacity < 1.0).
+///
+/// For X-1a, transparent objects will be rasterised automatically at the
+/// configured resolution — violations are reported as auto-fixable.
 fn check_transparency(
     document: &VectorDocument,
-    standard: PdfXStandard,
+    settings: &PdfExportSettings,
     violations: &mut Vec<ConformanceViolation>,
 ) {
+    let standard = settings.standard;
     if standard.allows_transparency() {
         return;
     }
+    let dpi = settings.resolution_dpi;
 
     for_each_object(document, |obj, location| {
         let style = &obj.common().style;
         if style.opacity < 1.0 - f64::EPSILON {
-            violations.push(ConformanceViolation::new(
+            violations.push(ConformanceViolation::auto_fixable(
                 "X1a/no-transparency",
                 format!(
-                    "PDF/X-1a forbids transparency; object at {} has opacity {}",
-                    location, style.opacity
+                    "Transparency at {} will be flattened at {} DPI during export",
+                    location, dpi
                 ),
             ));
         }
         if style.fill_opacity < 1.0 - f64::EPSILON {
-            violations.push(ConformanceViolation::new(
+            violations.push(ConformanceViolation::auto_fixable(
                 "X1a/no-fill-opacity",
                 format!(
-                    "PDF/X-1a forbids transparency; object at {} has fill-opacity {}",
-                    location, style.fill_opacity
+                    "Fill opacity at {} will be flattened at {} DPI during export",
+                    location, dpi
                 ),
             ));
         }
         if style.stroke_opacity < 1.0 - f64::EPSILON {
-            violations.push(ConformanceViolation::new(
+            violations.push(ConformanceViolation::auto_fixable(
                 "X1a/no-stroke-opacity",
                 format!(
-                    "PDF/X-1a forbids transparency; object at {} has stroke-opacity {}",
-                    location, style.stroke_opacity
+                    "Stroke opacity at {} will be flattened at {} DPI during export",
+                    location, dpi
                 ),
             ));
         }

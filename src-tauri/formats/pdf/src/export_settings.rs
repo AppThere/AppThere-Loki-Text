@@ -85,6 +85,16 @@ pub struct PdfExportSettings {
 
     /// Registry URL for the output condition.
     pub registry_name: String,
+
+    /// Rasterisation DPI for transparency flattening (PDF/X-1a only).
+    /// Transparent objects are rasterised at this resolution.
+    /// Typical values: 150 (draft), 300 (standard print), 600 (high quality).
+    #[serde(default = "default_resolution_dpi")]
+    pub resolution_dpi: u32,
+}
+
+fn default_resolution_dpi() -> u32 {
+    300
 }
 
 impl Default for PdfExportSettings {
@@ -95,6 +105,7 @@ impl Default for PdfExportSettings {
             output_condition_identifier: "sRGB".to_string(),
             output_condition: "sRGB IEC61966-2.1".to_string(),
             registry_name: "http://www.color.org".to_string(),
+            resolution_dpi: 300,
         }
     }
 }

@@ -61,6 +61,69 @@ pub fn needs_loki_attr(colour: &Colour) -> bool {
     !matches!(colour, Colour::Rgb { .. })
 }
 
+/// Parse a CSS colour string into a [`Colour`].
+///
+/// Accepts:
+/// - `#rgb`, `#rrggbb`, `#rrggbbaa` hex strings
+/// - `rgb(r, g, b)` with integer 0–255 channel values
+/// - A subset of CSS named colours: `black`, `white`, `red`, `green`, `blue`,
+///   `yellow`, `cyan`, `magenta`, `transparent`
+///
+/// Returns `None` if the string is not recognised.
+pub fn parse_colour_str(s: &str) -> Option<Colour> {
+    let s = s.trim();
+    if s.starts_with('#') {
+        return Colour::from_hex(s);
+    }
+    if let Some(c) = parse_rgb_function(s) {
+        return Some(c);
+    }
+    parse_css_named_colour(s)
+}
+
+/// Convert a [`Colour`] to an ODF-compatible `fo:color` hex string.
+///
+/// For RGB with full opacity this is an exact `#rrggbb` value. For other
+/// colour spaces a device-dependent sRGB approximation is returned. Use a
+/// `loki:colour` JSON attribute alongside for lossless round-trips of
+/// non-RGB colours.
+pub fn colour_to_odf_string(colour: &Colour) -> String {
+    colour.to_css_string()
+}
+
+// ---------------------------------------------------------------------------
+// Private parsing helpers
+// ---------------------------------------------------------------------------
+
+/// Parses a CSS `rgb(r, g, b)` function with integer 0–255 channel values.
+fn parse_rgb_function(s: &str) -> Option<Colour> {
+    let inner = s.strip_prefix("rgb(")?.strip_suffix(')')?;
+    let parts: Vec<&str> = inner.split(',').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let r: u8 = parts[0].trim().parse().ok()?;
+    let g: u8 = parts[1].trim().parse().ok()?;
+    let b: u8 = parts[2].trim().parse().ok()?;
+    Some(Colour::from_u8_rgb(r, g, b))
+}
+
+/// Resolves a small subset of CSS named colours to [`Colour`] values.
+fn parse_css_named_colour(s: &str) -> Option<Colour> {
+    match s.to_lowercase().as_str() {
+        "black" => Some(Colour::black()),
+        "white" => Some(Colour::white()),
+        "transparent" => Some(Colour::transparent()),
+        "red" => Some(Colour::from_u8_rgb(255, 0, 0)),
+        "green" => Some(Colour::from_u8_rgb(0, 128, 0)),
+        "blue" => Some(Colour::from_u8_rgb(0, 0, 255)),
+        "yellow" => Some(Colour::from_u8_rgb(255, 255, 0)),
+        "cyan" => Some(Colour::from_u8_rgb(0, 255, 255)),
+        "magenta" => Some(Colour::from_u8_rgb(255, 0, 255)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,5 +163,45 @@ mod tests {
     #[test]
     fn loki_ns_uri_matches_namespace_declaration() {
         assert_eq!(LOKI_NS, "https://appthere.com/loki/ns");
+    }
+
+    #[test]
+    fn parse_colour_str_hex_6() {
+        let c = parse_colour_str("#ff0000").unwrap();
+        assert_eq!(c, Colour::from_u8_rgb(255, 0, 0));
+    }
+
+    #[test]
+    fn parse_colour_str_hex_3() {
+        let c = parse_colour_str("#f00").unwrap();
+        assert_eq!(c, Colour::from_u8_rgb(255, 0, 0));
+    }
+
+    #[test]
+    fn parse_colour_str_rgb_function() {
+        let c = parse_colour_str("rgb(0, 128, 255)").unwrap();
+        assert_eq!(c, Colour::from_u8_rgb(0, 128, 255));
+    }
+
+    #[test]
+    fn parse_colour_str_named_black() {
+        let c = parse_colour_str("black").unwrap();
+        assert_eq!(c, Colour::black());
+    }
+
+    #[test]
+    fn parse_colour_str_invalid_returns_none() {
+        assert!(parse_colour_str("not-a-colour").is_none());
+    }
+
+    #[test]
+    fn colour_to_odf_string_rgb_opaque() {
+        let c = Colour::from_u8_rgb(255, 0, 0);
+        assert_eq!(colour_to_odf_string(&c), "#ff0000");
+    }
+
+    #[test]
+    fn colour_to_odf_string_black() {
+        assert_eq!(colour_to_odf_string(&Colour::black()), "#000000");
     }
 }

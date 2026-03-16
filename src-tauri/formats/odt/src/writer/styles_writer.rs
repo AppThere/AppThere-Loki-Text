@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
+use common_core::colour_management::Colour;
 use common_core::{StyleDefinition, StyleFamily};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
@@ -111,7 +112,13 @@ fn write_style_definition(
     if style_def.family == StyleFamily::Paragraph {
         write_paragraph_properties(writer, &style_def.attributes)?;
     }
-    write_text_properties(writer, &style_def.attributes, &style_def.text_transform)?;
+    write_text_properties(
+        writer,
+        &style_def.attributes,
+        &style_def.text_transform,
+        style_def.font_colour.as_ref(),
+        style_def.background_colour.as_ref(),
+    )?;
 
     writer
         .write_event(Event::End(BytesEnd::new("style:style")))
@@ -135,21 +142,57 @@ fn write_paragraph_properties(
         .map_err(|e| e.to_string())
 }
 
-/// Writes `<style:text-properties>` from the style's attribute map.
+/// Writes `<style:text-properties>` from the style's attribute map and typed colour fields.
+///
+/// When `font_colour` is `Some`, it takes precedence over any `fo:color` /
+/// `loki:colour` entries in `attributes`. When `background_colour` is `Some`,
+/// it takes precedence over `fo:background-color` in `attributes`.
 fn write_text_properties(
     writer: &mut Writer<Cursor<Vec<u8>>>,
     attributes: &HashMap<String, String>,
     text_transform: &Option<String>,
+    font_colour: Option<&Colour>,
+    background_colour: Option<&Colour>,
 ) -> Result<(), String> {
+    use crate::loki_ext::{colour_to_attr, colour_to_odf_string, needs_loki_attr, LOKI_COLOUR_KEY};
+
+    // Pre-compute typed colour attribute strings so they outlive the loop.
+    let typed_font: Option<(String, Option<String>)> = font_colour.map(|c| {
+        let hex = colour_to_odf_string(c);
+        let loki = if needs_loki_attr(c) { colour_to_attr(c) } else { None };
+        (hex, loki)
+    });
+    let typed_bg: Option<String> = background_colour.map(colour_to_odf_string);
+
     let mut text_props = BytesStart::new("style:text-properties");
     let mut has_props = false;
 
     for (key, value) in attributes {
         if is_text_property(key) {
+            // Skip keys that will be emitted from typed fields to avoid duplicates.
+            if typed_font.is_some() && (key == "fo:color" || key == LOKI_COLOUR_KEY) {
+                continue;
+            }
+            if typed_bg.is_some() && key == "fo:background-color" {
+                continue;
+            }
             text_props.push_attribute((key.as_str(), value.as_str()));
             has_props = true;
         }
     }
+
+    if let Some((ref hex, ref loki)) = typed_font {
+        text_props.push_attribute(("fo:color", hex.as_str()));
+        has_props = true;
+        if let Some(ref json) = loki {
+            text_props.push_attribute((LOKI_COLOUR_KEY, json.as_str()));
+        }
+    }
+    if let Some(ref hex) = typed_bg {
+        text_props.push_attribute(("fo:background-color", hex.as_str()));
+        has_props = true;
+    }
+
     if let Some(transform) = text_transform {
         text_props.push_attribute(("fo:text-transform", transform.as_str()));
         has_props = true;
@@ -183,6 +226,7 @@ fn is_text_property(key: &str) -> bool {
         || key.starts_with("fo:font-weight")
         || key.starts_with("fo:font-style")
         || key.starts_with("fo:text-transform")
+        || key == "fo:background-color"
         || key == "loki:colour"
 }
 

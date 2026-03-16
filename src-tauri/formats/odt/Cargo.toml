@@ -52,6 +52,10 @@ path = "tests/security/mod.rs"
 name = "session_recovery"
 path = "tests/session_recovery.rs"
 
+[[test]]
+name = "colour_round_trip"
+path = "tests/colour_round_trip.rs"
+
 [[bench]]
 name = "parsing"
 harness = false

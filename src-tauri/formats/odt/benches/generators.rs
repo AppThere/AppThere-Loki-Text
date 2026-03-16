@@ -177,6 +177,8 @@ pub fn styled_document(n_paras: usize, n_styles: usize) -> Document {
                 text_transform: None,
                 outline_level: None,
                 autocomplete: None,
+                font_colour: None,
+                background_colour: None,
             },
         );
     }

@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument, saveEpub, exportTextPdfX, DEFAULT_PDF_SETTINGS } from '../tauri/commands';
+import { openDocument, saveDocument } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
-import { SessionManager } from '../session/SessionManager';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
 import { notifyError } from '@/lib/utils/notifyError';
+import { useFileSession } from './useFileSession';
+import { useFileExport } from './useFileExport';
 
 export function useFileOperations() {
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingInternal, setIsLoadingInternal] = useState(false);
+    const { startSession, endSession } = useFileSession();
+    const { handleExportEPUB, handleExportPDF, isExporting } = useFileExport();
 
     const {
         currentPath,
@@ -23,7 +26,6 @@ export function useFileOperations() {
         setContent,
         setStyles,
         setMetadata,
-        setSession,
         markClean,
         markDirty,
         markSaving,
@@ -32,19 +34,10 @@ export function useFileOperations() {
     } = useDocumentStore();
     const { addDocument, addTemplate } = useHistoryStore();
     const { clearSession } = useSessionPersistence();
-    // ── Session helpers ────────────────────────────────────────────────────
-    const startSession = async (originalPath: string): Promise<SessionManager> => {
-        const mgr = await SessionManager.create(originalPath);
-        setSession(mgr);
-        return mgr;
-    };
-    const endSession = async () => {
-        const current = useDocumentStore.getState().session;
-        if (current) {
-            try { await current.cleanup(); } catch { /* best-effort */ }
-            setSession(null);
-        }
-    };
+
+    const isLoading = isLoadingInternal || isExporting;
+    const setIsLoading = setIsLoadingInternal;
+
     // ── Public handlers ────────────────────────────────────────────────────
     const handleNew = async () => {
         setIsLoading(true);
@@ -66,11 +59,13 @@ export function useFileOperations() {
             setIsLoading(false);
         }
     };
+
     const handleClose = async () => {
         await endSession();
         clearSession();
         resetStore();
     };
+
     const loadDocument = async (path: string) => {
         setIsLoading(true);
         try {
@@ -106,6 +101,7 @@ export function useFileOperations() {
             setIsLoading(false);
         }
     };
+
     const handleOpen = async () => {
         try {
             const selected = await open({
@@ -163,13 +159,6 @@ export function useFileOperations() {
         }
     };
 
-    /**
-     * Save the document to disk (user-initiated).
-     *
-     * Routes through the active session so that autosave and explicit save
-     * stay in sync. Falls back to `saveDocument` when there is no session
-     * (e.g. new/unsaved document that has no original path yet).
-     */
     const handleSave = async (background = false) => {
         if (!currentPath || !currentContent) return handleSaveAs();
 
@@ -177,14 +166,12 @@ export function useFileOperations() {
 
         try {
             if (session && currentPath) {
-                // Safe path: write through session (keeps session in sync)
                 await session.saveToOriginal({
                     content: currentContent,
                     styles,
                     metadata,
                 });
             } else {
-                // Fallback for content:// URIs or when session is unavailable
                 const bytes = await saveDocument(
                     currentPath,
                     JSON.stringify(currentContent),
@@ -239,7 +226,6 @@ export function useFileOperations() {
             if (bytes) {
                 if (path.startsWith('content://')) await writeFile(path, bytes);
                 setPath(path);
-                // Start a new session for the new path
                 await endSession();
                 await startSession(path);
                 addDocument({
@@ -252,67 +238,6 @@ export function useFileOperations() {
         } catch (error) {
             console.error('Failed handling save as dialog:', error);
             notifyError('Failed to save document', error);
-            throw error;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleExportEPUB = async () => {
-        if (!currentContent) return;
-        try {
-            const cleanTitle = (metadata.title || 'Untitled')
-                .replace(/[<>:"/\\|?*]/g, '_')
-                .trim();
-            const selected = await save({
-                title: 'Export to EPUB',
-                defaultPath: `${cleanTitle}.epub`,
-                filters: [{ name: 'EPUB Ebook', extensions: ['epub'] }],
-            });
-            if (!selected) return;
-
-            setIsLoading(true);
-            const path = typeof selected === 'string' ? selected : (selected as any).path;
-            if (!path) return;
-
-            const bytes = await saveEpub(path, JSON.stringify(currentContent), styles, metadata, []);
-            if (bytes && path.startsWith('content://')) await writeFile(path, bytes);
-        } catch (error) {
-            console.error('Failed to export EPUB:', error);
-            notifyError('Failed to export EPUB', error);
-            throw error;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleExportPDF = async () => {
-        if (!currentContent) return;
-        try {
-            const cleanTitle = (metadata.title || 'Untitled')
-                .replace(/[<>:"/\\|?*]/g, '_')
-                .trim();
-            const selected = await save({
-                title: 'Export to PDF/X',
-                defaultPath: `${cleanTitle}.pdf`,
-                filters: [{ name: 'PDF Document', extensions: ['pdf'] }],
-            });
-            if (!selected) return;
-
-            setIsLoading(true);
-            const path = typeof selected === 'string' ? selected : (selected as any).path;
-            if (!path) return;
-
-            await exportTextPdfX(
-                JSON.stringify(currentContent),
-                styles,
-                metadata,
-                DEFAULT_PDF_SETTINGS,
-                path,
-            );
-        } catch (error) {
-            console.error('Failed to export PDF/X:', error);
-            notifyError('Failed to export PDF/X', error);
             throw error;
         } finally {
             setIsLoading(false);

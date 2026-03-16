@@ -14,463 +14,182 @@
 
 //! Text document layout and PDF content stream generation.
 
+mod collector;
 mod layout;
 mod measure;
 pub mod named_styles;
 mod operators;
+mod renderer;
 pub mod style_props;
 
-use std::collections::HashMap;
-
-use common_core::block::Block;
-use common_core::inline::Inline;
-use common_core::marks::TiptapMark;
-use common_core::style::StyleDefinition;
+pub use collector::{collect_used_glyphs, FontKey};
+pub use renderer::{emit_blocks, LayoutResult};
+pub use layout::PageContent;
 
 use crate::error::PdfError;
-use crate::fonts::subset::{FontSubset, UsedGlyphs};
-use layout::{LayoutState, PageContent, break_words, wrap_words_with_indent};
-use measure::space_width;
-use operators::{write_horizontal_rule, write_text_run};
-use style_props::{TextAlign, ParagraphProps, resolve_paragraph_props};
+use crate::export_settings::PdfExportSettings;
 
-// ---------------------------------------------------------------------------
-// Font key and resolution helpers
-// ---------------------------------------------------------------------------
+/// Write a text document (blocks + styles + metadata) to PDF/X-compliant bytes.
+pub fn write_text_pdf(
+    blocks: &[common_core::Block],
+    styles: &std::collections::HashMap<String, common_core::StyleDefinition>,
+    metadata: &common_core::Metadata,
+    settings: &PdfExportSettings,
+    font_resolver: &dyn crate::fonts::resolver::FontResolver,
+) -> Result<Vec<u8>, PdfError> {
+    use crate::conformance::validate_text;
+    use crate::fonts::{create_subset, embed_font};
+    use pdf_writer::{Pdf, Ref, Name};
 
-/// (family_id, weight_100_900, italic)
-pub type FontKey = (String, u16, bool);
-
-/// Default font family used when a style does not specify one.
-const DEFAULT_FONT_FAMILY: &str = "public sans";
-
-/// Extract the font key for an inline based on block style + marks.
-fn inline_font_key(
-    marks: &[TiptapMark],
-    style_name: Option<&str>,
-    styles: &HashMap<String, StyleDefinition>,
-    block_style_name: Option<&str>,
-) -> FontKey {
-    let is_bold = marks.iter().any(|m| matches!(m, TiptapMark::Bold));
-    let is_italic = marks.iter().any(|m| matches!(m, TiptapMark::Italic));
-    let weight = if is_bold { 700 } else { 400 };
-
-    // Determine font family: inline style → block style → default.
-    let family = style_name
-        .and_then(|n| styles.get(n))
-        .and_then(|s| s.attributes.get("fo:font-family").or_else(|| s.attributes.get("style:font-name")))
-        .or_else(|| {
-            block_style_name
-                .and_then(|n| styles.get(n))
-                .and_then(|s| s.attributes.get("fo:font-family").or_else(|| s.attributes.get("style:font-name")))
-        })
-        .map(|s| s.as_str())
-        .unwrap_or(DEFAULT_FONT_FAMILY);
-
-    (family.to_lowercase(), weight, is_italic)
-}
-
-// ---------------------------------------------------------------------------
-// Pass 1: collect used glyphs
-// ---------------------------------------------------------------------------
-
-/// Walk all blocks and collect the set of Unicode characters used, grouped by
-/// the font variant (family + bold + italic) they require.
-pub fn collect_used_glyphs(
-    blocks: &[Block],
-    styles: &HashMap<String, StyleDefinition>,
-) -> HashMap<FontKey, UsedGlyphs> {
-    let mut result: HashMap<FontKey, UsedGlyphs> = HashMap::new();
-    for block in blocks {
-        collect_from_block(block, styles, &mut result);
+    // 1. Validate — reject hard (non-auto-fixable) violations.
+    let violations = validate_text(blocks, styles, metadata, settings);
+    let hard_count = violations.iter().filter(|v| !v.auto_fixable).count();
+    if hard_count > 0 {
+        let msg = violations
+            .iter()
+            .filter(|v| !v.auto_fixable)
+            .map(|v| format!("[{}] {}", v.rule, v.message))
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(PdfError::Conformance(msg));
     }
-    result
-}
 
-fn collect_from_block(
-    block: &Block,
-    styles: &HashMap<String, StyleDefinition>,
-    out: &mut HashMap<FontKey, UsedGlyphs>,
-) {
-    match block {
-        Block::Paragraph { style_name, content, .. }
-        | Block::Heading { style_name, content, .. } => {
-            let sname = style_name.as_deref();
-            for inline in content {
-                collect_from_inline(inline, sname, styles, out);
-            }
-        }
-        Block::BulletList { content }
-        | Block::OrderedList { content }
-        | Block::ListItem { content }
-        | Block::Blockquote { content }
-        | Block::Table { content }
-        | Block::TableRow { content }
-        | Block::TableHeader { content, .. }
-        | Block::TableCell { content, .. } => {
-            for child in content {
-                collect_from_block(child, styles, out);
-            }
-        }
-        Block::HorizontalRule | Block::PageBreak | Block::Image { .. } => {}
+    // 2. Collect used glyphs per font variant (Pass 1).
+    let used_by_font = collect_used_glyphs(blocks, styles);
+
+    let mut pdf = Pdf::new();
+    let mut next_ref = 6i32; // 1-5 reserved for catalog/pages/page/content/xmp
+
+    // 3. Subset and embed each required font variant.
+    let mut font_map: std::collections::HashMap<FontKey, (String, Ref, crate::fonts::FontSubset)> =
+        std::collections::HashMap::new();
+
+    for ((family, weight, italic), used_chars) in &used_by_font {
+        let font_bytes = font_resolver
+            .resolve(family, *weight, *italic)
+            .or_else(|| font_resolver.resolve(font_resolver.fallback_family(), 400, false))
+            .ok_or_else(|| {
+                PdfError::FontLoad(format!(
+                    "Font '{}' not found and fallback '{}' also unavailable",
+                    family,
+                    font_resolver.fallback_family()
+                ))
+            })?;
+
+        let _coords = crate::fonts::subset::find_variation_coordinates(&font_bytes, *weight > 400, *italic);
+
+        let subset = create_subset(&font_bytes, used_chars)
+            .map_err(|e| PdfError::FontLoad(format!("Subset failed for '{}': {}", family, e)))?;
+
+        let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)
+            .map_err(|e| PdfError::FontLoad(format!("Embed failed for '{}': {}", family, e)))?;
+
+        font_map.insert((family.to_string(), *weight, *italic), (pdf_name, font_ref, subset));
     }
-}
 
-fn collect_from_inline(
-    inline: &Inline,
-    block_style: Option<&str>,
-    styles: &HashMap<String, StyleDefinition>,
-    out: &mut HashMap<FontKey, UsedGlyphs>,
-) {
-    if let Inline::Text { text, style_name, marks } = inline {
-        let key = inline_font_key(marks, style_name.as_deref(), styles, block_style);
-        out.entry(key).or_default().extend(text.chars());
+    if font_map.is_empty() {
+        let fallback_bytes = font_resolver
+            .resolve(font_resolver.fallback_family(), 400, false)
+            .ok_or_else(|| PdfError::FontLoad(
+                format!("Fallback font '{}' not available", font_resolver.fallback_family())
+            ))?;
+        let all_chars: crate::fonts::UsedGlyphs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.".chars().collect();
+        let subset = create_subset(&fallback_bytes, &all_chars)?;
+        let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)?;
+        let key: FontKey = (font_resolver.fallback_family().to_lowercase(), 400, false);
+        font_map.insert(key, (pdf_name, font_ref, subset));
     }
-}
 
-// ---------------------------------------------------------------------------
-// Pass 2: emit blocks to content stream
-// ---------------------------------------------------------------------------
+    // 4. Page geometry (A4 portrait: 595 × 842 pt).
+    let page_width_pt = 595.0_f64;
+    let page_height_pt = 842.0_f64;
+    let margin_pt = 72.0_f64; // 1 inch
+    let bleed = settings.bleed_pt;
 
-/// Emit all blocks to potentially multiple PDF page content streams.
-pub struct LayoutResult {
-    pub pages: Vec<PageContent>,
-}
-
-pub fn emit_blocks(
-    blocks: &[Block],
-    styles: &HashMap<String, StyleDefinition>,
-    font_map: &HashMap<FontKey, (String, FontSubset)>,
-    page_width: f64,
-    page_height: f64,
-    margin: f64,
-) -> Result<LayoutResult, PdfError> {
-    let mut pages = Vec::new();
-    let mut current_block_idx = 0;
-    let mut current_line_offset = 0;
-
-    while current_block_idx < blocks.len() {
-        let mut state = LayoutState::new(page_width, page_height, margin);
-        let mut overflowed = false;
-        let mut content_stream = String::new();
+    // 5. Generate content streams (Pass 2).
+    let emit_map: std::collections::HashMap<FontKey, (String, crate::fonts::FontSubset)> = 
+        font_map.iter().map(|(k, v)| (k.clone(), (v.0.clone(), v.2.clone()))).collect();
         
-        let mut page_end_block_idx = current_block_idx;
-        let mut next_line_offset = 0;
+    let layout_result = emit_blocks(blocks, styles, &emit_map, page_width_pt, page_height_pt, margin_pt)?;
 
-        for (i, block) in blocks.iter().enumerate().skip(current_block_idx) {
-            let start_offset = if i == current_block_idx { current_line_offset } else { 0 };
-            
-            // Look-ahead for break-before or keep-with-next
-            if start_offset == 0 && state.current_y_from_top > state._top_margin {
-                let props = get_block_props(block, styles);
-                if props.break_before {
-                    overflowed = true;
-                    page_end_block_idx = i;
-                    break;
-                }
-                
-                if props.keep_with_next && i + 1 < blocks.len() {
-                    let next_block = &blocks[i+1];
-                    let current_h = block_height(block, styles, font_map, state.usable_width);
-                    let next_h = block_height(next_block, styles, font_map, state.usable_width);
-                    
-                    if state.current_y_from_top + current_h + next_h > state.page_height - state.bottom_margin {
-                        overflowed = true;
-                        page_end_block_idx = i;
-                        break;
-                    }
-                }
-            }
+    // 6. Write PDF structure.
+    let catalog_ref = Ref::new(1);
+    let pages_ref = Ref::new(2);
+    let xmp_ref = Ref::new(5);
+    
+    let mut page_refs = Vec::new();
+    let mut content_refs = Vec::new();
+    for _ in 0..layout_result.pages.len() {
+        page_refs.push(Ref::new(next_ref));
+        next_ref += 1;
+        content_refs.push(Ref::new(next_ref));
+        next_ref += 1;
+    }
 
-            let lines_emitted = emit_block(block, styles, font_map, &mut state, &mut overflowed, &mut content_stream, start_offset);
-            
-            page_end_block_idx = i;
-            if overflowed {
-                next_line_offset = start_offset + lines_emitted;
-                if is_finished(block, next_line_offset, styles, font_map) {
-                    next_line_offset = 0;
-                    page_end_block_idx = i;
-                } else {
-                    break;
-                }
-                break;
-            }
+    {
+        let mut catalog = pdf.catalog(catalog_ref);
+        catalog.pages(pages_ref);
+        catalog.pair(Name(b"Metadata"), xmp_ref);
+        let mut intents = catalog.output_intents();
+        let mut intent = intents.push();
+        intent.subtype(pdf_writer::types::OutputIntentSubtype::PDFX);
+        intent.output_condition_identifier(pdf_writer::TextStr(
+            settings.output_condition_identifier.as_str(),
+        ));
+        if !settings.output_condition.is_empty() {
+            intent.output_condition(pdf_writer::TextStr(settings.output_condition.as_str()));
         }
-
-        pages.push(PageContent {
-            content_stream,
-        });
-
-        if overflowed && next_line_offset > 0 {
-            current_block_idx = page_end_block_idx;
-            current_line_offset = next_line_offset;
-        } else {
-            current_block_idx = page_end_block_idx + 1;
-            current_line_offset = 0;
+        if !settings.registry_name.is_empty() {
+            intent.registry_name(pdf_writer::TextStr(settings.registry_name.as_str()));
         }
     }
 
-    Ok(LayoutResult { pages })
-}
-
-fn is_finished(block: &Block, offset: usize, styles: &HashMap<String, StyleDefinition>, font_map: &HashMap<FontKey, (String, FontSubset)>) -> bool {
-    match block {
-        Block::PageBreak => true,
-        Block::Paragraph { .. } | Block::Heading { .. } => {
-            let (content, style_name, level) = match block {
-                Block::Paragraph { content, style_name, .. } => (content, style_name.as_deref(), None),
-                Block::Heading { content, style_name, level, .. } => (content, style_name.as_deref(), Some(*level)),
-                _ => unreachable!(),
-            };
-            let props = resolve_paragraph_props(style_name, styles, level);
-            let key = (props.font_family.to_lowercase(), 400, false);
-            if let Some((_, subset)) = font_map.get(&key).or_else(|| font_map.values().next()) {
-                let full_text: String = content.iter().map(|i| match i {
-                    Inline::Text { text, .. } => text.as_str(),
-                    Inline::LineBreak => "\n",
-                }).collect();
-                let font_size = props.font_size;
-                let sw = space_width(&subset.bytes, font_size);
-                
-                let base_usable_width = (595.0 - 144.0) - props.margin_left - props.margin_right;
-                let mut total_lines = 0;
-                for (p_idx, line_text) in full_text.lines().enumerate() {
-                    let first_line_width = if p_idx == 0 { base_usable_width - props.text_indent } else { base_usable_width };
-                    let words = break_words(line_text, subset, font_size);
-                    total_lines += wrap_words_with_indent(words, sw, first_line_width, base_usable_width).len();
-                }
-                offset >= total_lines
-            } else {
-                true
-            }
-        }
-        _ => true,
+    {
+        let mut pages = pdf.pages(pages_ref);
+        pages.kids(page_refs.iter().copied());
+        pages.count(page_refs.len() as i32);
     }
-}
 
-fn get_block_props(block: &Block, styles: &HashMap<String, StyleDefinition>) -> ParagraphProps {
-    match block {
-        Block::Paragraph { style_name, .. } => {
-            resolve_paragraph_props(style_name.as_deref(), styles, None)
-        }
-        Block::Heading { level, style_name, .. } => {
-            resolve_paragraph_props(style_name.as_deref(), styles, Some(*level))
-        }
-        _ => ParagraphProps::default(),
+    let xmp = crate::writer::metadata::build_xmp_packet(metadata.title.as_deref(), settings);
+    {
+        let xmp_bytes = xmp.into_bytes();
+        let mut xmp_stream = pdf.stream(xmp_ref, &xmp_bytes);
+        xmp_stream.pair(Name(b"Type"), Name(b"Metadata"));
+        xmp_stream.pair(Name(b"Subtype"), Name(b"XML"));
     }
-}
 
-fn block_height(block: &Block, styles: &HashMap<String, StyleDefinition>, font_map: &HashMap<FontKey, (String, FontSubset)>, usable_width: f64) -> f64 {
-    match block {
-        Block::Paragraph { .. } | Block::Heading { .. } => {
-            let (content, style_name, level) = match block {
-                Block::Paragraph { content, style_name, .. } => (content, style_name.as_deref(), None),
-                Block::Heading { content, style_name, level, .. } => (content, style_name.as_deref(), Some(*level)),
-                _ => unreachable!(),
-            };
-            let props = resolve_paragraph_props(style_name, styles, level);
-            let key = (props.font_family.to_lowercase(), if props.bold { 700 } else { 400 }, props.italic);
-            if let Some((_, subset)) = font_map.get(&key).or_else(|| font_map.values().next()) {
-                let full_text: String = content.iter().map(|i| match i {
-                    Inline::Text { text, .. } => text.as_str(),
-                    Inline::LineBreak => "\n",
-                }).collect();
-                let font_size = props.font_size;
-                let sw = space_width(&subset.bytes, font_size);
-                
-                let line_height = font_size * props.line_height_factor;
-                let base_usable_width = usable_width - props.margin_left - props.margin_right;
-                let mut total_lines = 0;
-                for (p_idx, line_text) in full_text.lines().enumerate() {
-                    let first_line_width = if p_idx == 0 { base_usable_width - props.text_indent } else { base_usable_width };
-                    let words = break_words(line_text, subset, font_size);
-                    total_lines += wrap_words_with_indent(words, sw, first_line_width, base_usable_width).len();
-                }
-                props.space_before + (total_lines as f64 * line_height) + props.space_after
-            } else {
-                12.0
-            }
-        }
-        Block::HorizontalRule => 12.0,
-        _ => 0.0,
-    }
-}
+    let trim = pdf_writer::Rect::new(0.0, 0.0, page_width_pt as f32, page_height_pt as f32);
+    let bleed_rect = pdf_writer::Rect::new(
+        -bleed as f32,
+        -bleed as f32,
+        (page_width_pt + bleed) as f32,
+        (page_height_pt + bleed) as f32,
+    );
 
-// ---------------------------------------------------------------------------
-// Block-level rendering
-// ---------------------------------------------------------------------------
+    for (i, page_data) in layout_result.pages.iter().enumerate() {
+        let page_ref = page_refs[i];
+        let content_ref = content_refs[i];
 
-fn emit_block(
-    block: &Block,
-    styles: &HashMap<String, StyleDefinition>,
-    font_map: &HashMap<FontKey, (String, FontSubset)>,
-    state: &mut LayoutState,
-    overflowed: &mut bool,
-    out: &mut String,
-    start_offset: usize,
-) -> usize {
-    match block {
-        Block::Paragraph { .. } | Block::Heading { .. } => {
-            let (content, style_name, level) = match block {
-                Block::Paragraph { content, style_name, .. } => (content, style_name.as_deref(), None),
-                Block::Heading { content, style_name, level, .. } => (content, style_name.as_deref(), Some(*level)),
-                _ => unreachable!(),
-            };
-            let props = resolve_paragraph_props(style_name, styles, level);
-            
-            if start_offset == 0 {
-                let h = block_height(block, styles, font_map, state.usable_width);
-                let line_h = props.font_size * props.line_height_factor;
-                let content_h = h - props.space_before - props.space_after;
-                let total_lines = (content_h / line_h).max(1.0).round() as usize;
-                let min_lines = if total_lines >= 2 { 2 } else { 1 };
-                let min_h = props.space_before + (min_lines as f64 * line_h);
-                
-                if state.current_y_from_top + min_h > state.page_height - state.bottom_margin && state.current_y_from_top > state._top_margin {
-                    *overflowed = true;
-                    return 0;
-                }
+        let content_compressed = crate::compress::compress(page_data.content_stream.as_bytes());
+        pdf.stream(content_ref, &content_compressed)
+            .filter(pdf_writer::Filter::FlateDecode);
 
-                if props.space_before > 0.0 {
-                    if state.advance(props.space_before) {
-                        *overflowed = true;
-                        return 0;
-                    }
-                }
-            }
+        let mut page = pdf.page(page_ref);
+        page.parent(pages_ref);
+        page.media_box(bleed_rect);
+        page.trim_box(trim);
+        page.bleed_box(bleed_rect);
+        page.contents(content_ref);
+        page.pair(Name(b"Metadata"), xmp_ref);
 
-            let emitted = emit_para_content(content, props, styles, font_map,
-                state, overflowed, out, start_offset);
-            
-            if !*overflowed {
-                let (style_name, level) = match block {
-                    Block::Paragraph { style_name, .. } => (style_name.as_deref(), None),
-                    Block::Heading { style_name, level, .. } => (style_name.as_deref(), Some(*level)),
-                    _ => unreachable!(),
-                };
-                let props = resolve_paragraph_props(style_name, styles, level);
-                let after = props.space_after.max(if level.is_some() { 0.0 } else { props.font_size * 0.4 });
-                if state.advance(after) {
-                    *overflowed = true;
-                }
-            }
-            emitted
-        }
-        Block::HorizontalRule => {
-            if start_offset > 0 { return 0; }
-            let y = state.pdf_y();
-            write_horizontal_rule(state.left_margin, y, state.usable_width, out);
-            if state.advance(12.0) && !*overflowed { *overflowed = true; }
-            1
-        }
-        Block::PageBreak => {
-            *overflowed = true;
-            1
-        }
-        _ => 0,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Inline rendering helpers
-// ---------------------------------------------------------------------------
-
-fn emit_para_content(
-    content: &[Inline],
-    props: ParagraphProps,
-    _styles: &HashMap<String, StyleDefinition>,
-    font_map: &HashMap<FontKey, (String, FontSubset)>,
-    state: &mut LayoutState,
-    overflowed: &mut bool,
-    out: &mut String,
-    start_line_idx: usize,
-) -> usize {
-    let full_text: String = content.iter().map(|i| match i {
-        Inline::Text { text, .. } => text.as_str(),
-        Inline::LineBreak => "\n",
-    }).collect();
-
-    let key = (props.font_family.to_lowercase(), if props.bold { 700 } else { 400 }, props.italic);
-    let (pdf_name, subset) = match font_map.get(&key)
-        .or_else(|| font_map.get(&(props.font_family.to_lowercase(), 400, false)))
-        .or_else(|| font_map.values().next()) {
-        Some(v) => v,
-        None => return 0,
-    };
-
-    let font_size = props.font_size;
-    let sw = space_width(&subset.bytes, font_size);
-    let line_height = font_size * props.line_height_factor;
-
-    let base_usable_width = state.usable_width - props.margin_left - props.margin_right;
-
-    let mut lines_emitted = 0;
-    let mut total_lines_processed = 0;
-
-    for (p_idx, line_text) in full_text.lines().enumerate() {
-        let is_last_para_chunk = p_idx == full_text.lines().count() - 1;
-        let is_first_p_chunk = p_idx == 0 && start_line_idx == 0;
-        
-        let first_line_width = if is_first_p_chunk { 
-            base_usable_width - props.text_indent 
-        } else { 
-            base_usable_width 
-        };
-        
-        let words = break_words(line_text, subset, font_size);
-        let wrapped_lines = wrap_words_with_indent(words, sw, first_line_width, base_usable_width);
-        let total_wrapped = wrapped_lines.len();
-
-        for (l_idx, line_words) in wrapped_lines.into_iter().enumerate() {
-            if total_lines_processed < start_line_idx {
-                total_lines_processed += 1;
-                continue;
-            }
-
-            if state.current_y_from_top + line_height > state.page_height - state.bottom_margin {
-                *overflowed = true;
-                return lines_emitted;
-            }
-
-            let is_first_line = is_first_p_chunk && l_idx == 0;
-            let is_last_line = is_last_para_chunk && l_idx == total_wrapped - 1;
-            let line_usable_width = if is_first_line { first_line_width } else { base_usable_width };
-            
-            let line_text_width: f64 = line_words.iter().map(|w| w.width).sum();
-            let total_spaces = if line_words.len() > 1 { (line_words.len() - 1) as f64 } else { 0.0 };
-            let line_width = line_text_width + total_spaces * sw;
-            
-            let mut x_alignment_offset = 0.0;
-            let mut word_spacing = 0.0;
-            
-            match props.text_align {
-                TextAlign::Center => {
-                    x_alignment_offset = (line_usable_width - line_width) / 2.0;
-                }
-                TextAlign::Right => {
-                    x_alignment_offset = line_usable_width - line_width;
-                }
-                TextAlign::Justify => {
-                    if !is_last_line && line_words.len() > 1 {
-                        word_spacing = (line_usable_width - line_width) / total_spaces;
-                    }
-                }
-                TextAlign::Left => {}
-            }
-
-            let line_str: String = line_words.iter().enumerate().map(|(i, w)| {
-                if i == 0 { w.text.clone() } else { format!(" {}", w.text) }
-            }).collect();
-            
-            let x = state.left_margin + props.margin_left + (if is_first_line { props.text_indent } else { 0.0 }) + x_alignment_offset;
-            let y = state.pdf_y() - font_size;
-            write_text_run(&line_str, subset, pdf_name, font_size, x, y, 0.0, 0.0, 0.0, word_spacing, out);
-            state.advance(line_height);
-            lines_emitted += 1;
-            total_lines_processed += 1;
+        let mut resources = page.resources();
+        let mut fonts = resources.fonts();
+        for (pdf_name, font_ref, _) in font_map.values() {
+            fonts.pair(Name(pdf_name.as_bytes()), *font_ref);
         }
     }
-    lines_emitted
+
+    Ok(pdf.finish())
 }
 
 

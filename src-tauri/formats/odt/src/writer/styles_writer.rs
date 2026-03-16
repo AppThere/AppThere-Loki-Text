@@ -208,43 +208,17 @@ fn write_text_properties(
 
 /// Returns `true` if `key` is a paragraph-property attribute.
 fn is_paragraph_property(key: &str) -> bool {
-    key.starts_with("fo:margin")
-        || key.starts_with("fo:text-indent")
-        || key.starts_with("fo:text-align")
-        || key.starts_with("fo:orphans")
-        || key.starts_with("fo:widows")
-        || key.starts_with("fo:hyphenate")
-        || key.starts_with("fo:break-")
-        || key == "fo:line-height"
+    crate::writer::styles_utils::is_paragraph_property(key)
 }
 
 /// Returns `true` if `key` is a text-property attribute.
 fn is_text_property(key: &str) -> bool {
-    key.starts_with("fo:font")
-        || key.starts_with("fo:color")
-        || key.starts_with("fo:font-size")
-        || key.starts_with("fo:font-weight")
-        || key.starts_with("fo:font-style")
-        || key.starts_with("fo:text-transform")
-        || key == "fo:background-color"
-        || key == "loki:colour"
+    crate::writer::styles_utils::is_text_property(key)
 }
 
 /// Normalizes unitless line-height values to ODF percent format.
-///
-/// ODF requires line-height to be a percentage or length. Unitless numbers
-/// (e.g., `1.5`) are converted to percent (`150%`).
 fn coerce_line_height(key: &str, value: &str) -> String {
-    if key != "fo:line-height" {
-        return value.to_string();
-    }
-    let val = value.trim();
-    if val.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        if let Ok(num) = val.parse::<f32>() {
-            return format!("{}%", (num * 100.0).round());
-        }
-    }
-    value.to_string()
+    crate::writer::styles_utils::coerce_line_height(key, value)
 }
 
 fn write_builtin_styles(writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), String> {

@@ -20,14 +20,20 @@
 
 mod iter;
 
+use serde::{Deserialize, Serialize};
 use crate::error::PdfError;
 use crate::export_settings::{PdfExportSettings, PdfXStandard};
+use common_core::block::Block;
 use common_core::colour_management::{Colour, ColourSpace};
+use common_core::style::StyleDefinition;
+use common_core::Metadata;
 use iter::{for_each_colour, for_each_object};
+use std::collections::HashMap;
 use vector_core::document::VectorDocument;
 
 /// A single conformance violation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConformanceViolation {
     /// Short rule identifier, e.g. "X1a/no-transparency".
     pub rule: String,
@@ -101,6 +107,113 @@ pub fn validate(document: &VectorDocument, settings: &PdfExportSettings) -> Conf
     ConformanceReport {
         standard,
         violations,
+    }
+}
+
+/// Validate a text document (blocks + styles + metadata) against PDF/X settings.
+///
+/// Returns a flat list of violations. Hard violations (not auto-fixable) block
+/// export; warnings can be reported to the user but do not block export.
+pub fn validate_text(
+    blocks: &[Block],
+    styles: &HashMap<String, StyleDefinition>,
+    metadata: &Metadata,
+    settings: &PdfExportSettings,
+) -> Vec<ConformanceViolation> {
+    let mut violations = Vec::new();
+
+    check_output_condition(settings, &mut violations);
+    check_text_not_empty(blocks, &mut violations);
+    check_text_title(metadata, &mut violations);
+
+    #[cfg(feature = "colour-management")]
+    check_text_colours_in_styles(styles, settings.standard, &mut violations);
+
+    violations
+}
+
+// ---------------------------------------------------------------------------
+// Text document check functions
+// ---------------------------------------------------------------------------
+
+/// At least one block must exist with non-empty content.
+fn check_text_not_empty(blocks: &[Block], violations: &mut Vec<ConformanceViolation>) {
+    let has_content = blocks.iter().any(|b| match b {
+        Block::Paragraph { content, .. } | Block::Heading { content, .. } => !content.is_empty(),
+        Block::BulletList { content } | Block::OrderedList { content } => !content.is_empty(),
+        Block::Table { content } => !content.is_empty(),
+        Block::HorizontalRule | Block::PageBreak => true,
+        _ => false,
+    });
+    if !has_content {
+        violations.push(ConformanceViolation::new(
+            "X/text-empty-document",
+            "Text document has no renderable content; the exported PDF will be blank",
+        ));
+    }
+}
+
+/// Document title is recommended for PDF/X.
+fn check_text_title(metadata: &Metadata, violations: &mut Vec<ConformanceViolation>) {
+    let has_title = metadata
+        .title
+        .as_deref()
+        .map(|t| !t.trim().is_empty())
+        .unwrap_or(false);
+    if !has_title {
+        violations.push(ConformanceViolation {
+            rule: "X/text-missing-title".to_string(),
+            message: "Document has no title; PDF/X metadata will be incomplete".to_string(),
+            auto_fixable: true, // warning — does not block export
+        });
+    }
+}
+
+/// Validate colour usage in style definitions.
+#[cfg(feature = "colour-management")]
+fn check_text_colours_in_styles(
+    styles: &HashMap<String, StyleDefinition>,
+    standard: PdfXStandard,
+    violations: &mut Vec<ConformanceViolation>,
+) {
+    use common_core::colour_management::Colour;
+    for (name, style) in styles {
+        if let Some(colour) = &style.font_colour {
+            check_text_colour(colour, standard, &format!("font_colour in style '{}'" , name), violations);
+        }
+        if let Some(colour) = &style.background_colour {
+            check_text_colour(colour, standard, &format!("background_colour in style '{}'", name), violations);
+        }
+    }
+}
+
+#[cfg(feature = "colour-management")]
+fn check_text_colour(
+    colour: &Colour,
+    standard: PdfXStandard,
+    location: &str,
+    violations: &mut Vec<ConformanceViolation>,
+) {
+    match colour {
+        Colour::Linked { id } => {
+            violations.push(ConformanceViolation::new(
+                "X/text-unresolved-linked-colour",
+                format!("Unresolved Linked colour id={} at {}", id, location),
+            ));
+        }
+        Colour::Spot { cmyk_fallback, .. } => {
+            // Recursively validate the fallback.
+            check_text_colour(cmyk_fallback, standard, location, violations);
+        }
+        Colour::Rgb { .. } => {
+            if standard.requires_cmyk_only() {
+                violations.push(ConformanceViolation::new(
+                    "X1a/text-no-rgb-colour",
+                    format!("RGB colour at {} not allowed in PDF/X-1a", location),
+                ));
+            }
+        }
+        Colour::Cmyk { .. } | Colour::Lab { .. } => {}
     }
 }
 

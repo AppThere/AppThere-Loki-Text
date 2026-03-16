@@ -69,6 +69,7 @@ impl PdfXStandard {
 
 /// Settings controlling the PDF export.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PdfExportSettings {
     /// The PDF/X standard to conform to.
     pub standard: PdfXStandard,

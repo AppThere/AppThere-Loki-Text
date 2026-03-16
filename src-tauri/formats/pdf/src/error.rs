@@ -39,6 +39,10 @@ pub enum PdfError {
     /// An internal error (bug in the writer).
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// A font could not be parsed or loaded.
+    #[error("Font load error: {0}")]
+    FontLoad(String),
 }
 
 impl From<std::io::Error> for PdfError {

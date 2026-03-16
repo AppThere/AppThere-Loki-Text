@@ -42,6 +42,7 @@ export default function App() {
         handleNew,
         handleClose,
         handleExportEPUB,
+        handleExportPDF,
         loadDocument,
         isLoading
     } = useFileOperations();
@@ -77,6 +78,7 @@ export default function App() {
             listen('menu-save', withErrorHandling(handleSave, "Failed to save document")),
             listen('menu-save-as', () => setFileTypeDialogOpen(true)),
             listen('menu-export-epub', withErrorHandling(handleExportEPUB, "Failed to export EPUB")),
+            listen('menu-export-pdf', withErrorHandling(handleExportPDF, "Failed to export PDF/X")),
             listen('menu-close', () => handleClose()),
         ];
 
@@ -111,7 +113,7 @@ export default function App() {
             unlistenPromises.forEach(async (p) => (await p)());
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [handleNew, handleOpen, handleSave, handleSaveAs, handleClose, handleExportEPUB]);
+    }, [handleNew, handleOpen, handleSave, handleSaveAs, handleClose, handleExportEPUB, handleExportPDF]);
 
     // Visual Viewport handling for mobile keyboard
     useEffect(() => {
@@ -174,6 +176,7 @@ export default function App() {
                     onSaveAs={() => setFileTypeDialogOpen(true)}
                     onClose={handleClose}
                     onExportEPUB={handleExportEPUB}
+                    onExportPDF={handleExportPDF}
                     isLoading={isLoading}
                     onMetadataClick={() => setMetadataDialogOpen(true)}
                 />

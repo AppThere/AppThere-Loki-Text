@@ -5,6 +5,10 @@ edition = "2021"
 description = "PDF/X validator and writer for AppThere Loki"
 license = "Apache-2.0"
 
+[features]
+default = ["colour-management"]
+colour-management = []
+
 [dependencies]
 common-core = { path = "../common-core", features = ["colour-management"] }
 vector-core = { path = "../vector-core" }
@@ -15,6 +19,8 @@ fnv = "1.0"
 pdf-writer = "0.12"
 resvg = "0.47"
 lcms2 = "6"
+ttf-parser = "0.25"
+rustybuzz = "0.20"
 
 [dev-dependencies]
 lopdf = "0.34"
@@ -34,3 +40,11 @@ path = "tests/writer.rs"
 [[test]]
 name = "writer_x1a"
 path = "tests/writer_x1a.rs"
+
+[[test]]
+name = "fonts"
+path = "tests/fonts.rs"
+
+[[test]]
+name = "text_writer"
+path = "tests/text_writer.rs"

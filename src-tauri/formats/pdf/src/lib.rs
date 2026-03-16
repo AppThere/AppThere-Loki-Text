@@ -27,12 +27,14 @@
 pub mod conformance;
 pub mod error;
 pub mod export_settings;
+pub mod fonts;
 pub(crate) mod flatten;
 pub(crate) mod preexport;
 pub mod writer;
 
 // Re-export the most commonly used types.
-pub use conformance::{validate, ConformanceReport, ConformanceViolation};
+pub use conformance::{validate, validate_text, ConformanceReport, ConformanceViolation};
 pub use error::PdfError;
 pub use export_settings::{PdfExportSettings, PdfXStandard};
-pub use writer::write_pdf_x;
+pub use fonts::{FontResolver, MapFontResolver};
+pub use writer::{write_pdf_x, write_text_pdf};

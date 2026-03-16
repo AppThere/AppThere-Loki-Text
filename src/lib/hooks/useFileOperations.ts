@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument, saveEpub } from '../tauri/commands';
+import { openDocument, saveDocument, saveEpub, exportTextPdfX, DEFAULT_PDF_SETTINGS } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -286,6 +286,39 @@ export function useFileOperations() {
         }
     };
 
+    const handleExportPDF = async () => {
+        if (!currentContent) return;
+        try {
+            const cleanTitle = (metadata.title || 'Untitled')
+                .replace(/[<>:"/\\|?*]/g, '_')
+                .trim();
+            const selected = await save({
+                title: 'Export to PDF/X',
+                defaultPath: `${cleanTitle}.pdf`,
+                filters: [{ name: 'PDF Document', extensions: ['pdf'] }],
+            });
+            if (!selected) return;
+
+            setIsLoading(true);
+            const path = typeof selected === 'string' ? selected : (selected as any).path;
+            if (!path) return;
+
+            await exportTextPdfX(
+                JSON.stringify(currentContent),
+                styles,
+                metadata,
+                DEFAULT_PDF_SETTINGS,
+                path,
+            );
+        } catch (error) {
+            console.error('Failed to export PDF/X:', error);
+            notifyError('Failed to export PDF/X', error);
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return {
         handleOpen,
         handleOpenTemplate,
@@ -294,6 +327,7 @@ export function useFileOperations() {
         handleNew,
         handleClose,
         handleExportEPUB,
+        handleExportPDF,
         loadDocument,
         isLoading,
     };

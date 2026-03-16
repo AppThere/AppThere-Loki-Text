@@ -36,6 +36,11 @@ export interface PdfExportSettings {
     output_condition: string;
     /** Registry URL for the output condition. */
     registry_name: string;
+    /**
+     * Rasterisation DPI for transparency flattening (PDF/X-1a only).
+     * Typical values: 150 (draft), 300 (standard), 600 (high quality).
+     */
+    resolution_dpi?: number;
 }
 
 /** A single PDF/X conformance violation. */
@@ -44,6 +49,11 @@ export interface ConformanceViolation {
     rule: string;
     /** Human-readable description of the violation. */
     message: string;
+    /**
+     * When true, the export pipeline handles this violation automatically
+     * (e.g. colour conversion, transparency flattening). Export still succeeds.
+     */
+    auto_fixable?: boolean;
 }
 
 /** Default PDF/X-4 export settings for sRGB documents. */
@@ -62,6 +72,7 @@ export const DEFAULT_X1A_SETTINGS: PdfExportSettings = {
     output_condition_identifier: 'FOGRA39',
     output_condition: 'ISO Coated v2 300% (ECI)',
     registry_name: 'http://www.color.org',
+    resolution_dpi: 300,
 };
 
 /** Whether this standard allows transparency (opacity < 1.0). */
@@ -112,32 +123,30 @@ export function deltaEColourClass(deltaE: number): string {
     return 'text-destructive';
 }
 
-/**
- * Returns true if the violation is auto-fixable.
- *
- * Note: ConformanceViolation (from pdfTypes.ts) only has 'rule' and 'message'
- * fields — there is no auto_fixable field in the current type. This always
- * returns false until the Rust side adds that field.
- */
-export function isAutoFixable(_violation: ConformanceViolation): boolean {
-    return false;
+/** Returns true if the violation is handled automatically by the export pipeline. */
+export function isAutoFixable(violation: ConformanceViolation): boolean {
+    return violation.auto_fixable === true;
 }
 
 /**
- * Group violations into errors and warnings.
+ * Group violations into errors, warnings, and auto-fixable notices.
  *
- * ConformanceViolation only has 'rule' and 'message' — no 'level' field.
- * We classify by rule: 'X/empty-document' → warning, everything else → error.
+ * - auto_fixable: handled by the pipeline; export still succeeds.
+ * - 'X/empty-document': warning only.
+ * - everything else: blocking error.
  */
 export function groupViolationsByLevel(violations: ConformanceViolation[]): {
     errors: ConformanceViolation[];
     warnings: ConformanceViolation[];
+    autoFixed: ConformanceViolation[];
 } {
     const errors: ConformanceViolation[] = [];
     const warnings: ConformanceViolation[] = [];
+    const autoFixed: ConformanceViolation[] = [];
     for (const v of violations) {
-        if (v.rule === 'X/empty-document') warnings.push(v);
+        if (isAutoFixable(v)) autoFixed.push(v);
+        else if (v.rule === 'X/empty-document') warnings.push(v);
         else errors.push(v);
     }
-    return { errors, warnings };
+    return { errors, warnings, autoFixed };
 }

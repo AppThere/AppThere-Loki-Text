@@ -12,42 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ConformanceViolation fields verified from pdfTypes.ts: { rule: string; message: string }
-// groupViolationsByLevel verified from pdfTypes.ts: classifies by rule prefix
-
 import type { ConformanceViolation } from '@/lib/vector/pdfTypes';
 import { groupViolationsByLevel } from '@/lib/vector/pdfTypes';
 import { cn } from '@/lib/utils';
 
 interface ViolationRowProps {
     violation: ConformanceViolation;
-    isError: boolean;
+    variant: 'error' | 'warning' | 'auto-fix';
 }
 
-function ViolationRow({ violation, isError }: ViolationRowProps) {
+function ViolationRow({ violation, variant }: ViolationRowProps) {
+    const containerClass = {
+        error: 'border-destructive/50 bg-destructive/5',
+        warning: 'border-yellow-400/50 bg-yellow-50/50 dark:bg-yellow-900/10',
+        'auto-fix': 'border-green-400/50 bg-green-50/50 dark:bg-green-900/10',
+    }[variant];
+
+    const badgeClass = {
+        error: 'bg-destructive text-destructive-foreground',
+        warning: 'bg-yellow-400 text-yellow-900',
+        'auto-fix': 'bg-green-600 text-white',
+    }[variant];
+
+    const badgeLabel = {
+        error: 'Error',
+        warning: 'Warning',
+        'auto-fix': 'Auto-fix',
+    }[variant];
+
     return (
-        <li
-            className={cn(
-                'rounded-md border p-3 text-sm',
-                isError
-                    ? 'border-destructive/50 bg-destructive/5'
-                    : 'border-yellow-400/50 bg-yellow-50/50 dark:bg-yellow-900/10',
-            )}
-        >
+        <li className={cn('rounded-md border p-3 text-sm', containerClass)}>
             <div className="flex items-start gap-2">
                 <span
                     className={cn(
                         'mt-0.5 shrink-0 text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
-                        isError
-                            ? 'bg-destructive text-destructive-foreground'
-                            : 'bg-yellow-400 text-yellow-900',
+                        badgeClass,
                     )}
                 >
-                    {isError ? 'Error' : 'Warning'}
+                    {badgeLabel}
                 </span>
                 <div className="min-w-0">
                     <p className="font-medium text-foreground">{violation.message}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground font-mono">{violation.rule}</p>
+                    {variant === 'auto-fix' && (
+                        <p className="mt-0.5 text-xs text-green-700 dark:text-green-400">
+                            Will be handled automatically during export
+                        </p>
+                    )}
+                    <p className="mt-0.5 text-xs text-muted-foreground font-mono">
+                        {violation.rule}
+                    </p>
                 </div>
             </div>
         </li>
@@ -82,7 +95,7 @@ export function ViolationList({ violations, loading = false }: ViolationListProp
         );
     }
 
-    const { errors, warnings } = groupViolationsByLevel(violations);
+    const { errors, warnings, autoFixed } = groupViolationsByLevel(violations);
 
     return (
         <div className="space-y-3">
@@ -93,7 +106,19 @@ export function ViolationList({ violations, loading = false }: ViolationListProp
                     </p>
                     <ul className="space-y-2">
                         {errors.map((v) => (
-                            <ViolationRow key={v.rule} violation={v} isError={true} />
+                            <ViolationRow key={v.rule} violation={v} variant="error" />
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {autoFixed.length > 0 && (
+                <div>
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1.5">
+                        {autoFixed.length} {autoFixed.length === 1 ? 'Issue' : 'Issues'} — handled automatically
+                    </p>
+                    <ul className="space-y-2">
+                        {autoFixed.map((v) => (
+                            <ViolationRow key={v.rule} violation={v} variant="auto-fix" />
                         ))}
                     </ul>
                 </div>
@@ -105,7 +130,7 @@ export function ViolationList({ violations, loading = false }: ViolationListProp
                     </p>
                     <ul className="space-y-2">
                         {warnings.map((v) => (
-                            <ViolationRow key={v.rule} violation={v} isError={false} />
+                            <ViolationRow key={v.rule} violation={v} variant="warning" />
                         ))}
                     </ul>
                 </div>

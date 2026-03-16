@@ -14,7 +14,7 @@
 
 // Types verified from their source files before use.
 // PdfExportSettings fields: standard, bleed_pt, output_condition_identifier,
-//   output_condition, registry_name.
+//   output_condition, registry_name, resolution_dpi.
 // ProfileInfo fields: id, name, description.
 
 import { useState, useEffect } from 'react';
@@ -97,7 +97,7 @@ export function ExportPdfDialog({ open, onOpenChange }: ExportPdfDialogProps) {
         exportState;
 
     const errorsExist = violations.some(
-        (v) => v.rule !== 'X/empty-document',
+        (v) => v.rule !== 'X/empty-document' && !v.auto_fixable,
     );
 
     const renderBody = () => {
@@ -169,6 +169,27 @@ export function ExportPdfDialog({ open, onOpenChange }: ExportPdfDialogProps) {
                             docColourSpace={docColourSpace}
                             onChange={handleOutputIntentChange}
                         />
+                    </div>
+                )}
+
+                {settings.standard === 'X1a2001' && (
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Flattening resolution (PDF/X-1a)</p>
+                        <div className="flex gap-2">
+                            {([150, 300, 600] as const).map((dpi) => (
+                                <button
+                                    key={dpi}
+                                    onClick={() => setSettings((s) => ({ ...s, resolution_dpi: dpi }))}
+                                    className={`flex-1 rounded-md border px-3 py-2 text-sm ${
+                                        (settings.resolution_dpi ?? 300) === dpi
+                                            ? 'border-primary bg-primary/10 font-medium'
+                                            : 'border-border hover:bg-muted'
+                                    }`}
+                                >
+                                    {dpi} DPI
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 

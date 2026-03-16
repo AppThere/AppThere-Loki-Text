@@ -62,20 +62,19 @@ fn output_starts_with_pdf_header() {
 }
 
 // ---------------------------------------------------------------------------
-// Test: non-conformant document returns Err
+// Test: RGB document for X-1a is auto-converted (not rejected)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn x1a_rgb_document_returns_error() {
+fn x1a_rgb_document_auto_converts_to_cmyk() {
+    // RGB colour violations are auto-fixable for X-1a: the pipeline converts
+    // them to CMYK before writing, so export must succeed.
     let doc = rgb_rect_document();
     let result = write_pdf_x(&doc, &x1a_settings());
-    assert!(result.is_err(), "X1a writer must reject RGB document");
-    let err = result.unwrap_err();
-    let msg = err.to_string();
     assert!(
-        msg.contains("conformance") || msg.contains("Conformance") || msg.contains("X1a"),
-        "Error message should mention conformance: {}",
-        msg
+        result.is_ok(),
+        "X-1a writer must auto-convert RGB document, got {:?}",
+        result.err()
     );
 }
 

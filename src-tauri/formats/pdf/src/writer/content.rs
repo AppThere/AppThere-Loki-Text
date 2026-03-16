@@ -15,6 +15,7 @@
 //! PDF content stream builder — converts vector objects to PDF operators.
 
 use crate::error::PdfError;
+use crate::flatten::{FlattenedItem, FlattenedLayer, RasterRegion};
 use crate::writer::colour::PdfColour;
 use crate::writer::path_ops::{ops_to_pdf_stream, parse_svg_path, PathOp};
 use common_core::colour_management::Colour;
@@ -211,4 +212,62 @@ fn write_line_join(join: &LineJoin, buf: &mut String) {
         LineJoin::Bevel => 2,
     };
     buf.push_str(&format!("{} j\n", code));
+}
+
+// ---------------------------------------------------------------------------
+// X-1a flattened content
+// ---------------------------------------------------------------------------
+
+/// Generate a content stream for a `FlattenedLayer` (PDF/X-1a path).
+///
+/// Vector items are written using the existing operators.
+/// Raster items use the `Do` operator to paint the pre-embedded XObject.
+/// `image_names` must map `RasterRegion` (by pointer address) to the XObject
+/// name; `build_flattened_content` builds this mapping before calling.
+pub fn build_flattened_content(
+    layers: &[FlattenedLayer],
+    page_height_pt: f64,
+    doc_dpi: f64,
+    image_names: &[(usize, String)], // (region addr, name)
+) -> Result<String, PdfError> {
+    let mut buf = String::new();
+    for layer in layers {
+        if !layer.visible {
+            continue;
+        }
+        for item in &layer.items {
+            match item {
+                FlattenedItem::Vector(obj) => write_object(obj, page_height_pt, &mut buf)?,
+                FlattenedItem::Raster(region) => {
+                    let addr = region as *const RasterRegion as usize;
+                    if let Some((_, name)) = image_names.iter().find(|(a, _)| *a == addr) {
+                        emit_raster_region(region, name, page_height_pt, doc_dpi, &mut buf);
+                    }
+                }
+            }
+        }
+    }
+    Ok(buf)
+}
+
+/// Emit the PDF operators to paint a rasterised image region.
+///
+/// The image is positioned via a `cm` (current transformation matrix) operator
+/// and painted with `Do`. The Y axis is flipped for PDF coordinates.
+pub fn emit_raster_region(
+    region: &RasterRegion,
+    image_name: &str,
+    page_height_pt: f64,
+    doc_dpi: f64,
+    buf: &mut String,
+) {
+    let w_pt = region.width as f64 * 72.0 / region.dpi;
+    let h_pt = region.height as f64 * 72.0 / region.dpi;
+    let x_pt = region.x * 72.0 / doc_dpi;
+    let y_pt = region.y * 72.0 / doc_dpi;
+    let y_pdf = page_height_pt - y_pt - h_pt; // PDF Y-up from bottom
+    buf.push_str(&format!(
+        "q\n{:.4} 0 0 {:.4} {:.4} {:.4} cm\n/{} Do\nQ\n",
+        w_pt, h_pt, x_pt, y_pdf, image_name
+    ));
 }

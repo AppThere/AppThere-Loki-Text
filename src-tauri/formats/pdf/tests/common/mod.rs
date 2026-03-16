@@ -54,6 +54,7 @@ pub fn x1a_settings() -> PdfExportSettings {
         output_condition: "ISO Coated v2".to_string(),
         registry_name: "http://www.color.org".to_string(),
         bleed_pt: 0.0,
+        resolution_dpi: 300,
     }
 }
 

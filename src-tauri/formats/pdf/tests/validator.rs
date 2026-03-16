@@ -22,7 +22,7 @@ mod common;
 
 use common::{cmyk_rect_document, rect_with_opacity, rgb_rect_document, srgb_settings};
 use common::{x1a_settings, x4_settings};
-use common_core::colour_management::{Colour, ColourSpace, DocumentColourSettings, IccProfileRef};
+use common_core::colour_management::Colour;
 use loki_pdf::conformance::validate;
 use vector_core::canvas::Canvas;
 use vector_core::document::VectorDocument;

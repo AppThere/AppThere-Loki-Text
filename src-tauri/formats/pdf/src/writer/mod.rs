@@ -20,6 +20,7 @@
 
 pub mod colour;
 pub mod content;
+pub mod image;
 pub mod metadata;
 pub mod page;
 pub mod path_ops;
@@ -28,7 +29,8 @@ pub mod resources;
 use crate::conformance::validate;
 use crate::error::PdfError;
 use crate::export_settings::PdfExportSettings;
-use content::build_content_stream;
+use crate::flatten::{FlattenedItem, RasterRegion};
+use content::{build_content_stream, build_flattened_content};
 use metadata::build_xmp_packet;
 use page::compute_page_geometry;
 use pdf_writer::types::OutputIntentSubtype;
@@ -37,23 +39,23 @@ use vector_core::document::VectorDocument;
 
 /// Write a `VectorDocument` to PDF/X-conformant bytes.
 ///
-/// The document is validated against `settings` before any PDF is written.
-/// Returns `Err(PdfError::Conformance(...))` if validation fails.
+/// Validation runs first. Auto-fixable violations (colour conversion,
+/// transparency flattening) are handled by the pipeline — only genuinely
+/// unresolvable issues block export.
 pub fn write_pdf_x(
     document: &VectorDocument,
     settings: &PdfExportSettings,
 ) -> Result<Vec<u8>, PdfError> {
-    // Validate first — this is non-negotiable.
+    // 1. Validate — collect all violations.
     let report = validate(document, settings);
-    // Allow the "empty document" warning but treat all other violations as
-    // hard errors.
-    let hard_violations: Vec<_> = report
+    // Hard violations: neither auto-fixable nor the empty-document warning.
+    let hard: Vec<_> = report
         .violations
         .iter()
-        .filter(|v| v.rule != "X/empty-document")
+        .filter(|v| v.rule != "X/empty-document" && !v.auto_fixable)
         .collect();
-    if !hard_violations.is_empty() {
-        let msg = hard_violations
+    if !hard.is_empty() {
+        let msg = hard
             .iter()
             .map(|v| format!("[{}] {}", v.rule, v.message))
             .collect::<Vec<_>>()
@@ -61,13 +63,16 @@ pub fn write_pdf_x(
         return Err(PdfError::Conformance(msg));
     }
 
-    let canvas = &document.canvas;
+    // 2. Pre-export preparation: expand linked colours + convert colours.
+    let prepared = crate::preexport::prepare_for_export(document, settings)?;
+
+    let canvas = &prepared.canvas;
     let geo = compute_page_geometry(canvas.width, canvas.height, canvas.dpi, settings);
     let page_h_pt = geo.trim_box.height();
 
     let mut pdf = Pdf::new();
+    let mut next_ref = 6i32; // 1-5 reserved for catalog/pages/page/content/xmp
 
-    // Object ref allocation.
     let catalog_ref = Ref::new(1);
     let pages_ref = Ref::new(2);
     let page_ref = Ref::new(3);
@@ -99,22 +104,26 @@ pub fn write_pdf_x(
         pages.count(1);
     }
 
-    // ---- Content stream ----
-    let mut all_objects = Vec::new();
-    for layer in &document.layers {
-        if layer.visible {
-            all_objects.extend(layer.objects.iter().cloned());
+    // 3. Build content — branch on X-1a (flatten) vs X-4 (vector).
+    let (content_bytes, image_xobjects) = if settings.standard.requires_cmyk_only() {
+        build_x1a_content(&prepared, settings, page_h_pt, &mut pdf, &mut next_ref)?
+    } else {
+        let mut all = Vec::new();
+        for layer in &prepared.layers {
+            if layer.visible {
+                all.extend(layer.objects.iter().cloned());
+            }
         }
-    }
-    let content_str = build_content_stream(&all_objects, page_h_pt)?;
-    let content_bytes = content_str.into_bytes();
+        let s = build_content_stream(&all, page_h_pt)?;
+        (s.into_bytes(), Vec::new())
+    };
+
     pdf.stream(content_ref, &content_bytes);
 
-    // ---- XMP metadata stream ----
-    let title = document.metadata.title.as_deref();
-    let xmp = build_xmp_packet(title, settings);
-    let xmp_bytes = xmp.into_bytes();
+    // ---- XMP metadata ----
+    let xmp = build_xmp_packet(prepared.metadata.title.as_deref(), settings);
     {
+        let xmp_bytes = xmp.into_bytes();
         let mut xmp_stream = pdf.stream(xmp_ref, &xmp_bytes);
         xmp_stream.pair(Name(b"Type"), Name(b"Metadata"));
         xmp_stream.pair(Name(b"Subtype"), Name(b"XML"));
@@ -124,7 +133,6 @@ pub fn write_pdf_x(
     let media = geo.media_box;
     let trim = geo.trim_box;
     let bleed = geo.bleed_box;
-
     {
         let mut page = pdf.page(page_ref);
         page.parent(pages_ref);
@@ -148,7 +156,50 @@ pub fn write_pdf_x(
         ));
         page.contents(content_ref);
         page.pair(Name(b"Metadata"), xmp_ref);
+
+        // Add XObject resources for any embedded raster images.
+        if !image_xobjects.is_empty() {
+            let mut resources = page.resources();
+            let mut xobjs = resources.x_objects();
+            for (name, img_ref) in &image_xobjects {
+                xobjs.pair(Name(name.as_bytes()), *img_ref);
+            }
+        }
     }
 
     Ok(pdf.finish())
+}
+
+/// Build the content stream for PDF/X-1a: flatten transparency then write.
+///
+/// Returns `(content_bytes, [(xobject_name, image_ref)])`.
+fn build_x1a_content(
+    doc: &VectorDocument,
+    settings: &PdfExportSettings,
+    page_h_pt: f64,
+    pdf: &mut Pdf,
+    next_ref: &mut i32,
+) -> Result<(Vec<u8>, Vec<(String, Ref)>), PdfError> {
+    let flattened = crate::flatten::flatten_document(doc, settings.resolution_dpi as f64)?;
+
+    // Assign names and write XObjects for each raster region.
+    let mut image_map: Vec<(usize, String)> = Vec::new(); // (addr, name)
+    let mut xobject_refs: Vec<(String, Ref)> = Vec::new();
+    let mut img_counter = 0u32;
+
+    for flat_layer in &flattened {
+        for item in &flat_layer.items {
+            if let FlattenedItem::Raster(region) = item {
+                let name = format!("Im{}", img_counter);
+                img_counter += 1;
+                let addr = region as *const RasterRegion as usize;
+                let (img_ref, _smask_ref) = image::write_image_xobject(region, pdf, next_ref)?;
+                image_map.push((addr, name.clone()));
+                xobject_refs.push((name, img_ref));
+            }
+        }
+    }
+
+    let content = build_flattened_content(&flattened, page_h_pt, doc.canvas.dpi, &image_map)?;
+    Ok((content.into_bytes(), xobject_refs))
 }

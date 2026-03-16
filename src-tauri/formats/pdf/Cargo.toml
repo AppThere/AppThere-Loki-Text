@@ -19,8 +19,10 @@ fnv = "1.0"
 pdf-writer = "0.12"
 resvg = "0.47"
 lcms2 = "6"
-ttf-parser = "0.25"
+ttf-parser = { version = "0.25", features = ["variable-fonts"] }
 rustybuzz = "0.20"
+miniz_oxide = "0.8"
+subsetter = { version = "0.2", features = ["variable-fonts"] }
 
 [dev-dependencies]
 lopdf = "0.34"

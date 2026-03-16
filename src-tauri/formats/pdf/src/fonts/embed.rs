@@ -49,8 +49,9 @@ pub fn embed_font(
     let cmap_ref = alloc(next_ref);
 
     // 1. Font file stream ---------------------------------------------------
-    pdf.stream(font_file_ref, &subset.bytes);
-        // .filter(pdf_writer::Filter::FlateDecode); // Missing actual compression in Phase 7
+    let font_bytes_compressed = crate::compress::compress(&subset.bytes);
+    pdf.stream(font_file_ref, &font_bytes_compressed)
+        .filter(pdf_writer::Filter::FlateDecode);
 
     // 2. Font descriptor ----------------------------------------------------
     write_font_descriptor(pdf, descriptor_ref, font_file_ref, &subset.metrics, subset)?;
@@ -190,7 +191,7 @@ fn write_cid_font(
     if !sorted_widths.is_empty() {
         let mut w_arr = cid.widths();
         for (gid, adv) in &sorted_widths {
-            let pdf_width = (*adv as f32 * 1000.0 / upm);
+            let pdf_width = *adv as f32 * 1000.0 / upm;
             w_arr.consecutive(*gid, [pdf_width]);
         }
     }
@@ -252,6 +253,7 @@ fn write_to_unicode_cmap(pdf: &mut Pdf, cmap_ref: Ref, subset: &FontSubset) {
     );
 
     let cmap_bytes = cmap.into_bytes();
-    pdf.stream(cmap_ref, &cmap_bytes);
-    // .filter(pdf_writer::Filter::FlateDecode); // Missing actual compression in Phase 7
+    let cmap_compressed = crate::compress::compress(&cmap_bytes);
+    pdf.stream(cmap_ref, &cmap_compressed)
+        .filter(pdf_writer::Filter::FlateDecode);
 }

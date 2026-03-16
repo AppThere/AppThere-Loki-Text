@@ -31,7 +31,6 @@ pub fn validate_pdf_x_conformance(
     document: VectorDocument,
     settings: PdfExportSettings,
 ) -> Vec<serde_json::Value> {
-    use serde_json::json;
     let report = validate(&document, &settings);
     report
         .violations

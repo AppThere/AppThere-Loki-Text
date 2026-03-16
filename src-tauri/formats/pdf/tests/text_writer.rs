@@ -41,10 +41,10 @@ fn load_public_sans() -> Option<Vec<u8>> {
 
 fn make_resolver_with_font(font_bytes: Vec<u8>) -> MapFontResolver {
     let mut r = MapFontResolver::new("public sans");
-    r.add_font("public sans", false, false, font_bytes.clone());
-    r.add_font("public sans", true, false, font_bytes.clone());
-    r.add_font("public sans", false, true, font_bytes.clone());
-    r.add_font("public sans", true, true, font_bytes);
+    r.add_font("public sans", 400, false, font_bytes.clone());
+    r.add_font("public sans", 700, false, font_bytes.clone());
+    r.add_font("public sans", 400, true, font_bytes.clone());
+    r.add_font("public sans", 700, true, font_bytes);
     r
 }
 
@@ -162,7 +162,7 @@ fn write_text_pdf_uses_font_family_attribute() {
     };
     let mut resolver = make_resolver_with_font(font_bytes.clone());
     // Register "newsreader" to point to the same bytes for testing.
-    resolver.add_font("newsreader", false, false, font_bytes);
+    resolver.add_font("newsreader", 400, false, font_bytes);
 
     let mut styles = HashMap::new();
     styles.insert(
@@ -200,4 +200,62 @@ fn write_text_pdf_uses_font_family_attribute() {
     };
     let result = write_text_pdf(&blocks, &styles, &metadata, &default_settings(), &resolver);
     assert!(result.is_ok(), "Should succeed with fo:font-family style");
+}
+
+/// Verify that PageBreak blocks correctly trigger the creation of multiple PDF pages.
+#[test]
+fn write_text_pdf_multi_page_support() {
+    let font_bytes = match load_public_sans() {
+        Some(b) => b,
+        None => return,
+    };
+    let resolver = make_resolver_with_font(font_bytes);
+    
+    let blocks = vec![
+        simple_paragraph("Page 1 content"),
+        Block::PageBreak,
+        simple_paragraph("Page 2 content"),
+    ];
+
+    let metadata = Metadata {
+        title: Some("Multi-page Test".to_string()),
+        ..Default::default()
+    };
+    
+    let bytes = write_text_pdf(&blocks, &HashMap::new(), &metadata, &default_settings(), &resolver)
+        .expect("Multi-page export should succeed");
+    
+    // Check that we have multiple /Page objects.
+    // In a PDF, pages are usually defined with "/Type /Page".
+    let content = String::from_utf8_lossy(&bytes);
+    let page_count = content.split("/Type /Page").count() - 1;
+    assert!(page_count >= 2, "Expected at least 2 pages, found {}", page_count);
+}
+
+/// Verify that a very long paragraph correctly splits across multiple pages.
+#[test]
+fn write_text_pdf_paragraph_overflow() {
+    let font_bytes = match load_public_sans() {
+        Some(b) => b,
+        None => return,
+    };
+    let resolver = make_resolver_with_font(font_bytes);
+    
+    // Create a paragraph with enough text to overflow one A4 page.
+    // A4 height is 842pt, margin 72pt. Usable height ~700pt.
+    // Line height ~15pt. 50 lines should overflow.
+    let mut long_text = String::new();
+    for i in 0..100 {
+        long_text.push_str(&format!("Line {} of a very long paragraph that should definitely overflow onto the second page of our PDF document. ", i));
+    }
+    
+    let blocks = vec![simple_paragraph(&long_text)];
+    let metadata = Metadata { title: Some("Overflow Test".to_string()), ..Default::default() };
+    
+    let bytes = write_text_pdf(&blocks, &HashMap::new(), &metadata, &default_settings(), &resolver)
+        .expect("Paragraph overflow export should succeed");
+    
+    let content = String::from_utf8_lossy(&bytes);
+    let page_count = content.split("/Type /Page").count() - 1;
+    assert!(page_count >= 2, "Expected paragraph to split into at least 2 pages, got {}", page_count);
 }

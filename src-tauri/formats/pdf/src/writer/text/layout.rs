@@ -21,10 +21,16 @@ pub struct LayoutState {
     /// Current Y position in PDF points (counting DOWN from top: 0 = top margin).
     pub current_y_from_top: f64,
     pub left_margin: f64,
-    pub top_margin: f64,
+    pub _top_margin: f64,
     pub usable_width: f64,
     pub page_height: f64,
     pub bottom_margin: f64,
+}
+
+/// The result of laying out content for a single page.
+pub struct PageContent {
+    /// The PDF content stream for this page.
+    pub content_stream: String,
 }
 
 impl LayoutState {
@@ -32,7 +38,7 @@ impl LayoutState {
         LayoutState {
             current_y_from_top: margin,
             left_margin: margin,
-            top_margin: margin,
+            _top_margin: margin,
             usable_width: page_width - 2.0 * margin,
             page_height,
             bottom_margin: margin,
@@ -50,10 +56,11 @@ impl LayoutState {
         self.current_y_from_top > self.page_height - self.bottom_margin
     }
 
-    /// Reset to the top margin (simulates a page break — single-page Phase 7).
+    /*
     pub fn reset_page(&mut self) {
         self.current_y_from_top = self.top_margin;
     }
+    */
 }
 
 /// A word and its measured width in points.
@@ -74,15 +81,25 @@ pub fn break_words(text: &str, subset: &FontSubset, font_size: f64) -> Vec<Word>
         .collect()
 }
 
-/// Break a list of words into lines that fit within `max_width`.
-///
-/// Returns a `Vec<Vec<Word>>` where each inner `Vec` is one line.
-pub fn wrap_words(words: Vec<Word>, space_width: f64, max_width: f64) -> Vec<Vec<Word>> {
+/// Break words into lines, allowing a different width for the first line.
+pub fn wrap_words_with_indent(
+    words: Vec<Word>,
+    space_width: f64,
+    first_line_width: f64,
+    subsequent_line_width: f64,
+) -> Vec<Vec<Word>> {
+    if words.is_empty() {
+        return Vec::new();
+    }
+
     let mut lines: Vec<Vec<Word>> = Vec::new();
     let mut current_line: Vec<Word> = Vec::new();
     let mut current_width = 0.0f64;
+    let mut is_first_line = true;
 
     for word in words {
+        let max_width = if is_first_line { first_line_width } else { subsequent_line_width };
+        
         let needed = if current_line.is_empty() {
             word.width
         } else {
@@ -90,16 +107,15 @@ pub fn wrap_words(words: Vec<Word>, space_width: f64, max_width: f64) -> Vec<Vec
         };
 
         if needed <= max_width || current_line.is_empty() {
-            // Fits on current line (or is the first word — never break before first word).
             if !current_line.is_empty() {
                 current_width += space_width;
             }
             current_width += word.width;
             current_line.push(word);
         } else {
-            // Start a new line.
             if !current_line.is_empty() {
                 lines.push(std::mem::take(&mut current_line));
+                is_first_line = false;
             }
             current_width = word.width;
             current_line.push(word);

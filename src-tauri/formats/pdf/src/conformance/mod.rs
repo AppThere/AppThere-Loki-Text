@@ -176,7 +176,7 @@ fn check_text_colours_in_styles(
     standard: PdfXStandard,
     violations: &mut Vec<ConformanceViolation>,
 ) {
-    use common_core::colour_management::Colour;
+    // Removed unused Colour import
     for (name, style) in styles {
         if let Some(colour) = &style.font_colour {
             check_text_colour(colour, standard, &format!("font_colour in style '{}'" , name), violations);

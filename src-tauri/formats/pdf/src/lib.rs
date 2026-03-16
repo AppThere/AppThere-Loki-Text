@@ -28,6 +28,7 @@ pub mod conformance;
 pub mod error;
 pub mod export_settings;
 pub mod fonts;
+pub(crate) mod compress;
 pub(crate) mod flatten;
 pub(crate) mod preexport;
 pub mod writer;

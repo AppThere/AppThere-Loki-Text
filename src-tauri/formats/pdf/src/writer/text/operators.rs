@@ -14,7 +14,6 @@
 
 //! PDF content stream operator emission for text runs.
 
-use ttf_parser::GlyphId;
 
 use crate::fonts::subset::FontSubset;
 
@@ -31,6 +30,7 @@ pub fn write_text_run(
     colour_r: f32,
     colour_g: f32,
     colour_b: f32,
+    word_spacing: f64,
     out: &mut String,
 ) {
     if text.is_empty() {
@@ -40,7 +40,7 @@ pub fn write_text_run(
     // Build glyph hex string for TJ operator.
     let mut hex_glyphs = String::new();
     for ch in text.chars() {
-        let gid: u16 = subset.unicode_map.get(&ch).map(|GlyphId(g)| *g).unwrap_or(0);
+        let gid: u16 = subset.unicode_map.get(&ch).map(|ttf_parser::GlyphId(g)| *g).unwrap_or(0);
         hex_glyphs.push_str(&format!("{:04X}", gid));
     }
 
@@ -48,6 +48,7 @@ pub fn write_text_run(
         "BT\n\
          /{font} {size:.2} Tf\n\
          {r:.4} {g:.4} {b:.4} rg\n\
+         {tw:.4} Tw\n\
          {x:.4} {y:.4} Td\n\
          <{glyphs}> Tj\n\
          ET\n",
@@ -56,6 +57,7 @@ pub fn write_text_run(
         r = colour_r,
         g = colour_g,
         b = colour_b,
+        tw = word_spacing,
         x = x,
         y = y,
         glyphs = hex_glyphs,
@@ -74,6 +76,7 @@ pub fn write_horizontal_rule(x: f64, y: f64, width: f64, out: &mut String) {
     ));
 }
 
+/*
 /// Write a filled rectangle (used for table cell borders).
 pub fn write_rect_stroke(x: f64, y: f64, w: f64, h: f64, out: &mut String) {
     out.push_str(&format!(
@@ -84,3 +87,4 @@ pub fn write_rect_stroke(x: f64, y: f64, w: f64, h: f64, out: &mut String) {
         h = h,
     ));
 }
+*/

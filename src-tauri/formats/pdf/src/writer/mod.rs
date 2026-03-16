@@ -35,7 +35,7 @@ use content::{build_content_stream, build_flattened_content};
 use metadata::build_xmp_packet;
 use page::compute_page_geometry;
 use pdf_writer::types::OutputIntentSubtype;
-use pdf_writer::{Finish, Name, Pdf, Rect, Ref, TextStr};
+use pdf_writer::{Name, Pdf, Rect, Ref, TextStr};
 use vector_core::document::VectorDocument;
 
 /// Write a `VectorDocument` to PDF/X-conformant bytes.
@@ -105,7 +105,6 @@ pub fn write_pdf_x(
         pages.count(1);
     }
 
-    // 3. Build content — branch on X-1a (flatten) vs X-4 (vector).
     let (content_bytes, image_xobjects) = if settings.standard.requires_cmyk_only() {
         build_x1a_content(&prepared, settings, page_h_pt, &mut pdf, &mut next_ref)?
     } else {
@@ -119,7 +118,9 @@ pub fn write_pdf_x(
         (s.into_bytes(), Vec::new())
     };
 
-    pdf.stream(content_ref, &content_bytes);
+    let content_compressed = crate::compress::compress(&content_bytes);
+    pdf.stream(content_ref, &content_compressed)
+        .filter(pdf_writer::Filter::FlateDecode);
 
     // ---- XMP metadata ----
     let xmp = build_xmp_packet(prepared.metadata.title.as_deref(), settings);
@@ -209,10 +210,10 @@ pub fn write_text_pdf(
     let mut font_map: std::collections::HashMap<FontKey, (String, pdf_writer::Ref, crate::fonts::FontSubset)> =
         std::collections::HashMap::new();
 
-    for ((family, bold, italic), used_chars) in &used_by_font {
+    for ((family, weight, italic), used_chars) in &used_by_font {
         let font_bytes = font_resolver
-            .resolve(family, *bold, *italic)
-            .or_else(|| font_resolver.resolve(font_resolver.fallback_family(), false, false))
+            .resolve(family, *weight, *italic)
+            .or_else(|| font_resolver.resolve(font_resolver.fallback_family(), 400, false))
             .ok_or_else(|| {
                 PdfError::FontLoad(format!(
                     "Font '{}' not found and fallback '{}' also unavailable",
@@ -221,26 +222,29 @@ pub fn write_text_pdf(
                 ))
             })?;
 
+        // Find variation coordinates for variable fonts.
+        let _coords = crate::fonts::subset::find_variation_coordinates(&font_bytes, *weight > 400, *italic);
+
         let subset = create_subset(&font_bytes, used_chars)
             .map_err(|e| PdfError::FontLoad(format!("Subset failed for '{}': {}", family, e)))?;
 
         let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)
             .map_err(|e| PdfError::FontLoad(format!("Embed failed for '{}': {}", family, e)))?;
 
-        font_map.insert((family.clone(), *bold, *italic), (pdf_name, font_ref, subset));
+        font_map.insert((family.to_string(), *weight, *italic), (pdf_name, font_ref, subset));
     }
 
     // Also ensure at least one font is available (for documents with no text styles).
     if font_map.is_empty() {
         let fallback_bytes = font_resolver
-            .resolve(font_resolver.fallback_family(), false, false)
+            .resolve(font_resolver.fallback_family(), 400, false)
             .ok_or_else(|| PdfError::FontLoad(
                 format!("Fallback font '{}' not available", font_resolver.fallback_family())
             ))?;
         let all_chars: crate::fonts::UsedGlyphs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.".chars().collect();
         let subset = create_subset(&fallback_bytes, &all_chars)?;
         let (pdf_name, font_ref) = embed_font(&subset, &mut pdf, &mut next_ref)?;
-        let key: FontKey = (font_resolver.fallback_family().to_lowercase(), false, false);
+        let key: FontKey = (font_resolver.fallback_family().to_lowercase(), 400, false);
         font_map.insert(key, (pdf_name, font_ref, subset));
     }
 
@@ -250,21 +254,27 @@ pub fn write_text_pdf(
     let margin_pt = 72.0_f64; // 1 inch
     let bleed = settings.bleed_pt;
 
-    // 5. Generate content stream (Pass 2).
-    let mut content_stream = String::new();
+    // 5. Generate content streams (Pass 2).
     // We only need the (name, subset) part for emit_blocks
     let emit_map: std::collections::HashMap<FontKey, (String, crate::fonts::FontSubset)> = 
         font_map.iter().map(|(k, v)| (k.clone(), (v.0.clone(), v.2.clone()))).collect();
         
-    emit_blocks(blocks, styles, &emit_map, page_width_pt, page_height_pt, margin_pt,
-        &mut content_stream)?;
+    let layout_result = emit_blocks(blocks, styles, &emit_map, page_width_pt, page_height_pt, margin_pt)?;
 
     // 6. Write PDF structure.
     let catalog_ref = Ref::new(1);
     let pages_ref = Ref::new(2);
-    let page_ref = Ref::new(3);
-    let content_ref = Ref::new(4);
     let xmp_ref = Ref::new(5);
+    
+    // We need unique refs for each page and each page's content stream.
+    let mut page_refs = Vec::new();
+    let mut content_refs = Vec::new();
+    for _ in 0..layout_result.pages.len() {
+        page_refs.push(Ref::new(next_ref));
+        next_ref += 1;
+        content_refs.push(Ref::new(next_ref));
+        next_ref += 1;
+    }
 
     // Catalog with OutputIntent.
     {
@@ -288,12 +298,9 @@ pub fn write_text_pdf(
     // Pages tree.
     {
         let mut pages = pdf.pages(pages_ref);
-        pages.kids([page_ref]);
-        pages.count(1);
+        pages.kids(page_refs.iter().copied()); // Pass iterator of Refs directly
+        pages.count(page_refs.len() as i32);
     }
-
-    // Content stream.
-    pdf.stream(content_ref, content_stream.as_bytes());
 
     // XMP.
     let xmp = metadata::build_xmp_packet(metadata.title.as_deref(), settings);
@@ -304,15 +311,24 @@ pub fn write_text_pdf(
         xmp_stream.pair(Name(b"Subtype"), Name(b"XML"));
     }
 
-    // Page with font resources.
-    {
-        let trim = pdf_writer::Rect::new(0.0, 0.0, page_width_pt as f32, page_height_pt as f32);
-        let bleed_rect = pdf_writer::Rect::new(
-            -bleed as f32,
-            -bleed as f32,
-            (page_width_pt + bleed) as f32,
-            (page_height_pt + bleed) as f32,
-        );
+    // Write each page.
+    let trim = pdf_writer::Rect::new(0.0, 0.0, page_width_pt as f32, page_height_pt as f32);
+    let bleed_rect = pdf_writer::Rect::new(
+        -bleed as f32,
+        -bleed as f32,
+        (page_width_pt + bleed) as f32,
+        (page_height_pt + bleed) as f32,
+    );
+
+    for (i, page_data) in layout_result.pages.iter().enumerate() {
+        let page_ref = page_refs[i];
+        let content_ref = content_refs[i];
+
+        // Content stream for this page.
+        let content_compressed = crate::compress::compress(page_data.content_stream.as_bytes());
+        pdf.stream(content_ref, &content_compressed)
+            .filter(pdf_writer::Filter::FlateDecode);
+
         let mut page = pdf.page(page_ref);
         page.parent(pages_ref);
         page.media_box(bleed_rect);
@@ -321,14 +337,11 @@ pub fn write_text_pdf(
         page.contents(content_ref);
         page.pair(Name(b"Metadata"), xmp_ref);
 
-        // Build font resource dict from font_map.
         let mut resources = page.resources();
         let mut fonts = resources.fonts();
         for (pdf_name, font_ref, _) in font_map.values() {
             fonts.pair(Name(pdf_name.as_bytes()), *font_ref);
         }
-        fonts.finish();
-        resources.finish();
     }
 
     Ok(pdf.finish())

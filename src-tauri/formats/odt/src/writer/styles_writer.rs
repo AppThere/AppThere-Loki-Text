@@ -12,6 +12,7 @@ use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 
 use crate::writer::namespaces::push_styles_doc_ns;
+use crate::writer::styles_utils::{coerce_line_height, is_paragraph_property, is_text_property};
 
 /// Generates a standalone `styles.xml` document string.
 ///
@@ -208,21 +209,6 @@ fn write_text_properties(
             .map_err(|e| e.to_string())?;
     }
     Ok(())
-}
-
-/// Returns `true` if `key` is a paragraph-property attribute.
-fn is_paragraph_property(key: &str) -> bool {
-    crate::writer::styles_utils::is_paragraph_property(key)
-}
-
-/// Returns `true` if `key` is a text-property attribute.
-fn is_text_property(key: &str) -> bool {
-    crate::writer::styles_utils::is_text_property(key)
-}
-
-/// Normalizes unitless line-height values to ODF percent format.
-fn coerce_line_height(key: &str, value: &str) -> String {
-    crate::writer::styles_utils::coerce_line_height(key, value)
 }
 
 fn write_builtin_styles(writer: &mut Writer<Cursor<Vec<u8>>>) -> Result<(), String> {

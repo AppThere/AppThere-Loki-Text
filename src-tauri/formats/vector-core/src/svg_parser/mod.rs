@@ -18,6 +18,7 @@ use crate::layer::Layer;
 use crate::object::{CommonProps, GroupObject, VectorObject};
 use crate::transform::{parse_svg_transform, Transform};
 use crate::units::{LengthUnit, UnitConverter};
+use common_core::colour_management::{DocumentColourSettings, SwatchLibrary};
 use common_core::Metadata;
 
 mod nodes;
@@ -25,6 +26,9 @@ mod style_parse;
 
 use nodes::{parse_ellipse, parse_line, parse_path, parse_rect};
 use style_parse::parse_style;
+
+/// Loki SVG extension namespace URI.
+const LOKI_NS: &str = "http://appthere.com/ns/loki/1.0";
 
 /// Parse an SVG string into a VectorDocument.
 pub fn parse(svg: &str) -> Result<VectorDocument, String> {
@@ -65,11 +69,27 @@ pub fn parse(svg: &str) -> Result<VectorDocument, String> {
         layers.insert(0, default_layer);
     }
 
+    let colour_settings = parse_loki_colour_settings(&root);
+
     Ok(VectorDocument {
         canvas,
         layers,
         metadata: Metadata::default(),
+        colour_settings,
+        swatch_library: SwatchLibrary::new(),
     })
+}
+
+/// Parse the `loki:colour-settings` attribute from the SVG root element.
+///
+/// Returns `DocumentColourSettings::default()` when the attribute is absent or
+/// cannot be deserialised, so older SVG files are handled transparently.
+fn parse_loki_colour_settings(root: &roxmltree::Node) -> DocumentColourSettings {
+    let json = root
+        .attribute((LOKI_NS, "colour-settings"))
+        .or_else(|| root.attribute("loki:colour-settings"));
+    json.and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default()
 }
 
 fn parse_canvas(root: &roxmltree::Node) -> Result<Canvas, String> {

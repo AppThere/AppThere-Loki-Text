@@ -1,5 +1,8 @@
 // Must match Rust structs exactly for JSON serialization
 
+import type { Colour } from '@/lib/vector/types';
+export type { Colour };
+
 export enum StyleFamily {
     Paragraph = "Paragraph",
     Text = "Text",
@@ -15,6 +18,10 @@ export interface StyleDefinition {
     textTransform: string | null;
     outlineLevel: number | null;
     autocomplete: boolean | null;
+    /** Typed font colour, populated from fo:color / loki:colour. Null when not set. */
+    fontColour: Colour | null;
+    /** Typed background colour, populated from fo:background-color. Null when not set. */
+    backgroundColour: Colour | null;
 }
 
 export interface Metadata {

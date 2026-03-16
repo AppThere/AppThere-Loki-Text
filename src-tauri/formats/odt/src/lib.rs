@@ -44,6 +44,7 @@
 
 pub mod document;
 pub mod lexical;
+pub mod loki_ext;
 pub mod namespaces;
 pub mod parser;
 pub mod tiptap;

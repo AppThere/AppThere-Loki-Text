@@ -19,7 +19,7 @@
 //! for professional vector image editing.
 
 pub mod canvas;
-pub mod colour;
+pub mod convert;
 pub mod document;
 pub mod layer;
 pub mod object;
@@ -30,7 +30,7 @@ pub mod transform;
 pub mod units;
 
 pub use canvas::Canvas;
-pub use colour::Colour;
+pub use common_core::colour_management::Colour;
 pub use document::VectorDocument;
 pub use layer::Layer;
 pub use object::VectorObject;

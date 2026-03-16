@@ -1,4 +1,5 @@
 mod commands;
+mod fonts;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -53,6 +54,13 @@ pub fn run() {
                             app,
                             "menu-export-epub",
                             "Export to EPUB...",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &MenuItem::with_id(
+                            app,
+                            "menu-export-pdf",
+                            "Export to PDF/X...",
                             true,
                             None::<&str>,
                         )?,
@@ -117,7 +125,16 @@ pub fn run() {
             commands::vector::save_vector_document,
             commands::vector::new_vector_document,
             commands::vector::serialize_vector_document,
-            commands::vector::deserialize_vector_document
+            commands::vector::deserialize_vector_document,
+            commands::vector::batch_convert_colours,
+            commands::vector::convert_document_colour_mode,
+            commands::vector::get_output_intent_profiles,
+            commands::vector::preview_colour_conversion,
+            commands::vector::search_pantone,
+            commands::pdf::validate_pdf_x_conformance,
+            commands::pdf::export_pdf_x,
+            commands::pdf::validate_text_pdf_x_conformance,
+            commands::pdf::export_text_pdf_x
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

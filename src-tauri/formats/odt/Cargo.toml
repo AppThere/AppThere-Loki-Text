@@ -9,7 +9,7 @@ license = "Apache-2.0"
 autobenches = false
 
 [dependencies]
-common-core = { path = "../common-core" }
+common-core = { path = "../common-core", features = ["colour-management"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 roxmltree = "0.20"
@@ -51,6 +51,10 @@ path = "tests/security/mod.rs"
 [[test]]
 name = "session_recovery"
 path = "tests/session_recovery.rs"
+
+[[test]]
+name = "colour_round_trip"
+path = "tests/colour_round_trip.rs"
 
 [[bench]]
 name = "parsing"

@@ -17,11 +17,12 @@ interface TopBarProps {
     onSaveAs: () => void;
     onClose: () => void;
     onExportEPUB: () => void;
+    onExportPDF: () => void;
     isLoading: boolean;
     onMetadataClick: () => void;
 }
 
-export function TopBar({ onOpen, onNew, onSave, onSaveAs, onClose, onExportEPUB, isLoading, onMetadataClick }: TopBarProps) {
+export function TopBar({ onOpen, onNew, onSave, onSaveAs, onClose, onExportEPUB, onExportPDF, isLoading, onMetadataClick }: TopBarProps) {
     const { currentContent, currentPath, metadata } = useDocumentStore();
     const hasContent = !!currentContent;
 
@@ -77,6 +78,10 @@ export function TopBar({ onOpen, onNew, onSave, onSaveAs, onClose, onExportEPUB,
                         <DropdownMenuItem onClick={onExportEPUB} disabled={isLoading || !hasContent}>
                             <Share className="mr-2 h-4 w-4" />
                             <span>Export to EPUB</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onExportPDF} disabled={isLoading || !hasContent}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            <span>Export to PDF/X</span>
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />

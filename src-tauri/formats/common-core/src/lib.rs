@@ -44,3 +44,6 @@ pub use marks::{LinkAttrs, TiptapAttrsInline, TiptapMark};
 pub use metadata::Metadata;
 pub use style::{StyleDefinition, StyleFamily};
 pub use tiptap::{ImageAttrs, TiptapAttrs, TiptapNode, TiptapResponse};
+
+#[cfg(feature = "colour-management")]
+pub mod colour_management;

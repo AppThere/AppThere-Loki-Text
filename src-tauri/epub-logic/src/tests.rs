@@ -107,6 +107,8 @@ fn test_page_break_splitting() {
         text_transform: None,
         outline_level: None,
         autocomplete: None,
+        font_colour: None,
+        background_colour: None,
     };
     style_def
         .attributes

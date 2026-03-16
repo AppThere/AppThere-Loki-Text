@@ -19,12 +19,19 @@
 //!     text_transform: None,
 //!     outline_level: Some(1),
 //!     autocomplete: Some(false),
+//!     #[cfg(feature = "colour-management")]
+//!     font_colour: None,
+//!     #[cfg(feature = "colour-management")]
+//!     background_colour: None,
 //! };
 //! ```
 
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "colour-management")]
+use crate::colour_management::Colour;
 
 /// The family (scope) of a style definition.
 ///
@@ -85,6 +92,14 @@ pub struct StyleDefinition {
     /// Loki-specific: whether this style participates in autocomplete.
     #[serde(default)]
     pub autocomplete: Option<bool>,
+    /// The typed font colour, if set. Populated from `fo:color` / `loki:colour`.
+    #[cfg(feature = "colour-management")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_colour: Option<Colour>,
+    /// The typed background colour, if set. Populated from `fo:background-color`.
+    #[cfg(feature = "colour-management")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_colour: Option<Colour>,
 }
 
 #[cfg(test)]
@@ -113,6 +128,10 @@ mod tests {
             text_transform: None,
             outline_level: Some(1),
             autocomplete: Some(true),
+            #[cfg(feature = "colour-management")]
+            font_colour: None,
+            #[cfg(feature = "colour-management")]
+            background_colour: None,
         };
         let json = serde_json::to_string(&style).unwrap();
         let decoded: StyleDefinition = serde_json::from_str(&json).unwrap();
@@ -131,6 +150,10 @@ mod tests {
             text_transform: None,
             outline_level: None,
             autocomplete: None,
+            #[cfg(feature = "colour-management")]
+            font_colour: None,
+            #[cfg(feature = "colour-management")]
+            background_colour: None,
         };
         assert_eq!(style.name, "Default");
         assert_eq!(style.family, StyleFamily::Text);

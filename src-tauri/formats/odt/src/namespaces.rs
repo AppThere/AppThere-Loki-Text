@@ -74,6 +74,7 @@ pub fn ns_prefix(ns: &str) -> &'static str {
         "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" => "fo:",
         "urn:oasis:names:tc:opendocument:xmlns:style:1.0" => "style:",
         "urn:oasis:names:tc:opendocument:xmlns:text:1.0" => "text:",
+        "https://appthere.com/loki/ns" => "loki:",
         _ => "",
     }
 }

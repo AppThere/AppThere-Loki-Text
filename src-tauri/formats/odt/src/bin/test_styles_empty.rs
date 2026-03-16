@@ -16,6 +16,8 @@ fn main() {
             text_transform: None,
             outline_level: None,
             autocomplete: None,
+            font_colour: None,
+            background_colour: None,
         },
     );
 

@@ -43,6 +43,16 @@ pub(super) fn parse_single_style(
 
     let attributes = collect_style_attributes(style_node, ns_style, ns_fo, ns_text);
     let text_transform = attributes.get("fo:text-transform").cloned();
+    let font_colour = {
+        use crate::loki_ext::{colour_from_attr, parse_colour_str, LOKI_COLOUR_KEY};
+        attributes
+            .get(LOKI_COLOUR_KEY)
+            .and_then(|s| colour_from_attr(s))
+            .or_else(|| attributes.get("fo:color").and_then(|s| parse_colour_str(s)))
+    };
+    let background_colour = attributes
+        .get("fo:background-color")
+        .and_then(|s| crate::loki_ext::parse_colour_str(s));
 
     StyleDefinition {
         name: name.to_string(),
@@ -54,16 +64,24 @@ pub(super) fn parse_single_style(
         text_transform,
         outline_level,
         autocomplete,
+        font_colour,
+        background_colour,
     }
 }
 
-/// Collects all `fo:`, `style:`, and `text:` attributes from style property nodes.
+/// Collects all `fo:`, `style:`, `text:`, and `loki:` attributes from style
+/// property nodes.
+///
+/// The `loki:colour` attribute on `style:text-properties` is captured so that
+/// non-RGB colour values survive a write → read round-trip.
 pub(super) fn collect_style_attributes(
     style_node: roxmltree::Node,
     ns_style: &str,
     ns_fo: &str,
     ns_text: &str,
 ) -> HashMap<String, String> {
+    use crate::loki_ext::LOKI_NS;
+
     let mut attrs = HashMap::new();
     for prop_node in style_node.children() {
         if prop_node.has_tag_name((ns_style, "text-properties"))
@@ -78,7 +96,7 @@ pub(super) fn collect_style_attributes(
         // Also collect from all other property children for legacy compat
         for attr in prop_node.attributes() {
             if let Some(ns) = attr.namespace() {
-                if ns == ns_fo || ns == ns_style || ns == ns_text {
+                if ns == ns_fo || ns == ns_style || ns == ns_text || ns == LOKI_NS {
                     let prefix = ns_prefix(ns);
                     let key = format!("{}{}", prefix, attr.name());
                     attrs.entry(key).or_insert_with(|| attr.value().to_string());
@@ -164,6 +182,8 @@ pub(super) fn parse_default_styles(
                 text_transform: None,
                 outline_level: None,
                 autocomplete: None,
+                font_colour: None,
+                background_colour: None,
             },
         );
     }

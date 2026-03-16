@@ -1,0 +1,52 @@
+[package]
+name = "loki-pdf"
+version = "0.1.0"
+edition = "2021"
+description = "PDF/X validator and writer for AppThere Loki"
+license = "Apache-2.0"
+
+[features]
+default = ["colour-management"]
+colour-management = []
+
+[dependencies]
+common-core = { path = "../common-core", features = ["colour-management"] }
+vector-core = { path = "../vector-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+fnv = "1.0"
+pdf-writer = "0.12"
+resvg = "0.47"
+lcms2 = "6"
+ttf-parser = { version = "0.25", features = ["variable-fonts"] }
+rustybuzz = "0.20"
+miniz_oxide = "0.8"
+subsetter = { version = "0.2", features = ["variable-fonts"] }
+
+[dev-dependencies]
+lopdf = "0.34"
+
+[[test]]
+name = "validator"
+path = "tests/validator.rs"
+
+[[test]]
+name = "validator_objects"
+path = "tests/validator_objects.rs"
+
+[[test]]
+name = "writer"
+path = "tests/writer.rs"
+
+[[test]]
+name = "writer_x1a"
+path = "tests/writer_x1a.rs"
+
+[[test]]
+name = "fonts"
+path = "tests/fonts.rs"
+
+[[test]]
+name = "text_writer"
+path = "tests/text_writer.rs"

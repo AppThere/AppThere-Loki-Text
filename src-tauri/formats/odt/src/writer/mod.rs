@@ -16,4 +16,5 @@ pub mod fodt;
 pub mod inlines;
 pub mod meta;
 pub mod namespaces;
+pub mod styles_utils;
 pub mod styles_writer;

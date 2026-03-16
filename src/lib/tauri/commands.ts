@@ -70,3 +70,67 @@ export async function saveEpub(
     });
     return result ? new Uint8Array(result) : null;
 }
+
+/** A PDF/X conformance violation returned by `validateTextPdfXConformance`. */
+export interface PdfConformanceViolation {
+    rule: string;
+    message: string;
+    autoFixable: boolean;
+}
+
+/** PDF/X export settings — matches `loki_pdf::export_settings::PdfExportSettings`. */
+export interface PdfExportSettings {
+    standard: 'X1a2001' | 'X4_2008';
+    bleedPt: number;
+    outputConditionIdentifier: string;
+    outputCondition: string;
+    registryName: string;
+    resolutionDpi: number;
+}
+
+export const DEFAULT_PDF_SETTINGS: PdfExportSettings = {
+    standard: 'X4_2008',
+    bleedPt: 0,
+    outputConditionIdentifier: 'sRGB',
+    outputCondition: 'sRGB IEC61966-2.1',
+    registryName: 'http://www.color.org',
+    resolutionDpi: 300,
+};
+
+/**
+ * Validate a text document against PDF/X conformance rules.
+ * Returns an empty array if the document passes all checks.
+ */
+export async function validateTextPdfXConformance(
+    lexicalJson: string,
+    styles: Record<string, StyleDefinition>,
+    metadata: Metadata,
+    settings: PdfExportSettings,
+): Promise<PdfConformanceViolation[]> {
+    return await invoke('validate_text_pdf_x_conformance', {
+        lexicalJson,
+        styles,
+        metadata,
+        settings,
+    });
+}
+
+/**
+ * Export a text document to a PDF/X file at the given path.
+ * Throws a string error message on failure.
+ */
+export async function exportTextPdfX(
+    lexicalJson: string,
+    styles: Record<string, StyleDefinition>,
+    metadata: Metadata,
+    settings: PdfExportSettings,
+    path: string,
+): Promise<void> {
+    await invoke('export_text_pdf_x', {
+        lexicalJson,
+        styles,
+        metadata,
+        settings,
+        path,
+    });
+}

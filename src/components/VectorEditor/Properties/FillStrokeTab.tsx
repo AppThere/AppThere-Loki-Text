@@ -1,28 +1,20 @@
 import { useVectorStore } from '@/lib/vector/store';
 import { UnitInput } from './UnitInput';
-import type { VectorObject, Paint, Colour } from '@/lib/vector/types';
+import type { VectorObject, Paint, Colour, DocumentColourSettings } from '@/lib/vector/types';
 import { cn } from '@/lib/utils';
-
-function colourToHex(c: Colour): string {
-    return '#' + [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, '0')).join('');
-}
-
-function hexToColour(hex: string): Colour {
-    const r = parseInt(hex.slice(1, 3), 16) || 0;
-    const g = parseInt(hex.slice(3, 5), 16) || 0;
-    const b = parseInt(hex.slice(5, 7), 16) || 0;
-    return { r, g, b, a: 255 };
-}
-
-function getPaintColour(paint: Paint): string {
-    return paint.type === 'Solid' ? colourToHex(paint.colour) : '#000000';
-}
+import { ColourPicker } from '../Colour/ColourPicker';
 
 interface Props {
     obj: VectorObject;
+    colourSettings: DocumentColourSettings;
+    displayCache: Map<string, string>;
 }
 
-export function FillStrokeTab({ obj }: Props) {
+function defaultSolidColour(): Colour {
+    return { type: 'Rgb', r: 0, g: 0, b: 0, a: 1 };
+}
+
+export function FillStrokeTab({ obj, colourSettings, displayCache }: Props) {
     const { updateObject, document } = useVectorStore();
     const unit = document?.canvas.display_unit ?? 'Px';
     const dpi = document?.canvas.dpi ?? 96;
@@ -48,31 +40,47 @@ export function FillStrokeTab({ obj }: Props) {
         } as Partial<VectorObject>);
     };
 
+    const fillColour =
+        obj.style.fill.type === 'Solid' ? obj.style.fill.colour : defaultSolidColour();
+    const strokeColour =
+        obj.style.stroke.paint.type === 'Solid'
+            ? obj.style.stroke.paint.colour
+            : defaultSolidColour();
+
+    const toggleBtn = (active: boolean, onToggle: () => void) => (
+        <button
+            className={cn(
+                'text-[10px] px-2 py-0.5 rounded border transition-colors min-h-[44px] min-w-[44px]',
+                active
+                    ? 'border-primary text-primary'
+                    : 'border-muted text-muted-foreground',
+            )}
+            onClick={onToggle}
+        >
+            {active ? 'On' : 'None'}
+        </button>
+    );
+
     return (
         <div className="space-y-4 p-3">
             {/* Fill */}
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Fill</span>
-                    <button
-                        className={cn(
-                            'text-[10px] px-2 py-0.5 rounded border transition-colors',
-                            fillActive ? 'border-primary text-primary' : 'border-muted text-muted-foreground',
-                        )}
-                        onClick={() => updateFill(fillActive
-                            ? { type: 'None' }
-                            : { type: 'Solid', colour: { r: 0, g: 0, b: 0, a: 255 } }
-                        )}
-                    >
-                        {fillActive ? 'On' : 'None'}
-                    </button>
+                    {toggleBtn(fillActive, () =>
+                        updateFill(
+                            fillActive
+                                ? { type: 'None' }
+                                : { type: 'Solid', colour: defaultSolidColour() },
+                        ),
+                    )}
                 </div>
                 {fillActive && (
-                    <input
-                        type="color"
-                        value={getPaintColour(obj.style.fill)}
-                        onChange={(e) => updateFill({ type: 'Solid', colour: hexToColour(e.target.value) })}
-                        className="w-full h-8 rounded cursor-pointer border border-input"
+                    <ColourPicker
+                        colour={fillColour}
+                        onChange={(c) => updateFill({ type: 'Solid', colour: c })}
+                        colourSettings={colourSettings}
+                        displayCache={displayCache}
                     />
                 )}
             </div>
@@ -81,26 +89,21 @@ export function FillStrokeTab({ obj }: Props) {
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Stroke</span>
-                    <button
-                        className={cn(
-                            'text-[10px] px-2 py-0.5 rounded border transition-colors',
-                            strokeActive ? 'border-primary text-primary' : 'border-muted text-muted-foreground',
-                        )}
-                        onClick={() => updateStroke(strokeActive
-                            ? { type: 'None' }
-                            : { type: 'Solid', colour: { r: 0, g: 0, b: 0, a: 255 } }
-                        )}
-                    >
-                        {strokeActive ? 'On' : 'None'}
-                    </button>
+                    {toggleBtn(strokeActive, () =>
+                        updateStroke(
+                            strokeActive
+                                ? { type: 'None' }
+                                : { type: 'Solid', colour: defaultSolidColour() },
+                        ),
+                    )}
                 </div>
                 {strokeActive && (
                     <>
-                        <input
-                            type="color"
-                            value={getPaintColour(obj.style.stroke.paint)}
-                            onChange={(e) => updateStroke({ type: 'Solid', colour: hexToColour(e.target.value) })}
-                            className="w-full h-8 rounded cursor-pointer border border-input"
+                        <ColourPicker
+                            colour={strokeColour}
+                            onChange={(c) => updateStroke({ type: 'Solid', colour: c })}
+                            colourSettings={colourSettings}
+                            displayCache={displayCache}
                         />
                         <UnitInput
                             label="Width"

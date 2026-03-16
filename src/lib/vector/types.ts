@@ -18,11 +18,66 @@ export interface Canvas {
     viewbox: ViewBox | null;
 }
 
-export interface Colour {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
+/**
+ * A colour value. The `type` field discriminates the variant.
+ * Field names and variant names must match the Rust Colour enum exactly —
+ * see src-tauri/formats/common-core/src/colour_management/colour.rs.
+ */
+export type Colour =
+    | { type: 'Rgb'; r: number; g: number; b: number; a: number }
+    | { type: 'Cmyk'; c: number; m: number; y: number; k: number; alpha: number }
+    | { type: 'Lab'; l: number; a: number; b: number; alpha: number }
+    | {
+          type: 'Spot';
+          name: string;
+          tint: number;
+          lab_ref: [number, number, number];
+          cmyk_fallback: Colour;
+      }
+    | { type: 'Linked'; id: string };
+
+export type BuiltInProfile =
+    | 'SrgbIec61966'
+    | 'IsoCoatedV2'
+    | 'SwopV2'
+    | 'GraCol2006';
+
+export type IccProfileRef =
+    | { type: 'BuiltIn'; profile: BuiltInProfile }
+    | { type: 'FilePath'; path: string };
+
+export type ColourSpace =
+    | { type: 'Srgb' }
+    | { type: 'DisplayP3' }
+    | { type: 'AdobeRgb' }
+    | { type: 'Cmyk'; profile: IccProfileRef }
+    | { type: 'Custom'; profile: IccProfileRef };
+
+export type RenderingIntent =
+    | 'Perceptual'
+    | 'RelativeColorimetric'
+    | 'Saturation'
+    | 'AbsoluteColorimetric';
+
+export interface DocumentColourSettings {
+    working_space: ColourSpace;
+    rendering_intent: RenderingIntent;
+    blackpoint_compensation: boolean;
+}
+
+export interface SwatchId {
+    id: string;
+}
+
+export interface ColourSwatch {
+    id: SwatchId;
+    name: string;
+    colour: Colour;
+    is_spot: boolean;
+}
+
+export interface SwatchLibrary {
+    swatches: ColourSwatch[];
 }
 
 export interface Transform {
@@ -128,6 +183,52 @@ export interface VectorDocument {
         description: string | null;
         [key: string]: unknown;
     };
+    colour_settings: DocumentColourSettings;
+    /** Named colour swatches for this document. */
+    swatch_library: SwatchLibrary;
+}
+
+/**
+ * A warning produced during colour mode conversion.
+ * Mirrors vector_core::convert::ConversionWarning.
+ */
+export interface ConversionWarning {
+    object_id: string;
+    property: string;   // "fill" | "stroke"
+    message: string;
+}
+
+/**
+ * Response from the convert_document_colour_mode Tauri command.
+ * The Rust side returns a tuple (VectorDocument, Vec<ConversionWarning>),
+ * which serialises as a two-element JSON array.
+ */
+export interface ConvertColourModeResponse {
+    document: VectorDocument;
+    warnings: ConversionWarning[];
+}
+
+/**
+ * Metadata for a built-in ICC output intent profile.
+ * Mirrors the serde_json::Value returned by get_output_intent_profiles.
+ * Note: the Rust command uses "name" (not "display_name").
+ */
+export interface ProfileInfo {
+    id: string;          // matches BuiltInProfile variant name
+    name: string;        // human-readable display name
+    description: string;
+}
+
+/**
+ * A before/after colour pair for the colour mode preview UI.
+ * Constructed on the frontend from two batch_convert_colours calls.
+ */
+export interface ColourPreviewPair {
+    original: Colour;
+    original_display: [number, number, number, number];
+    converted_display: [number, number, number, number];
+    /** Approximate ΔE in display RGB space (0–100). */
+    delta_e: number;
 }
 
 export function identityTransform(): Transform {
@@ -136,7 +237,7 @@ export function identityTransform(): Transform {
 
 export function defaultStyle(): ObjectStyle {
     return {
-        fill: { type: 'Solid', colour: { r: 0, g: 0, b: 0, a: 255 } },
+        fill: { type: 'Solid', colour: { type: 'Rgb', r: 0, g: 0, b: 0, a: 1 } },
         stroke: {
             paint: { type: 'None' },
             width: 1,

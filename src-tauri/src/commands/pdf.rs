@@ -1,0 +1,105 @@
+// Copyright 2024 AppThere
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use std::collections::HashMap;
+
+use common_core::{LexicalDocument, Metadata, StyleDefinition};
+use loki_pdf::conformance::validate;
+use loki_pdf::conformance::validate_text;
+use loki_pdf::export_settings::PdfExportSettings;
+use loki_pdf::{write_pdf_x, write_text_pdf};
+use odt_format::lexical::from_lexical;
+use vector_core::document::VectorDocument;
+
+/// Validate a vector document against a PDF/X standard.
+///
+/// Returns a list of conformance violations. An empty list means the document
+/// is conformant. Each violation has a `rule` and a `message`.
+#[tauri::command]
+pub fn validate_pdf_x_conformance(
+    document: VectorDocument,
+    settings: PdfExportSettings,
+) -> Vec<serde_json::Value> {
+    let report = validate(&document, &settings);
+    report
+        .violations
+        .iter()
+        .map(|v| serde_json::to_value(v).unwrap())
+        .collect()
+}
+
+/// Export a vector document to PDF/X bytes and write them to `path`.
+///
+/// The document is validated before any bytes are written. Returns an error
+/// string if validation fails or if the file cannot be written.
+#[tauri::command]
+pub fn export_pdf_x(
+    document: VectorDocument,
+    settings: PdfExportSettings,
+    path: String,
+) -> Result<(), String> {
+    let bytes = write_pdf_x(&document, &settings).map_err(|e| e.to_string())?;
+    std::fs::write(&path, &bytes).map_err(|e| format!("Failed to write PDF to '{path}': {e}"))
+}
+
+/// Validate a text document against a PDF/X standard.
+///
+/// Returns a list of violation objects. An empty list means the document
+/// passes all checks. Each object has `rule`, `message`, and `autoFixable`.
+#[tauri::command]
+pub fn validate_text_pdf_x_conformance(
+    lexical_json: String,
+    styles: HashMap<String, StyleDefinition>,
+    metadata: Metadata,
+    settings: PdfExportSettings,
+) -> Vec<serde_json::Value> {
+    use serde_json::json;
+    let lex: LexicalDocument = match serde_json::from_str(&lexical_json) {
+        Ok(v) => v,
+        Err(e) => {
+            return vec![json!({
+                "rule": "X/invalid-json",
+                "message": format!("Invalid Lexical JSON: {e}"),
+                "autoFixable": false,
+            })];
+        }
+    };
+    let doc = from_lexical(lex, styles, metadata.clone());
+    let violations = validate_text(&doc.blocks, &doc.styles, &metadata, &settings);
+    violations
+        .iter()
+        .map(|v| serde_json::to_value(v).unwrap())
+        .collect()
+}
+
+/// Export a text document to PDF/X bytes and write them to `path`.
+///
+/// Parses the Lexical JSON, runs validation, embeds fonts, lays out text,
+/// and writes the resulting PDF file. Returns an error string on failure.
+#[tauri::command]
+pub fn export_text_pdf_x(
+    lexical_json: String,
+    styles: HashMap<String, StyleDefinition>,
+    metadata: Metadata,
+    settings: PdfExportSettings,
+    path: String,
+) -> Result<(), String> {
+    let lex: LexicalDocument =
+        serde_json::from_str(&lexical_json).map_err(|e| format!("Invalid Lexical JSON: {e}"))?;
+    let doc = from_lexical(lex, styles, metadata.clone());
+    let resolver = crate::fonts::build_font_resolver();
+    let bytes = write_text_pdf(&doc.blocks, &doc.styles, &metadata, &settings, &resolver)
+        .map_err(|e| e.to_string())?;
+    std::fs::write(&path, &bytes).map_err(|e| format!("Failed to write PDF to '{path}': {e}"))
+}

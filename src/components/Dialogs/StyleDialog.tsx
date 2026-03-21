@@ -125,6 +125,7 @@ export function StyleDialog({
                                 color={d.color} setColor={d.setColor}
                                 textTransform={d.textTransform} setTextTransform={d.setTextTransform}
                                 isFontPopoverOpen={d.isFontPopoverOpen} setIsFontPopoverOpen={d.setIsFontPopoverOpen}
+                                inheritedProps={d.inheritedProps}
                             />
                         </TabsContent>
 
@@ -138,6 +139,7 @@ export function StyleDialog({
                                 marginRight={d.marginRight} setMarginRight={d.setMarginRight}
                                 textIndent={d.textIndent} setTextIndent={d.setTextIndent}
                                 contextualSpacing={d.contextualSpacing} setContextualSpacing={d.setContextualSpacing}
+                                inheritedProps={d.inheritedProps}
                             />
                         </TabsContent>
 

@@ -41,6 +41,20 @@ pub fn is_text_property(key: &str) -> bool {
         || key == "loki:colour"
 }
 
+/// Normalizes unitless line-height values to ODF percent format.
+pub fn coerce_line_height(key: &str, value: &str) -> String {
+    if key != "fo:line-height" {
+        return value.to_string();
+    }
+    let val = value.trim();
+    if val.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        if let Ok(num) = val.parse::<f32>() {
+            return format!("{}%", (num * 100.0).round());
+        }
+    }
+    value.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,18 +80,4 @@ mod tests {
     fn style_contextual_spacing_is_paragraph_property() {
         assert!(is_paragraph_property("style:contextual-spacing"));
     }
-}
-
-/// Normalizes unitless line-height values to ODF percent format.
-pub fn coerce_line_height(key: &str, value: &str) -> String {
-    if key != "fo:line-height" {
-        return value.to_string();
-    }
-    let val = value.trim();
-    if val.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        if let Ok(num) = val.parse::<f32>() {
-            return format!("{}%", (num * 100.0).round());
-        }
-    }
-    value.to_string()
 }

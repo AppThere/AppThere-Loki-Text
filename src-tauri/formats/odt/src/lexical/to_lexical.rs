@@ -12,6 +12,7 @@ use common_core::lexical::{
 use common_core::marks::TiptapMark;
 use common_core::{Block, Inline};
 
+use crate::lexical::style_has_break_before;
 use crate::Document;
 
 /// Converts an ODT [`Document`] to a [`LexicalDocument`] for the frontend.
@@ -27,7 +28,30 @@ use crate::Document;
 /// assert_eq!(lex.root.node_type, "root");
 /// ```
 pub fn to_lexical(doc: &Document) -> LexicalDocument {
-    let children = doc.blocks.iter().map(block_to_node).collect();
+    let mut children = Vec::with_capacity(doc.blocks.len());
+    let mut prev_was_page_break = false;
+    for block in &doc.blocks {
+        // Insert a visual PageBreak node before any paragraph/heading whose
+        // style (or an ancestor style) requests a page break before it. This
+        // makes the break visible in the editor without changing the block
+        // structure — from_lexical removes the synthesised node again on save.
+        // Skip this if the preceding block was already an explicit PageBreak
+        // (to avoid two consecutive break indicators in the editor).
+        if !prev_was_page_break {
+            let style_name = match block {
+                Block::Paragraph { style_name, .. } => style_name.as_deref(),
+                Block::Heading { style_name, .. } => style_name.as_deref(),
+                _ => None,
+            };
+            if let Some(name) = style_name {
+                if name != "PageBreak" && style_has_break_before(name, &doc.styles) {
+                    children.push(LexicalNode::PageBreak { version: 1 });
+                }
+            }
+        }
+        prev_was_page_break = matches!(block, Block::PageBreak);
+        children.push(block_to_node(block));
+    }
     LexicalDocument {
         root: LexicalRoot {
             children,

@@ -14,6 +14,7 @@ use common_core::lexical::{
 use common_core::marks::{LinkAttrs, TiptapAttrsInline, TiptapMark};
 use common_core::{Block, BlockAttrs, Inline, Metadata, StyleDefinition};
 
+use crate::lexical::style_has_break_before;
 use crate::Document;
 
 /// Converts a [`LexicalDocument`] to an ODT [`Document`].
@@ -43,12 +44,35 @@ pub fn from_lexical(
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
 ) -> Document {
-    let blocks = lex
-        .root
-        .children
-        .into_iter()
-        .filter_map(node_to_block)
-        .collect();
+    // Use a peekable iterator so we can skip PageBreak nodes that were
+    // synthesised by to_lexical for style-based breaks.  A PageBreak node
+    // immediately followed by a paragraph/heading whose style already requests
+    // fo:break-before is redundant: the style itself will produce the break on
+    // export, and writing an explicit PageBreak paragraph as well would result
+    // in a double page-break in other ODF consumers.
+    let mut iter = lex.root.children.into_iter().peekable();
+    let mut blocks = Vec::new();
+    while let Some(node) = iter.next() {
+        if matches!(node, LexicalNode::PageBreak { .. }) {
+            if let Some(next) = iter.peek() {
+                let next_style: Option<&str> = match next {
+                    LexicalNode::ParagraphStyle { style_name, .. } => style_name.as_deref(),
+                    LexicalNode::HeadingStyle { style_name, .. } => style_name.as_deref(),
+                    _ => None,
+                };
+                if next_style
+                    .map(|s| style_has_break_before(s, &styles))
+                    .unwrap_or(false)
+                {
+                    // Drop this PageBreak; the following block's style handles it.
+                    continue;
+                }
+            }
+        }
+        if let Some(block) = node_to_block(node) {
+            blocks.push(block);
+        }
+    }
     Document {
         blocks,
         styles,
@@ -258,3 +282,7 @@ pub(crate) fn decode_format(format: u32, style_name: Option<String>) -> Vec<Tipt
 #[cfg(test)]
 #[path = "from_lexical_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "from_lexical_page_break_tests.rs"]
+mod page_break_tests;

@@ -16,3 +16,36 @@ mod to_lexical;
 
 pub use from_lexical::from_lexical;
 pub use to_lexical::to_lexical;
+
+use common_core::StyleDefinition;
+use std::collections::HashMap;
+
+/// Returns `true` if the named style (or any ancestor via `parent`) has
+/// `fo:break-before = "page"` or `style:break-before = "page"`.
+pub(super) fn style_has_break_before(
+    style_name: &str,
+    styles: &HashMap<String, StyleDefinition>,
+) -> bool {
+    let mut current = style_name.to_string();
+    let mut visited = std::collections::HashSet::new();
+    loop {
+        if !visited.insert(current.clone()) {
+            break;
+        }
+        if let Some(style) = styles.get(&current) {
+            let attrs = &style.attributes;
+            if attrs.get("fo:break-before").map(|s| s.as_str()) == Some("page")
+                || attrs.get("style:break-before").map(|s| s.as_str()) == Some("page")
+            {
+                return true;
+            }
+            match &style.parent {
+                Some(parent) => current = parent.clone(),
+                None => break,
+            }
+        } else {
+            break;
+        }
+    }
+    false
+}

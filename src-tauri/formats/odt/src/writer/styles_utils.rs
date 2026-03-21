@@ -23,7 +23,10 @@ pub fn is_paragraph_property(key: &str) -> bool {
         || key.starts_with("fo:widows")
         || key.starts_with("fo:hyphenate")
         || key.starts_with("fo:break-")
+        || key.starts_with("style:break-")
         || key == "fo:line-height"
+        || key == "fo:keep-with-next"
+        || key == "style:contextual-spacing"
 }
 
 /// Returns `true` if `key` is a text-property attribute.
@@ -50,4 +53,31 @@ pub fn coerce_line_height(key: &str, value: &str) -> String {
         }
     }
     value.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fo_break_before_is_paragraph_property() {
+        assert!(is_paragraph_property("fo:break-before"));
+        assert!(is_paragraph_property("fo:break-after"));
+    }
+
+    #[test]
+    fn style_break_before_is_paragraph_property() {
+        assert!(is_paragraph_property("style:break-before"));
+        assert!(is_paragraph_property("style:break-after"));
+    }
+
+    #[test]
+    fn fo_keep_with_next_is_paragraph_property() {
+        assert!(is_paragraph_property("fo:keep-with-next"));
+    }
+
+    #[test]
+    fn style_contextual_spacing_is_paragraph_property() {
+        assert!(is_paragraph_property("style:contextual-spacing"));
+    }
 }

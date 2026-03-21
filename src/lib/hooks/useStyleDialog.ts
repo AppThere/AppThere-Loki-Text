@@ -91,8 +91,8 @@ export function useStyleDialog({
                 setMarginLeft(attrs['fo:margin-left'] || '');
                 setMarginRight(attrs['fo:margin-right'] || '');
                 setTextIndent(attrs['fo:text-indent'] || '');
-                setBreakBefore(attrs['style:break-before'] === 'page');
-                setBreakAfter(attrs['style:break-after'] === 'page');
+                setBreakBefore(attrs['fo:break-before'] === 'page' || attrs['style:break-before'] === 'page');
+                setBreakAfter(attrs['fo:break-after'] === 'page' || attrs['style:break-after'] === 'page');
                 setOrphans(attrs['fo:orphans'] || '');
                 setWidows(attrs['fo:widows'] || '');
                 setKeepWithNext(attrs['fo:keep-with-next'] === 'always');
@@ -141,8 +141,10 @@ export function useStyleDialog({
         if (marginLeft) attributes['fo:margin-left'] = marginLeft; else delete attributes['fo:margin-left'];
         if (marginRight) attributes['fo:margin-right'] = marginRight; else delete attributes['fo:margin-right'];
         if (textIndent) attributes['fo:text-indent'] = textIndent; else delete attributes['fo:text-indent'];
-        if (breakBefore) attributes['style:break-before'] = 'page'; else delete attributes['style:break-before'];
-        if (breakAfter) attributes['style:break-after'] = 'page'; else delete attributes['style:break-after'];
+        if (breakBefore) attributes['fo:break-before'] = 'page'; else delete attributes['fo:break-before'];
+        delete attributes['style:break-before'];
+        if (breakAfter) attributes['fo:break-after'] = 'page'; else delete attributes['fo:break-after'];
+        delete attributes['style:break-after'];
         if (orphans) attributes['fo:orphans'] = orphans; else delete attributes['fo:orphans'];
         if (widows) attributes['fo:widows'] = widows; else delete attributes['fo:widows'];
         if (keepWithNext) attributes['fo:keep-with-next'] = 'always'; else delete attributes['fo:keep-with-next'];

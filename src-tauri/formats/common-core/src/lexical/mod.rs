@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn paragraph_style_serde_roundtrip() {
         let node = LexicalNode::ParagraphStyle {
-            style_name: "Standard".to_string(),
+            style_name: Some("Standard".to_string()),
             children: vec![LexicalNode::Text {
                 text: "Hello".to_string(),
                 format: FORMAT_BOLD,
@@ -145,6 +145,33 @@ mod tests {
         let node = LexicalNode::PageBreak { version: 1 };
         let json = serde_json::to_string(&node).unwrap();
         assert!(json.contains("\"page-break\""));
+    }
+
+    /// `styleName: null` in the JSON (produced by the frontend when no style is
+    /// assigned to a paragraph) must deserialise without error.
+    #[test]
+    fn paragraph_style_null_style_name_is_accepted() {
+        let json = r#"{"type":"paragraph-style","styleName":null,"children":[],"direction":null,"format":"","indent":0,"version":1}"#;
+        let node: LexicalNode = serde_json::from_str(json)
+            .expect("null styleName should deserialise as None");
+        if let LexicalNode::ParagraphStyle { style_name, .. } = node {
+            assert_eq!(style_name, None);
+        } else {
+            panic!("expected ParagraphStyle");
+        }
+    }
+
+    /// `styleName` absent from the JSON must also deserialise without error.
+    #[test]
+    fn paragraph_style_missing_style_name_is_accepted() {
+        let json = r#"{"type":"paragraph-style","children":[],"direction":null,"format":"","indent":0,"version":1}"#;
+        let node: LexicalNode = serde_json::from_str(json)
+            .expect("missing styleName should deserialise as None");
+        if let LexicalNode::ParagraphStyle { style_name, .. } = node {
+            assert_eq!(style_name, None);
+        } else {
+            panic!("expected ParagraphStyle");
+        }
     }
 
     #[test]

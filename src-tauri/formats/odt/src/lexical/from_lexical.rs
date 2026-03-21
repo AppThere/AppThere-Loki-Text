@@ -72,11 +72,7 @@ pub fn node_to_block(node: LexicalNode) -> Option<Block> {
             indent,
             ..
         } => Some(Block::Paragraph {
-            style_name: if style_name.is_empty() {
-                None
-            } else {
-                Some(style_name)
-            },
+            style_name: style_name.filter(|s| !s.is_empty()),
             attrs: block_attrs(format, indent),
             content: children.into_iter().flat_map(node_to_inlines).collect(),
         }),

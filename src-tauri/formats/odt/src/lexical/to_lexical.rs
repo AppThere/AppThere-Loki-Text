@@ -48,7 +48,7 @@ pub fn block_to_node(block: &Block) -> LexicalNode {
             attrs,
             content,
         } => LexicalNode::ParagraphStyle {
-            style_name: style_name.clone().unwrap_or_else(|| "Standard".to_string()),
+            style_name: style_name.clone(),
             children: inlines_to_nodes(content),
             direction: None,
             format: attrs
@@ -134,7 +134,7 @@ pub fn block_to_node(block: &Block) -> LexicalNode {
         Block::HorizontalRule => {
             // Represent as empty paragraph – Lexical has no native HR block
             LexicalNode::ParagraphStyle {
-                style_name: "Horizontal Line".to_string(),
+                style_name: Some("Horizontal Line".to_string()),
                 children: vec![],
                 direction: None,
                 format: String::new(),

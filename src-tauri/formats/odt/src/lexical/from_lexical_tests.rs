@@ -29,7 +29,7 @@ fn empty_document() {
 #[test]
 fn paragraph_style_to_paragraph_block() {
     let lex = make_lex(vec![LexicalNode::ParagraphStyle {
-        style_name: "Standard".to_string(),
+        style_name: Some("Standard".to_string()),
         children: vec![LexicalNode::Text {
             text: "Hello".to_string(),
             format: 0,
@@ -123,6 +123,44 @@ fn page_break_node_maps_to_page_break_block() {
     assert!(matches!(node_to_block(node), Some(Block::PageBreak)));
 }
 
+/// A `paragraph-style` node with `styleName: null` (or absent) must convert to
+/// `Block::Paragraph` with `style_name: None` rather than panicking.
+#[test]
+fn paragraph_style_null_style_name_converts_to_unstyled_paragraph() {
+    let node = LexicalNode::ParagraphStyle {
+        style_name: None,
+        children: vec![],
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    };
+    if let Some(Block::Paragraph { style_name, .. }) = node_to_block(node) {
+        assert_eq!(style_name, None);
+    } else {
+        panic!("expected Block::Paragraph");
+    }
+}
+
+/// A `paragraph-style` node with an empty string `styleName` (produced by the
+/// frontend null-coalescing fix) must also map to `style_name: None`.
+#[test]
+fn paragraph_style_empty_style_name_converts_to_unstyled_paragraph() {
+    let node = LexicalNode::ParagraphStyle {
+        style_name: Some(String::new()),
+        children: vec![],
+        direction: None,
+        format: String::new(),
+        indent: 0,
+        version: 1,
+    };
+    if let Some(Block::Paragraph { style_name, .. }) = node_to_block(node) {
+        assert_eq!(style_name, None);
+    } else {
+        panic!("expected Block::Paragraph");
+    }
+}
+
 #[test]
 fn list_type_number_produces_ordered_list() {
     let node = LexicalNode::List {
@@ -189,7 +227,7 @@ fn text_node(text: &str) -> LexicalNode {
 
 fn para_node(text: &str) -> LexicalNode {
     LexicalNode::ParagraphStyle {
-        style_name: String::new(),
+        style_name: None,
         children: vec![text_node(text)],
         direction: None,
         format: String::new(),

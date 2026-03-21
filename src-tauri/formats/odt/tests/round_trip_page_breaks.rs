@@ -44,9 +44,8 @@ fn style_with_break_before_round_trips_without_extra_page_break() {
             <style:paragraph-properties fo:break-before="page"/>
         </style:style>"#
     );
-    let body = format!(
-        r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Chapter 1</text:p>"#
-    );
+    let body =
+        format!(r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Chapter 1</text:p>"#);
     let (b1, b2) = round_trip(&fodt(&style_xml, &body));
 
     // The source and round-tripped documents must both contain exactly one
@@ -69,9 +68,8 @@ fn style_with_break_before_produces_page_break_node_in_lexical() {
             <style:paragraph-properties fo:break-before="page"/>
         </style:style>"#
     );
-    let body = format!(
-        r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Intro</text:p>"#
-    );
+    let body =
+        format!(r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Intro</text:p>"#);
     let doc = parse_document(&fodt(&style_xml, &body)).unwrap();
     let lex = to_lexical(&doc);
 

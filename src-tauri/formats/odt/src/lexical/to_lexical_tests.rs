@@ -185,7 +185,10 @@ fn explicit_page_break_before_break_before_paragraph_no_double_insertion() {
     let lex = to_lexical(&doc);
     // Should be: [PageBreak (explicit), ParagraphStyle] — no extra PageBreak.
     assert_eq!(lex.root.children.len(), 2, "expected exactly two nodes");
-    assert!(matches!(lex.root.children[0], LexicalNode::PageBreak { .. }));
+    assert!(matches!(
+        lex.root.children[0],
+        LexicalNode::PageBreak { .. }
+    ));
     assert!(matches!(
         lex.root.children[1],
         LexicalNode::ParagraphStyle { .. }
@@ -207,5 +210,8 @@ fn page_break_style_paragraph_not_preceded_by_extra_node() {
 
     let lex = to_lexical(&doc);
     assert_eq!(lex.root.children.len(), 1);
-    assert!(matches!(lex.root.children[0], LexicalNode::PageBreak { .. }));
+    assert!(matches!(
+        lex.root.children[0],
+        LexicalNode::PageBreak { .. }
+    ));
 }

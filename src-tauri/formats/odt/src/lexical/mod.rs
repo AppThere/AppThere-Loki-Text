@@ -17,8 +17,8 @@ mod to_lexical;
 pub use from_lexical::from_lexical;
 pub use to_lexical::to_lexical;
 
-use std::collections::HashMap;
 use common_core::StyleDefinition;
+use std::collections::HashMap;
 
 /// Returns `true` if the named style (or any ancestor via `parent`) has
 /// `fo:break-before = "page"` or `style:break-before = "page"`.

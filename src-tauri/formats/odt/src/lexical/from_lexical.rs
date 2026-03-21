@@ -56,12 +56,8 @@ pub fn from_lexical(
         if matches!(node, LexicalNode::PageBreak { .. }) {
             if let Some(next) = iter.peek() {
                 let next_style: Option<&str> = match next {
-                    LexicalNode::ParagraphStyle { style_name, .. } => {
-                        style_name.as_deref()
-                    }
-                    LexicalNode::HeadingStyle { style_name, .. } => {
-                        style_name.as_deref()
-                    }
+                    LexicalNode::ParagraphStyle { style_name, .. } => style_name.as_deref(),
+                    LexicalNode::HeadingStyle { style_name, .. } => style_name.as_deref(),
                     _ => None,
                 };
                 if next_style

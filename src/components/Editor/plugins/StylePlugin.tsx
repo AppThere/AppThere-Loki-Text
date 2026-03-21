@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getSelection, $isRangeSelection, $isElementNode } from 'lexical';
+import { $getSelection, $isRangeSelection, $isElementNode, type LexicalNode } from 'lexical';
 import { $isParagraphStyleNode, $createParagraphStyleNode } from '@/lib/editor/nodes/ParagraphStyleNode';
 import { $isHeadingStyleNode, $createHeadingStyleNode } from '@/lib/editor/nodes/HeadingStyleNode';
 import type { StyleDefinition } from '@/lib/types/odt';
@@ -27,7 +27,7 @@ export function StylePlugin({ currentStyle, onStyleChange, styles }: StylePlugin
                 // Start from anchor itself: on an empty paragraph the selection anchor IS
                 // the ParagraphStyleNode (element-type selection), so getParent() would
                 // skip past it to the root and the traversal would find nothing.
-                let styledParent = anchor;
+                let styledParent: LexicalNode | null = anchor;
 
                 // Find the paragraph/heading style node
                 while (styledParent && !$isParagraphStyleNode(styledParent) && !$isHeadingStyleNode(styledParent)) {
@@ -77,7 +77,7 @@ export function StylePlugin({ currentStyle, onStyleChange, styles }: StylePlugin
                     const anchor = selection.anchor.getNode();
                     // Start from anchor itself for the same reason as above: empty
                     // paragraphs have an element-type anchor pointing to the paragraph.
-                    let currentNode = anchor;
+                    let currentNode: LexicalNode | null = anchor;
 
                     while (currentNode && !$isParagraphStyleNode(currentNode) && !$isHeadingStyleNode(currentNode)) {
                         currentNode = currentNode.getParent();

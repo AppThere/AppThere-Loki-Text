@@ -23,8 +23,11 @@ export function StylePlugin({ currentStyle, onStyleChange, styles }: StylePlugin
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
                 const anchor = selection.anchor.getNode();
-                let currentNode = anchor.getParent();
-                let styledParent = currentNode;
+                const currentNode = anchor.getParent();
+                // Start from anchor itself: on an empty paragraph the selection anchor IS
+                // the ParagraphStyleNode (element-type selection), so getParent() would
+                // skip past it to the root and the traversal would find nothing.
+                let styledParent = anchor;
 
                 // Find the paragraph/heading style node
                 while (styledParent && !$isParagraphStyleNode(styledParent) && !$isHeadingStyleNode(styledParent)) {
@@ -72,7 +75,9 @@ export function StylePlugin({ currentStyle, onStyleChange, styles }: StylePlugin
                 const selection = $getSelection();
                 if ($isRangeSelection(selection) && onStyleChange) {
                     const anchor = selection.anchor.getNode();
-                    let currentNode = anchor.getParent();
+                    // Start from anchor itself for the same reason as above: empty
+                    // paragraphs have an element-type anchor pointing to the paragraph.
+                    let currentNode = anchor;
 
                     while (currentNode && !$isParagraphStyleNode(currentNode) && !$isHeadingStyleNode(currentNode)) {
                         currentNode = currentNode.getParent();

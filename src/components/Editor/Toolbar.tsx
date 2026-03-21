@@ -3,9 +3,9 @@ import { UNDO_COMMAND, REDO_COMMAND, CAN_UNDO_COMMAND, CAN_REDO_COMMAND } from '
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { $getSelection, $isRangeSelection } from 'lexical';
 import { TOGGLE_LINK_COMMAND, $isLinkNode } from '@lexical/link';
-import { mergeRegister } from '@lexical/utils';
+import { mergeRegister, $insertNodeToNearestRoot } from '@lexical/utils';
 import { $createPageBreakNode } from '@/lib/editor/nodes/PageBreakNode';
-import { $createParagraphNode } from 'lexical';
+import { $createParagraphStyleNode } from '@/lib/editor/nodes/ParagraphStyleNode';
 import { useState, useEffect, useCallback } from 'react';
 
 import {
@@ -115,8 +115,8 @@ export function Toolbar({ styles, currentStyle, onStyleChange, onStylesClick }: 
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
                 const pbNode = $createPageBreakNode();
-                selection.insertNodes([pbNode]);
-                const pNode = $createParagraphNode();
+                $insertNodeToNearestRoot(pbNode);
+                const pNode = $createParagraphStyleNode(null);
                 pbNode.insertAfter(pNode);
                 pNode.select();
             }

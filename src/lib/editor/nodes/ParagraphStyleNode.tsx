@@ -77,7 +77,7 @@ export class ParagraphStyleNode extends ParagraphNode {
     exportJSON(): SerializedParagraphStyleNode {
         return {
             ...super.exportJSON(),
-            styleName: this.__styleName,
+            styleName: this.__styleName ?? '',
             type: 'paragraph-style',
             version: 1,
         };

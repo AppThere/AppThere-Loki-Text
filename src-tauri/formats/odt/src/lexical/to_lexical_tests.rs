@@ -18,7 +18,7 @@ fn paragraph_becomes_paragraph_style() {
     };
     let node = block_to_node(&block);
     if let LexicalNode::ParagraphStyle { style_name, .. } = node {
-        assert_eq!(style_name, "Body Text");
+        assert_eq!(style_name, Some("Body Text".to_string()));
     } else {
         panic!("expected ParagraphStyle");
     }

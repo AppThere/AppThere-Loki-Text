@@ -19,9 +19,9 @@ pub enum LexicalNode {
     /// A custom paragraph node (`"paragraph-style"`).
     #[serde(rename = "paragraph-style")]
     ParagraphStyle {
-        /// ODT style name (e.g. `"Standard"`).
-        #[serde(rename = "styleName")]
-        style_name: String,
+        /// ODT style name (e.g. `"Standard"`). Null or absent means no explicit style.
+        #[serde(rename = "styleName", default, skip_serializing_if = "Option::is_none")]
+        style_name: Option<String>,
         /// Inline or nested block children.
         children: Vec<LexicalNode>,
         /// Text direction.

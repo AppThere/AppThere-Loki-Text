@@ -267,61 +267,6 @@ fn document_metadata_preserved_through_round_trip() {
     );
 }
 
-// ── Page-break style round-trips ──────────────────────────────────────────────
-
-/// A paragraph style that has `fo:break-before = "page"` should survive the
-/// full round-trip without sprouting an extra explicit PageBreak block.
-#[test]
-fn style_with_break_before_round_trips_without_extra_page_break() {
-    let style_xml = format!(
-        r#"<style:style style:name="Chapter" style:family="paragraph"
-                xmlns:style="{NS_STYLE}" xmlns:fo="{NS_FO}">
-            <style:paragraph-properties fo:break-before="page"/>
-        </style:style>"#
-    );
-    let body = format!(
-        r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Chapter 1</text:p>"#
-    );
-    let (b1, b2) = round_trip(&fodt(&style_xml, &body));
-
-    // The source and round-tripped documents must both contain exactly one
-    // block (the paragraph) — no extra PageBreak blocks.
-    assert_eq!(b1.len(), 1, "source must have 1 block");
-    assert_eq!(b2.len(), 1, "round-tripped must have 1 block");
-    assert!(matches!(b1[0], Block::Paragraph { .. }));
-    assert!(matches!(b2[0], Block::Paragraph { .. }));
-}
-
-/// The Lexical representation of a document with a break-before style must
-/// contain a PageBreak node before the styled paragraph.
-#[test]
-fn style_with_break_before_produces_page_break_node_in_lexical() {
-    use common_core::lexical::LexicalNode;
-    use odt_format::{lexical::to_lexical, parser::parse_document};
-
-    let style_xml = format!(
-        r#"<style:style style:name="Chapter" style:family="paragraph"
-                xmlns:style="{NS_STYLE}" xmlns:fo="{NS_FO}">
-            <style:paragraph-properties fo:break-before="page"/>
-        </style:style>"#
-    );
-    let body = format!(
-        r#"<text:p xmlns:text="{NS_TEXT}" text:style-name="Chapter">Intro</text:p>"#
-    );
-    let doc = parse_document(&fodt(&style_xml, &body)).unwrap();
-    let lex = to_lexical(&doc);
-
-    assert_eq!(
-        lex.root.children.len(),
-        2,
-        "expected [PageBreak, ParagraphStyle]"
-    );
-    assert!(
-        matches!(lex.root.children[0], LexicalNode::PageBreak { .. }),
-        "first node must be PageBreak"
-    );
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn paragraph_inlines(block: &Block) -> &[Inline] {

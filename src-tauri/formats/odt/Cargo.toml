@@ -33,6 +33,10 @@ name = "round_trip"
 path = "tests/round_trip.rs"
 
 [[test]]
+name = "round_trip_page_breaks"
+path = "tests/round_trip_page_breaks.rs"
+
+[[test]]
 name = "proptest_roundtrip"
 path = "tests/proptest_roundtrip.rs"
 

@@ -286,3 +286,7 @@ pub(crate) fn decode_format(format: u32, style_name: Option<String>) -> Vec<Tipt
 #[cfg(test)]
 #[path = "from_lexical_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "from_lexical_page_break_tests.rs"]
+mod page_break_tests;

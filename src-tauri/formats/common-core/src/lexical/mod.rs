@@ -152,8 +152,8 @@ mod tests {
     #[test]
     fn paragraph_style_null_style_name_is_accepted() {
         let json = r#"{"type":"paragraph-style","styleName":null,"children":[],"direction":null,"format":"","indent":0,"version":1}"#;
-        let node: LexicalNode = serde_json::from_str(json)
-            .expect("null styleName should deserialise as None");
+        let node: LexicalNode =
+            serde_json::from_str(json).expect("null styleName should deserialise as None");
         if let LexicalNode::ParagraphStyle { style_name, .. } = node {
             assert_eq!(style_name, None);
         } else {
@@ -165,8 +165,8 @@ mod tests {
     #[test]
     fn paragraph_style_missing_style_name_is_accepted() {
         let json = r#"{"type":"paragraph-style","children":[],"direction":null,"format":"","indent":0,"version":1}"#;
-        let node: LexicalNode = serde_json::from_str(json)
-            .expect("missing styleName should deserialise as None");
+        let node: LexicalNode =
+            serde_json::from_str(json).expect("missing styleName should deserialise as None");
         if let LexicalNode::ParagraphStyle { style_name, .. } = node {
             assert_eq!(style_name, None);
         } else {

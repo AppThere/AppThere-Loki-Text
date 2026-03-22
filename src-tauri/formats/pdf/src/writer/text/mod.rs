@@ -24,8 +24,7 @@ mod renderer;
 pub mod style_props;
 
 pub use collector::{collect_used_glyphs, FontKey};
-pub use layout::PageContent;
-pub use renderer::{emit_blocks, LayoutResult};
+pub use renderer::emit_blocks;
 
 use crate::error::PdfError;
 use crate::export_settings::PdfExportSettings;

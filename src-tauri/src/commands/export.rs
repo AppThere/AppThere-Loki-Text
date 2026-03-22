@@ -55,8 +55,11 @@ pub async fn save_epub<R: Runtime>(
         }
     }
 
-    // Create EPUB document (epub_logic now uses common_core types directly)
-    let epub_doc = epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts);
+    // Create EPUB document (epub_logic now uses common_core types directly).
+    // Pre-loaded images (file-path srcs) would be passed here; data-URI images
+    // are decoded automatically inside from_tiptap.
+    let epub_doc =
+        epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts, vec![]);
 
     // Write EPUB
     if path.starts_with("content://") {
@@ -171,6 +174,24 @@ fn write_epub_zip<W: std::io::Write + std::io::Seek>(
                 .map_err(|e| e.to_string())?;
             zip_writer
                 .write_all(&font.data)
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    // 8. OEBPS/Images (embedded image assets decoded from data URIs)
+    if !epub_doc.images.is_empty() {
+        zip_writer
+            .add_directory("OEBPS/Images", options)
+            .map_err(|e| e.to_string())?;
+        for image in &epub_doc.images {
+            zip_writer
+                .start_file(
+                    format!("OEBPS/Images/{}", image.filename),
+                    deflated_options,
+                )
+                .map_err(|e| e.to_string())?;
+            zip_writer
+                .write_all(&image.data)
                 .map_err(|e| e.to_string())?;
         }
     }

@@ -16,7 +16,6 @@ use super::iter::{for_each_colour, for_each_object};
 use super::types::{ConformanceReport, ConformanceViolation};
 use crate::export_settings::{PdfExportSettings, PdfXStandard};
 use common_core::colour_management::{Colour, ColourSpace};
-use std::collections::HashMap;
 use vector_core::document::VectorDocument;
 
 /// Validate a document against the given export settings.

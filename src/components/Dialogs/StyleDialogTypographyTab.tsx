@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { InheritedProps } from '@/lib/hooks/useStyleDialog';
 
 const COMMON_FONTS = [
     "Courier Prime",
@@ -50,6 +51,15 @@ interface StyleDialogTypographyTabProps {
     color: string; setColor: (v: string) => void;
     textTransform: string; setTextTransform: (v: string) => void;
     isFontPopoverOpen: boolean; setIsFontPopoverOpen: (v: boolean) => void;
+    inheritedProps?: InheritedProps;
+}
+
+function InheritedBadge({ sourceDisplayName }: { sourceDisplayName: string }) {
+    return (
+        <span className="text-[10px] text-muted-foreground/60 italic font-normal">
+            from {sourceDisplayName}
+        </span>
+    );
 }
 
 export function StyleDialogTypographyTab({
@@ -60,15 +70,33 @@ export function StyleDialogTypographyTab({
     color, setColor,
     textTransform, setTextTransform,
     isFontPopoverOpen, setIsFontPopoverOpen,
+    inheritedProps = {},
 }: StyleDialogTypographyTabProps) {
+    const inheritedFontFamily = inheritedProps['fo:font-family'] ?? inheritedProps['style:font-name'];
+    const inheritedFontSize = inheritedProps['fo:font-size'];
+    const inheritedFontWeight = inheritedProps['fo:font-weight'];
+    const inheritedFontStyle = inheritedProps['fo:font-style'];
+    const inheritedColor = inheritedProps['fo:color'];
+    const inheritedTextTransform = inheritedProps['textTransform'];
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             <div className="space-y-1.5 flex flex-col">
-                <Label className="text-xs">Font Family</Label>
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Font Family</Label>
+                    {!fontFamily && inheritedFontFamily && <InheritedBadge sourceDisplayName={inheritedFontFamily.sourceDisplayName} />}
+                </div>
                 <Popover open={isFontPopoverOpen} onOpenChange={setIsFontPopoverOpen}>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-8 text-xs">
-                            {fontFamily || "Select font..."}
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                                "w-full justify-between font-normal h-8 text-xs",
+                                !fontFamily && inheritedFontFamily && "text-muted-foreground"
+                            )}
+                        >
+                            {fontFamily || inheritedFontFamily?.value || "Select font..."}
                             <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
                         </Button>
                     </PopoverTrigger>
@@ -96,13 +124,26 @@ export function StyleDialogTypographyTab({
                 </Popover>
             </div>
             <div className="space-y-1.5">
-                <Label className="text-xs">Font Size</Label>
-                <Input value={fontSize} onChange={(e) => setFontSize(e.target.value)} placeholder="e.g., 12pt" className="h-8 text-xs" />
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Font Size</Label>
+                    {!fontSize && inheritedFontSize && <InheritedBadge sourceDisplayName={inheritedFontSize.sourceDisplayName} />}
+                </div>
+                <Input
+                    value={fontSize}
+                    onChange={(e) => setFontSize(e.target.value)}
+                    placeholder={inheritedFontSize?.value || "e.g., 12pt"}
+                    className="h-8 text-xs"
+                />
             </div>
             <div className="space-y-1.5">
-                <Label className="text-xs">Weight</Label>
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Weight</Label>
+                    {!fontWeight && inheritedFontWeight && <InheritedBadge sourceDisplayName={inheritedFontWeight.sourceDisplayName} />}
+                </div>
                 <Select value={fontWeight} onValueChange={setFontWeight}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Normal" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={inheritedFontWeight?.value || "Normal"} />
+                    </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="none">Normal</SelectItem>
                         <SelectItem value="bold">Bold</SelectItem>
@@ -115,9 +156,14 @@ export function StyleDialogTypographyTab({
                 </Select>
             </div>
             <div className="space-y-1.5">
-                <Label className="text-xs">Posture</Label>
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Posture</Label>
+                    {!fontStyle && inheritedFontStyle && <InheritedBadge sourceDisplayName={inheritedFontStyle.sourceDisplayName} />}
+                </div>
                 <Select value={fontStyle} onValueChange={setFontStyle}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Upright" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={inheritedFontStyle?.value || "Upright"} />
+                    </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="none">Upright</SelectItem>
                         <SelectItem value="italic">Italic</SelectItem>
@@ -126,16 +172,34 @@ export function StyleDialogTypographyTab({
                 </Select>
             </div>
             <div className="space-y-1.5">
-                <Label className="text-xs">Color</Label>
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Color</Label>
+                    {!color && inheritedColor && <InheritedBadge sourceDisplayName={inheritedColor.sourceDisplayName} />}
+                </div>
                 <div className="flex gap-2">
-                    <Input type="color" value={color.startsWith('#') ? color : '#000000'} onChange={(e) => setColor(e.target.value)} className="w-8 h-8 p-0 border-none bg-transparent" />
-                    <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#000000" className="h-8 text-xs" />
+                    <Input
+                        type="color"
+                        value={(color || inheritedColor?.value || '#000000').startsWith('#') ? (color || inheritedColor?.value || '#000000') : '#000000'}
+                        onChange={(e) => setColor(e.target.value)}
+                        className="w-8 h-8 p-0 border-none bg-transparent"
+                    />
+                    <Input
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                        placeholder={inheritedColor?.value || "#000000"}
+                        className="h-8 text-xs"
+                    />
                 </div>
             </div>
             <div className="space-y-1.5">
-                <Label className="text-xs">Transform</Label>
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Transform</Label>
+                    {!textTransform && inheritedTextTransform && <InheritedBadge sourceDisplayName={inheritedTextTransform.sourceDisplayName} />}
+                </div>
                 <Select value={textTransform} onValueChange={setTextTransform}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={inheritedTextTransform?.value || "None"} />
+                    </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="none">None</SelectItem>
                         <SelectItem value="uppercase">Uppercase</SelectItem>

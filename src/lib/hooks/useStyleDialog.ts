@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { StyleDefinition, StyleFamily } from '@/lib/types/odt';
 
+export interface InheritedPropValue {
+    value: string;
+    sourceDisplayName: string;
+}
+
+export type InheritedProps = Record<string, InheritedPropValue>;
+
 const slugify = (text: string) => {
     return text
         .toString()
@@ -62,6 +69,44 @@ export function useStyleDialog({
     const [isFontPopoverOpen, setIsFontPopoverOpen] = useState(false);
     const [isParentPopoverOpen, setIsParentPopoverOpen] = useState(false);
     const [isNextPopoverOpen, setIsNextPopoverOpen] = useState(false);
+
+    // Resolve all properties inherited from the parent style chain (not including the current style's own attrs)
+    const inheritedProps = useMemo((): InheritedProps => {
+        const parentStyleName = parent && parent !== 'none' ? parent : null;
+        if (!parentStyleName || selectedStyleId === '__new__') return {};
+
+        const result: InheritedProps = {};
+        const visited = new Set<string>();
+
+        const walk = (styleName: string) => {
+            if (!styleName || styleName === 'none' || visited.has(styleName)) return;
+            visited.add(styleName);
+
+            const style = existingStyles[styleName];
+            if (!style) return;
+
+            // Walk grandparents first so closer ancestors override farther ones
+            if (style.parent && style.parent !== 'none') {
+                walk(style.parent);
+            }
+
+            const displayName = style.displayName || styleName;
+            const attrs = style.attributes || {};
+
+            for (const key of Object.keys(attrs)) {
+                if (attrs[key]) {
+                    result[key] = { value: attrs[key], sourceDisplayName: displayName };
+                }
+            }
+
+            if (style.textTransform) {
+                result['textTransform'] = { value: style.textTransform, sourceDisplayName: displayName };
+            }
+        };
+
+        walk(parentStyleName);
+        return result;
+    }, [parent, existingStyles, selectedStyleId]);
 
     const handleStyleSelect = (styleId: string) => {
         setSelectedStyleId(styleId);
@@ -170,26 +215,38 @@ export function useStyleDialog({
 
     const previewStyle = useMemo((): React.CSSProperties => {
         const s: React.CSSProperties = {};
-        if (fontFamily) s.fontFamily = fontFamily;
-        if (fontSize) s.fontSize = fontSize;
-        if (fontWeight === 'bold') s.fontWeight = 'bold';
-        else if (fontWeight && fontWeight !== 'none') s.fontWeight = fontWeight as any;
-        if (fontStyle === 'italic') s.fontStyle = 'italic';
-        else if (fontStyle === 'oblique') s.fontStyle = 'oblique';
-        if (color) s.color = color;
-        if (textTransform && textTransform !== 'none') s.textTransform = textTransform as any;
-        if (textAlign && textAlign !== 'none') s.textAlign = (textAlign === 'start' ? 'left' : textAlign === 'end' ? 'right' : textAlign) as any;
-        if (lineHeight) s.lineHeight = lineHeight;
-        if (marginTop) s.marginTop = '4px';
-        if (marginBottom) s.marginBottom = '4px';
-        if (textIndent) s.textIndent = '12px';
+        const eff = (own: string, ...keys: string[]) =>
+            own || keys.map(k => inheritedProps[k]?.value).find(Boolean) || '';
+
+        const effFontFamily = eff(fontFamily, 'fo:font-family', 'style:font-name');
+        if (effFontFamily) s.fontFamily = effFontFamily;
+        const effFontSize = eff(fontSize, 'fo:font-size');
+        if (effFontSize) s.fontSize = effFontSize;
+        const effFontWeight = eff(fontWeight, 'fo:font-weight');
+        if (effFontWeight === 'bold') s.fontWeight = 'bold';
+        else if (effFontWeight && effFontWeight !== 'none') s.fontWeight = effFontWeight as any;
+        const effFontStyle = eff(fontStyle, 'fo:font-style');
+        if (effFontStyle === 'italic') s.fontStyle = 'italic';
+        else if (effFontStyle === 'oblique') s.fontStyle = 'oblique';
+        const effColor = eff(color, 'fo:color');
+        if (effColor) s.color = effColor;
+        const effTextTransform = eff(textTransform, 'textTransform');
+        if (effTextTransform && effTextTransform !== 'none') s.textTransform = effTextTransform as any;
+        const effTextAlign = eff(textAlign, 'fo:text-align');
+        if (effTextAlign && effTextAlign !== 'none') s.textAlign = (effTextAlign === 'start' ? 'left' : effTextAlign === 'end' ? 'right' : effTextAlign) as any;
+        const effLineHeight = eff(lineHeight, 'fo:line-height');
+        if (effLineHeight) s.lineHeight = effLineHeight;
+        if (marginTop || inheritedProps['fo:margin-top']?.value) s.marginTop = '4px';
+        if (marginBottom || inheritedProps['fo:margin-bottom']?.value) s.marginBottom = '4px';
+        if (textIndent || inheritedProps['fo:text-indent']?.value) s.textIndent = '12px';
         return s;
-    }, [fontFamily, fontSize, fontWeight, fontStyle, color, textTransform, textAlign, lineHeight, marginTop, marginBottom, textIndent]);
+    }, [fontFamily, fontSize, fontWeight, fontStyle, color, textTransform, textAlign, lineHeight, marginTop, marginBottom, textIndent, inheritedProps]);
 
     return {
         selectedStyleId, family,
         name, setName, displayName, setDisplayName,
         parent, setParent, next, setNext,
+        inheritedProps,
         fontSize, setFontSize, fontFamily, setFontFamily,
         fontWeight, setFontWeight, fontStyle, setFontStyle,
         color, setColor, textTransform, setTextTransform,

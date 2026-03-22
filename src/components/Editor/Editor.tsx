@@ -14,6 +14,7 @@ import { ScrollPlugin } from './plugins/ScrollPlugin';
 import { MenuPlugin } from './plugins/MenuPlugin';
 import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { ImagePlugin } from './plugins/ImagePlugin';
 import { PastePlugin, PasteData } from './plugins/PastePlugin';
 import { PasteSpecialDialog, PasteOption } from '../Dialogs/PasteSpecialDialog';
@@ -191,6 +192,7 @@ function EditorInner({
                 <FloatingToolbarPlugin />
                 <MenuPlugin onFindOpen={onFindOpen} />
                 <TablePlugin />
+                <ListPlugin />
                 <LinkPlugin />
                 <ImagePlugin />
                 <PastePlugin onOpenPasteSpecial={handleOpenPasteSpecial} />

@@ -116,6 +116,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::locale::get_system_locale,
             commands::fs::save_document,
             commands::fs::open_document,
             commands::export::save_epub,

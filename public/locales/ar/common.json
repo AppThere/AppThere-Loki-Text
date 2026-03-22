@@ -1,0 +1,36 @@
+{
+    "toolbar": {
+        "save": "",
+        "open": "",
+        "newFile": "",
+        "undo": "",
+        "redo": "",
+        "zoomIn": "",
+        "zoomOut": ""
+    },
+    "menu": {
+        "file": "",
+        "edit": "",
+        "view": "",
+        "insert": "",
+        "format": "",
+        "tools": "",
+        "help": ""
+    },
+    "status": {
+        "ready": "",
+        "saving": "",
+        "saved": "",
+        "error": ""
+    },
+    "dialog": {
+        "ok": "",
+        "cancel": "",
+        "confirm": "",
+        "close": "",
+        "apply": ""
+    },
+    "pagination": {
+        "pageOf": ""
+    }
+}

@@ -1,0 +1,23 @@
+{
+  "canvas": {
+    "select": "Select",
+    "pan": "Pan",
+    "zoom": "Zoom",
+    "insertText": "Insert Text",
+    "insertShape": "Insert Shape"
+  },
+  "format": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "fontSize": "Font Size",
+    "fontFamily": "Font Family",
+    "colour": "Colour"
+  },
+  "document": {
+    "untitled": "Untitled",
+    "pages": "Pages",
+    "words": "Words",
+    "characters": "Characters"
+  }
+}

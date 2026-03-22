@@ -62,7 +62,7 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
     return (
         <div className="flex flex-col h-full bg-background overflow-hidden">
             {/* Top bar */}
-            <div className="flex items-center gap-2 px-3 h-10 border-b border-border shrink-0 bg-background">
+            <div className="flex items-center gap-2 px-3 h-10 border-b border-border shrink-0 bg-background safe-pt">
                 <span className="text-sm font-medium truncate flex-1">{title}</span>
                 <span title={isDirty ? 'Unsaved changes' : 'Saved'}>
                     {isDirty ? (
@@ -139,7 +139,9 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
                     <PropertiesPanel variant="bottomsheet" />
                 </div>
                 {/* Tool palette at bottom on mobile */}
-                <ToolPalette variant="bottombar" />
+                <div className="safe-pb">
+                    <ToolPalette variant="bottombar" />
+                </div>
             </div>
 
             <NewDocumentDialog

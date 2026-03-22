@@ -141,26 +141,41 @@ export default function App() {
         return () => window.visualViewport?.removeEventListener('resize', handleResize);
     }, []);
 
-    // Mobile Back Button handling
+    // Mobile Back Button handling for Android
+    // Android's back button closes the app when the WebView has no browser history to go back through.
+    // We push a history entry when entering any sub-view so that pressing back triggers a popstate
+    // event (which we handle below) instead of closing the app.
+    useEffect(() => {
+        if (currentContent || showVectorEditor) {
+            history.pushState({ appNav: true }, '');
+        }
+    }, [currentContent, showVectorEditor]);
+
     useEffect(() => {
         const handleBack = () => {
-            // If we have content open, "back" should close it (go to Landing Page)
-            if (currentContent) {
-                // Prevent default if possible to stop app from exiting
-                // Note: Standard web 'backbutton' event or popstate
+            // Dismiss open layers in reverse priority order (dialogs before views)
+            if (fileTypeDialogOpen) {
+                setFileTypeDialogOpen(false);
+            } else if (metadataDialogOpen) {
+                setMetadataDialogOpen(false);
+            } else if (styleDialogOpen) {
+                setStyleDialogOpen(false);
+            } else if (showVectorEditor) {
+                setShowVectorEditor(false);
+            } else if (currentContent) {
                 handleClose();
             }
         };
 
         window.addEventListener('popstate', handleBack);
-        // Specialized event for some mobile environments
+        // Legacy event for some Cordova-based environments
         document.addEventListener('backbutton', handleBack);
 
         return () => {
             window.removeEventListener('popstate', handleBack);
             document.removeEventListener('backbutton', handleBack);
         };
-    }, [currentContent, handleClose]);
+    }, [currentContent, showVectorEditor, styleDialogOpen, metadataDialogOpen, fileTypeDialogOpen, handleClose]);
 
     return (
         <div

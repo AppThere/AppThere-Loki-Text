@@ -75,3 +75,78 @@ npm run tauri android build
 AppThere Loki Text is released under the **Apache License 2.0**. See the LICENSE file (if available) for more details.
 
 Copyright © 2026 AppThere. All rights reserved.
+
+## Internationalization
+
+Loki ships with a full i18n system built on [i18next](https://www.i18next.com/) and [react-i18next](https://react.i18next.com/). Locale JSON files are loaded at runtime via `i18next-http-backend`; the OS locale is detected through a Tauri command backed by the `sys-locale` Rust crate.
+
+### Adding a new UI string
+
+1. Add the key to `public/locales/en/common.json` (general UI) or `public/locales/en/editor.json` (canvas / document strings).
+2. Use `t('your.key')` in the component (import `useTranslation` from `react-i18next`).
+3. Run the locale validator to surface gaps in other locales:
+   ```bash
+   node scripts/validate-locales.js
+   ```
+4. Optionally fill in translations for other locales — missing keys fall through to the English fallback at runtime.
+
+See `src/templates/Component.tsx` for a copy-paste starter component with full i18n wiring.
+
+### Changing language at runtime
+
+```ts
+import { setLanguage } from '@/i18n';
+setLanguage('fr'); // persists to localStorage and updates document.dir for RTL
+```
+
+A user preference stored in `localStorage` under the key `loki.language` always takes precedence over the OS locale.
+
+### Running the locale validator
+
+```bash
+node scripts/validate-locales.js
+```
+
+Exits with code `0` if every non-English locale contains the same key structure as English; exits with code `1` and prints a per-locale report of missing keys otherwise.
+
+### Supported locales (BCP 47)
+
+| Tag | Language |
+|-----|----------|
+| `ar` | Arabic |
+| `bg` | Bulgarian |
+| `cs` | Czech |
+| `da` | Danish |
+| `de` | German |
+| `el` | Greek |
+| `en` | English *(reference)* |
+| `es` | Spanish |
+| `et` | Estonian |
+| `fi` | Finnish |
+| `fr` | French |
+| `ga` | Irish |
+| `hi` | Hindi |
+| `hr` | Croatian |
+| `hu` | Hungarian |
+| `it` | Italian |
+| `ja` | Japanese |
+| `ko` | Korean |
+| `lt` | Lithuanian |
+| `lv` | Latvian |
+| `mt` | Maltese |
+| `nl` | Dutch |
+| `pl` | Polish |
+| `pt` | Portuguese |
+| `ro` | Romanian |
+| `sk` | Slovak |
+| `sl` | Slovenian |
+| `sv` | Swedish |
+| `zh-Hans` | Chinese (Simplified) |
+
+### RTL support
+
+Arabic (`ar`) is the only RTL locale in the supported set. `setLanguage('ar')` automatically sets `document.documentElement.dir = 'rtl'`; all other locales set it to `'ltr'`. Components should rely on logical CSS properties (`margin-inline-start`, `padding-inline-end`, etc.) rather than physical `left`/`right` to respond correctly to the direction change.
+
+### ESLint enforcement
+
+The ESLint rule `i18next/no-literal-string` is configured at **error** level in `eslint.config.js` with `mode: 'jsx-only'`. Any literal string placed directly inside a JSX expression will fail linting, guiding developers to use `t()` instead. Pure integers, `SCREAMING_SNAKE_CASE` constants, whitespace-only strings, single characters, and version strings are excluded from the rule.

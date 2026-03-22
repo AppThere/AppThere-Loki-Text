@@ -34,3 +34,4 @@ log = "0.4"
 zip = "8.0.0"
 vector-core = { path = "formats/vector-core" }
 loki-pdf = { path = "formats/pdf" }
+sys-locale = "0.3"

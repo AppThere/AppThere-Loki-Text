@@ -136,11 +136,7 @@ pub(crate) fn extract_images_from_blocks(blocks: &[Block]) -> Vec<ImageAsset> {
     assets
 }
 
-fn extract_images_from_block(
-    block: &Block,
-    assets: &mut Vec<ImageAsset>,
-    counter: &mut usize,
-) {
+fn extract_images_from_block(block: &Block, assets: &mut Vec<ImageAsset>, counter: &mut usize) {
     match block {
         Block::Image { src, .. } => {
             if let Some(asset) = parse_data_uri_image(src, *counter) {

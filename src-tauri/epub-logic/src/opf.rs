@@ -30,10 +30,7 @@ pub(crate) fn generate_package_opf(
     ));
 
     let title = metadata.title.as_deref().unwrap_or("Untitled");
-    opf.push_str(&format!(
-        "    <dc:title>{}</dc:title>\n",
-        escape_xml(title)
-    ));
+    opf.push_str(&format!("    <dc:title>{}</dc:title>\n", escape_xml(title)));
 
     if let Some(creator) = &metadata.creator {
         opf.push_str(&format!(
@@ -50,10 +47,7 @@ pub(crate) fn generate_package_opf(
 
     // G11: dc:date from creation_date
     if let Some(date) = &metadata.creation_date {
-        opf.push_str(&format!(
-            "    <dc:date>{}</dc:date>\n",
-            escape_xml(date)
-        ));
+        opf.push_str(&format!("    <dc:date>{}</dc:date>\n", escape_xml(date)));
     }
 
     // G12: dc:description
@@ -86,9 +80,7 @@ pub(crate) fn generate_package_opf(
         "    <item id=\"nav\" href=\"nav.xhtml\" \
          media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n",
     );
-    opf.push_str(
-        "    <item id=\"css\" href=\"Styles/styles.css\" media-type=\"text/css\"/>\n",
-    );
+    opf.push_str("    <item id=\"css\" href=\"Styles/styles.css\" media-type=\"text/css\"/>\n");
 
     for section in sections {
         opf.push_str(&format!(

@@ -138,20 +138,10 @@ impl EpubDocument {
 
             if let Some(name) = style_name {
                 if let Some(style) = styles.get(name) {
-                    if style
-                        .attributes
-                        .get("fo:break-before")
-                        .map(|s| s.as_str())
-                        == Some("page")
-                    {
+                    if style.attributes.get("fo:break-before").map(|s| s.as_str()) == Some("page") {
                         break_before = true;
                     }
-                    if style
-                        .attributes
-                        .get("fo:break-after")
-                        .map(|s| s.as_str())
-                        == Some("page")
-                    {
+                    if style.attributes.get("fo:break-after").map(|s| s.as_str()) == Some("page") {
                         break_after = true;
                     }
                 }

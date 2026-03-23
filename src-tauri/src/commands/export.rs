@@ -185,10 +185,7 @@ fn write_epub_zip<W: std::io::Write + std::io::Seek>(
             .map_err(|e| e.to_string())?;
         for image in &epub_doc.images {
             zip_writer
-                .start_file(
-                    format!("OEBPS/Images/{}", image.filename),
-                    deflated_options,
-                )
+                .start_file(format!("OEBPS/Images/{}", image.filename), deflated_options)
                 .map_err(|e| e.to_string())?;
             zip_writer
                 .write_all(&image.data)

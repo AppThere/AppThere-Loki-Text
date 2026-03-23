@@ -71,11 +71,7 @@ pub(crate) fn inlines_to_html(inlines: &[Inline]) -> String {
                         TiptapMark::Subscript => format!("<sub>{}</sub>", content),
                         // G4: escape href
                         TiptapMark::Link { attrs } => {
-                            format!(
-                                "<a href=\"{}\">{}</a>",
-                                escape_xml(&attrs.href),
-                                content
-                            )
+                            format!("<a href=\"{}\">{}</a>", escape_xml(&attrs.href), content)
                         }
                         // G8: render named character style as CSS class span
                         TiptapMark::NamedSpanStyle { attrs } => {

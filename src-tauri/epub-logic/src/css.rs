@@ -47,11 +47,11 @@ fn odf_to_css_property(odf_prop: &str) -> &'static str {
     match odf_prop {
         // Typography
         "fo:font-family" => "font-family",
-        "style:font-name" => "font-family",  // G10: alternate ODF font property
+        "style:font-name" => "font-family", // G10: alternate ODF font property
         "fo:font-size" => "font-size",
         "fo:font-weight" => "font-weight",
         "fo:font-style" => "font-style",
-        "fo:font-variant" => "font-variant",  // G10
+        "fo:font-variant" => "font-variant",     // G10
         "fo:letter-spacing" => "letter-spacing", // G10
         // Decoration
         "fo:text-decoration" => "text-decoration", // G10

@@ -1,17 +1,26 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[cfg(test)]
-mod tests;
-
 // Re-use types from common-core
-use common_core::BlockAttrs;
 pub use common_core::{
     Block, Inline, Metadata, StyleDefinition, StyleFamily, TiptapAttrs, TiptapMark, TiptapNode,
 };
 
-/// Represents a section of content in the EPUB
-/// Sections are split at HorizontalRule blocks
+mod conversion;
+mod css;
+mod html;
+mod nav;
+mod opf;
+mod table;
+
+#[cfg(test)]
+mod tests;
+
+// ---------------------------------------------------------------------------
+// Public types
+// ---------------------------------------------------------------------------
+
+/// A section of content within the EPUB, split at page-break boundaries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContentSection {
     pub id: String,
@@ -19,7 +28,7 @@ pub struct ContentSection {
     pub blocks: Vec<Block>,
 }
 
-/// Represents a font asset to be bundled in the EPUB
+/// A font asset to be bundled in the EPUB.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FontAsset {
     pub family_name: String,
@@ -58,43 +67,69 @@ impl FontFormat {
     }
 }
 
-/// Main EPUB document structure
+/// An image asset decoded from a data URI and embedded in the EPUB.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageAsset {
+    /// The original `src` value used to look up this asset during rendering.
+    pub original_src: String,
+    /// Filename inside `OEBPS/Images/` (e.g. `"image-000.png"`).
+    pub filename: String,
+    /// Raw image bytes.
+    pub data: Vec<u8>,
+    /// IANA media type string (e.g. `"image/png"`).
+    pub media_type: String,
+}
+
+// ---------------------------------------------------------------------------
+// EpubDocument
+// ---------------------------------------------------------------------------
+
+/// The assembled EPUB document ready for ZIP serialisation.
 #[derive(Debug, Clone)]
 pub struct EpubDocument {
     pub sections: Vec<ContentSection>,
     pub styles: HashMap<String, StyleDefinition>,
     pub metadata: Metadata,
     pub fonts: Vec<FontAsset>,
+    /// Images decoded from data-URI `src` values found in the document.
+    pub images: Vec<ImageAsset>,
 }
 
 impl EpubDocument {
-    /// Create a new EPUB document from Tiptap JSON
-    /// Splits content at PageBreak blocks into sections
+    /// Build an `EpubDocument` from a `TiptapNode` document tree.
+    ///
+    /// `images` may be pre-populated by the caller (e.g. file-path images
+    /// loaded by `export.rs`).  Data-URI images found in `Block::Image` nodes
+    /// are decoded and appended automatically.
     pub fn from_tiptap(
         root: TiptapNode,
         styles: HashMap<String, StyleDefinition>,
         metadata: Metadata,
         fonts: Vec<FontAsset>,
+        mut images: Vec<ImageAsset>,
     ) -> Self {
         let mut sections = Vec::new();
-        let mut current_blocks = Vec::new();
-        let mut section_counter = 1;
+        let mut current_blocks: Vec<Block> = Vec::new();
+        let mut section_counter = 1usize;
 
-        // Extract blocks from the doc root
+        // Convert TiptapNode tree to flat Block list
         let blocks = match root {
             TiptapNode::Doc { content } => content
                 .into_iter()
-                .filter_map(tiptap_node_to_block)
+                .filter_map(conversion::tiptap_node_to_block)
                 .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
 
-        // Split at PageBreak or Style Breaks
+        // Decode any data-URI images found in the block tree
+        let mut data_uri_images = conversion::extract_images_from_blocks(&blocks);
+        images.append(&mut data_uri_images);
+
+        // Split at PageBreak or style-level page breaks
         for block in blocks {
             let mut break_before = false;
             let mut break_after = false;
 
-            // Check style for page breaks
             let style_name = match &block {
                 Block::Paragraph { style_name, .. } => style_name.as_deref(),
                 Block::Heading { style_name, .. } => style_name.as_deref(),
@@ -115,7 +150,7 @@ impl EpubDocument {
             if break_before && !current_blocks.is_empty() {
                 sections.push(ContentSection {
                     id: format!("section-{}", section_counter),
-                    title: Some(format!("Section {}", section_counter)),
+                    title: extract_section_title(&current_blocks),
                     blocks: current_blocks.clone(),
                 });
                 current_blocks.clear();
@@ -123,11 +158,10 @@ impl EpubDocument {
             }
 
             if matches!(block, Block::PageBreak) {
-                // Always split at explicit PageBreak
                 if !current_blocks.is_empty() {
                     sections.push(ContentSection {
                         id: format!("section-{}", section_counter),
-                        title: Some(format!("Section {}", section_counter)),
+                        title: extract_section_title(&current_blocks),
                         blocks: current_blocks.clone(),
                     });
                     current_blocks.clear();
@@ -141,7 +175,7 @@ impl EpubDocument {
             if break_after && !current_blocks.is_empty() {
                 sections.push(ContentSection {
                     id: format!("section-{}", section_counter),
-                    title: Some(format!("Section {}", section_counter)),
+                    title: extract_section_title(&current_blocks),
                     blocks: current_blocks.clone(),
                 });
                 current_blocks.clear();
@@ -149,16 +183,14 @@ impl EpubDocument {
             }
         }
 
-        // Add remaining blocks as final section
         if !current_blocks.is_empty() {
             sections.push(ContentSection {
                 id: format!("section-{}", section_counter),
-                title: Some(format!("Section {}", section_counter)),
+                title: extract_section_title(&current_blocks),
                 blocks: current_blocks,
             });
         }
 
-        // If no sections created, create a default one
         if sections.is_empty() {
             sections.push(ContentSection {
                 id: "section-1".to_string(),
@@ -172,437 +204,77 @@ impl EpubDocument {
             styles,
             metadata,
             fonts,
+            images,
         }
     }
 
-    /// Generate XHTML content for a section
+    /// Render a content section to a self-contained XHTML document string.
     pub fn section_to_xhtml(&self, section: &ContentSection) -> String {
-        let mut html = String::new();
-
-        html.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        html.push_str("<!DOCTYPE html>\n");
-        html.push_str("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n");
-        html.push_str("<head>\n");
-        html.push_str(&format!(
+        let mut out = String::new();
+        out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        out.push_str("<!DOCTYPE html>\n");
+        out.push_str(
+            "<html xmlns=\"http://www.w3.org/1999/xhtml\" \
+             xmlns:epub=\"http://www.idpf.org/2007/ops\">\n",
+        );
+        out.push_str("<head>\n");
+        // G5: escape section title in <title>
+        out.push_str(&format!(
             "  <title>{}</title>\n",
-            section.title.as_deref().unwrap_or("Section")
+            html::escape_xml(section.title.as_deref().unwrap_or("Section"))
         ));
-        html.push_str(
+        out.push_str(
             "  <link rel=\"stylesheet\" type=\"text/css\" href=\"../Styles/styles.css\"/>\n",
         );
-        html.push_str("</head>\n");
-        html.push_str("<body>\n");
-
-        // Render blocks
+        out.push_str("</head>\n");
+        out.push_str("<body>\n");
         for block in &section.blocks {
-            html.push_str(&self.block_to_html(block));
+            out.push_str(&html::block_to_html(block, &self.styles, &self.images));
         }
-
-        html.push_str("</body>\n");
-        html.push_str("</html>\n");
-
-        html
+        out.push_str("</body>\n");
+        out.push_str("</html>\n");
+        out
     }
 
-    fn block_to_html(&self, block: &Block) -> String {
-        match block {
-            Block::Paragraph {
-                style_name,
-                content,
-                ..
-            } => {
-                let mut tag = "p".to_string();
-                if let Some(ref name) = style_name {
-                    if let Some(style) = self.styles.get(name) {
-                        if let Some(level) = style.outline_level {
-                            tag = format!("h{}", level);
-                        }
-                    }
-                }
-
-                let class = style_name
-                    .as_ref()
-                    .map(|s| format!(" class=\"style-{}\"", s.replace(' ', "-")))
-                    .unwrap_or_default();
-                format!(
-                    "  <{}{}>{}</{}>\n",
-                    tag,
-                    class,
-                    self.inlines_to_html(content),
-                    tag
-                )
-            }
-            Block::Heading {
-                level,
-                style_name,
-                content,
-                ..
-            } => {
-                let class = style_name
-                    .as_ref()
-                    .map(|s| format!(" class=\"style-{}\"", s.replace(' ', "-")))
-                    .unwrap_or_default();
-                format!(
-                    "  <h{}{}>{}</h{}>\n",
-                    level,
-                    class,
-                    self.inlines_to_html(content),
-                    level
-                )
-            }
-            Block::BulletList { content } => {
-                let mut html = String::from("  <ul>\n");
-                for item in content {
-                    html.push_str(&self.block_to_html(item));
-                }
-                html.push_str("  </ul>\n");
-                html
-            }
-            Block::OrderedList { content } => {
-                let mut html = String::from("  <ol>\n");
-                for item in content {
-                    html.push_str(&self.block_to_html(item));
-                }
-                html.push_str("  </ol>\n");
-                html
-            }
-            Block::ListItem { content } => {
-                let mut html = String::from("    <li>");
-                for block in content {
-                    html.push_str(self.block_to_html(block).trim());
-                }
-                html.push_str("</li>\n");
-                html
-            }
-            Block::Blockquote { content } => {
-                let mut html = String::from("  <blockquote>\n");
-                for block in content {
-                    html.push_str(&self.block_to_html(block));
-                }
-                html.push_str("  </blockquote>\n");
-                html
-            }
-            Block::HorizontalRule => String::from("  <hr/>\n"),
-            _ => String::new(),
-        }
-    }
-
-    fn inlines_to_html(&self, inlines: &[Inline]) -> String {
-        let mut html = String::new();
-        for inline in inlines {
-            match inline {
-                Inline::Text { text, marks, .. } => {
-                    let mut wrapped_text = text.clone();
-
-                    // Apply marks
-                    for mark in marks {
-                        wrapped_text = match mark {
-                            TiptapMark::Bold => format!("<strong>{}</strong>", wrapped_text),
-                            TiptapMark::Italic => format!("<em>{}</em>", wrapped_text),
-                            TiptapMark::Underline => format!("<u>{}</u>", wrapped_text),
-                            TiptapMark::Strike => format!("<s>{}</s>", wrapped_text),
-                            TiptapMark::Superscript => format!("<sup>{}</sup>", wrapped_text),
-                            TiptapMark::Subscript => format!("<sub>{}</sub>", wrapped_text),
-                            TiptapMark::Link { attrs } => {
-                                format!("<a href=\"{}\">{}</a>", attrs.href, wrapped_text)
-                            }
-                            _ => wrapped_text,
-                        };
-                    }
-
-                    html.push_str(&wrapped_text);
-                }
-                Inline::LineBreak => {
-                    html.push_str("<br/>");
-                }
-            }
-        }
-        html
-    }
-
-    /// Generate the package document (content.opf)
+    /// Generate the OPF 3.0 package document.
     pub fn to_package_opf(&self) -> String {
-        let mut opf = String::new();
-
-        opf.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        opf.push_str("<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"uuid\">\n");
-
-        // Metadata
-        opf.push_str("  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
-
-        let identifier = self
-            .metadata
-            .identifier
-            .clone()
-            .unwrap_or_else(|| format!("urn:uuid:{}", uuid::Uuid::new_v4()));
-        opf.push_str(&format!(
-            "    <dc:identifier id=\"uuid\">{}</dc:identifier>\n",
-            identifier
-        ));
-
-        let title = self.metadata.title.as_deref().unwrap_or("Untitled");
-        opf.push_str(&format!(
-            "    <dc:title>{}</dc:title>\n",
-            Self::escape_xml(title)
-        ));
-
-        if let Some(creator) = &self.metadata.creator {
-            opf.push_str(&format!(
-                "    <dc:creator>{}</dc:creator>\n",
-                Self::escape_xml(creator)
-            ));
-        }
-
-        let language = self.metadata.language.as_deref().unwrap_or("en");
-        opf.push_str(&format!(
-            "    <dc:language>{}</dc:language>\n",
-            Self::escape_xml(language)
-        ));
-
-        let modified = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        opf.push_str(&format!(
-            "    <meta property=\"dcterms:modified\">{}</meta>\n",
-            modified
-        ));
-
-        opf.push_str("  </metadata>\n");
-
-        // Manifest
-        opf.push_str("  <manifest>\n");
-        opf.push_str("    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n");
-        opf.push_str("    <item id=\"css\" href=\"Styles/styles.css\" media-type=\"text/css\"/>\n");
-
-        // Content sections
-        for section in &self.sections {
-            opf.push_str(&format!(
-                "    <item id=\"{}\" href=\"Text/{}.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
-                section.id, section.id
-            ));
-        }
-
-        // Fonts
-        for (idx, font) in self.fonts.iter().enumerate() {
-            opf.push_str(&format!(
-                "    <item id=\"font-{}\" href=\"Fonts/{}\" media-type=\"{}\"/>\n",
-                idx,
-                font.filename,
-                font.format.media_type()
-            ));
-        }
-
-        opf.push_str("  </manifest>\n");
-
-        // Spine
-        opf.push_str("  <spine>\n");
-        for section in &self.sections {
-            opf.push_str(&format!("    <itemref idref=\"{}\"/>\n", section.id));
-        }
-        opf.push_str("  </spine>\n");
-
-        opf.push_str("</package>\n");
-
-        opf
+        opf::generate_package_opf(&self.metadata, &self.sections, &self.fonts, &self.images)
     }
 
-    /// Generate the navigation document (nav.xhtml)
+    /// Generate the EPUB 3 Navigation Document (nav.xhtml).
     pub fn to_nav_xhtml(&self) -> String {
-        let mut nav = String::new();
-
-        nav.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        nav.push_str("<!DOCTYPE html>\n");
-        nav.push_str("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n");
-        nav.push_str("<head>\n");
-        nav.push_str("  <title>Navigation</title>\n");
-        nav.push_str("</head>\n");
-        nav.push_str("<body>\n");
-        nav.push_str("  <nav epub:type=\"toc\">\n");
-        nav.push_str("    <h1>Table of Contents</h1>\n");
-        nav.push_str("    <ol>\n");
-
-        for section in &self.sections {
-            let title = section.title.as_deref().unwrap_or("Section");
-            nav.push_str(&format!(
-                "      <li><a href=\"Text/{}.xhtml\">{}</a></li>\n",
-                section.id,
-                Self::escape_xml(title)
-            ));
-        }
-
-        nav.push_str("    </ol>\n");
-        nav.push_str("  </nav>\n");
-        nav.push_str("</body>\n");
-        nav.push_str("</html>\n");
-
-        nav
+        nav::generate_nav_xhtml(&self.sections)
     }
 
-    /// Generate CSS from styles
+    /// Generate the CSS stylesheet.
     pub fn to_css(&self) -> String {
-        let mut css = String::new();
-
-        // Font faces
-        for font in &self.fonts {
-            css.push_str(&format!(
-                "@font-face {{\n  font-family: '{}';\n  src: url('../Fonts/{}');\n}}\n\n",
-                font.family_name, font.filename
-            ));
-        }
-
-        // Style classes
-        for (name, style) in &self.styles {
-            let class_name = name.replace(' ', "-");
-            css.push_str(&format!(".style-{} {{\n", class_name));
-
-            for (key, value) in &style.attributes {
-                let css_prop = Self::odf_to_css_property(key);
-                if !css_prop.is_empty() {
-                    css.push_str(&format!("  {}: {};\n", css_prop, value));
-                }
-            }
-
-            if let Some(transform) = &style.text_transform {
-                css.push_str(&format!("  text-transform: {};\n", transform));
-            }
-
-            css.push_str("}\n\n");
-        }
-
-        css
-    }
-
-    fn odf_to_css_property(odf_prop: &str) -> String {
-        match odf_prop {
-            "fo:font-family" => "font-family".to_string(),
-            "fo:font-size" => "font-size".to_string(),
-            "fo:font-weight" => "font-weight".to_string(),
-            "fo:font-style" => "font-style".to_string(),
-            "fo:text-align" => "text-align".to_string(),
-            "fo:margin-top" => "margin-top".to_string(),
-            "fo:margin-bottom" => "margin-bottom".to_string(),
-            "fo:margin-left" => "margin-left".to_string(),
-            "fo:margin-right" => "margin-right".to_string(),
-            "fo:text-indent" => "text-indent".to_string(),
-            "fo:line-height" => "line-height".to_string(),
-            _ => String::new(),
-        }
-    }
-
-    fn escape_xml(text: &str) -> String {
-        text.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-            .replace('\'', "&apos;")
+        css::generate_css(&self.styles, &self.fonts)
     }
 }
 
-/// Convert a TiptapNode tree node into a Block.
-/// Returns None for text/inline nodes (Text, HardBreak, Doc).
-fn tiptap_node_to_block(node: TiptapNode) -> Option<Block> {
-    match node {
-        TiptapNode::Paragraph { attrs, content } => {
-            let style_name = attrs.as_ref().and_then(|a| a.style_name.clone());
-            let block_attrs = attrs.map(|a| BlockAttrs {
-                text_align: a.text_align,
-                indent: a.indent,
-            });
-            Some(Block::Paragraph {
-                style_name,
-                attrs: block_attrs,
-                content: tiptap_content_to_inlines(content.unwrap_or_default()),
-            })
-        }
-        TiptapNode::Heading { attrs, content } => {
-            let style_name = attrs.as_ref().and_then(|a| a.style_name.clone());
-            let level = attrs.as_ref().and_then(|a| a.level).unwrap_or(1);
-            let block_attrs = attrs.map(|a| BlockAttrs {
-                text_align: a.text_align,
-                indent: a.indent,
-            });
-            Some(Block::Heading {
-                level,
-                style_name,
-                attrs: block_attrs,
-                content: tiptap_content_to_inlines(content.unwrap_or_default()),
-            })
-        }
-        TiptapNode::Image { attrs } => Some(Block::Image {
-            src: attrs.src,
-            alt: attrs.alt,
-            title: attrs.title,
-        }),
-        TiptapNode::BulletList { content } => Some(Block::BulletList {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::OrderedList { content } => Some(Block::OrderedList {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::ListItem { content } => Some(Block::ListItem {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::Blockquote { content } => Some(Block::Blockquote {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::Table { content } => Some(Block::Table {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::TableRow { content } => Some(Block::TableRow {
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::TableHeader { attrs, content } => Some(Block::TableHeader {
-            attrs,
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::TableCell { attrs, content } => Some(Block::TableCell {
-            attrs,
-            content: content
-                .into_iter()
-                .filter_map(tiptap_node_to_block)
-                .collect(),
-        }),
-        TiptapNode::HorizontalRule => Some(Block::HorizontalRule),
-        TiptapNode::PageBreak => Some(Block::PageBreak),
-        _ => None,
-    }
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-fn tiptap_content_to_inlines(nodes: Vec<TiptapNode>) -> Vec<Inline> {
-    let mut inlines = Vec::new();
-    for node in nodes {
-        match node {
-            TiptapNode::Text { text, marks } => {
-                inlines.push(Inline::Text {
-                    text,
-                    style_name: None,
-                    marks: marks.unwrap_or_default(),
-                });
+/// Return the text content of the first heading in `blocks`, falling back to
+/// `None` (so the caller can use a generic "Section N" label).
+fn extract_section_title(blocks: &[Block]) -> Option<String> {
+    for block in blocks {
+        if let Block::Heading { content, .. } = block {
+            let text: String = content
+                .iter()
+                .filter_map(|inline| {
+                    if let common_core::Inline::Text { text, .. } = inline {
+                        Some(text.as_str())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if !text.is_empty() {
+                return Some(text);
             }
-            TiptapNode::HardBreak => {
-                inlines.push(Inline::LineBreak);
-            }
-            _ => {}
         }
     }
-    inlines
+    None
 }

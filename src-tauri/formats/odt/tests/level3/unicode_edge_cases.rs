@@ -98,7 +98,10 @@ fn test_zero_width_joiner_preserved_round_trip() {
     let xml = super::fodt(&format!("<text:p>{text}</text:p>"));
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "ZWJ in text content should parse");
-    let out = result.unwrap().to_content_xml().expect("to_content_xml failed");
+    let out = result
+        .unwrap()
+        .to_content_xml()
+        .expect("to_content_xml failed");
     assert!(out.contains('\u{200D}'), "ZWJ must survive write");
 }
 
@@ -123,8 +126,14 @@ fn test_emoji_zwj_family_sequence_round_trip() {
     let xml = super::fodt(&format!("<text:p>{text}</text:p>"));
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "Emoji ZWJ family sequence should parse");
-    let out = result.unwrap().to_content_xml().expect("to_content_xml failed");
-    assert!(out.contains('\u{1F468}'), "Man emoji must survive round-trip");
+    let out = result
+        .unwrap()
+        .to_content_xml()
+        .expect("to_content_xml failed");
+    assert!(
+        out.contains('\u{1F468}'),
+        "Man emoji must survive round-trip"
+    );
     assert!(out.contains('\u{200D}'), "ZWJ must survive round-trip");
 }
 
@@ -140,7 +149,10 @@ fn test_nfd_normalised_text_no_silent_corruption() {
     let xml = super::fodt(&format!("<text:p>{text}</text:p>"));
     let result = Document::from_xml(&xml);
     assert!(result.is_ok(), "NFD text should parse without error");
-    let out = result.unwrap().to_content_xml().expect("to_content_xml failed");
+    let out = result
+        .unwrap()
+        .to_content_xml()
+        .expect("to_content_xml failed");
     let doc2 = Document::from_xml(&out).expect("re-parse failed");
     if let Some(Block::Paragraph { content, .. }) = doc2.blocks.first() {
         if let Some(Inline::Text { text: t, .. }) = content.first() {

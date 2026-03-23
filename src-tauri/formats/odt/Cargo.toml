@@ -62,7 +62,7 @@ path = "tests/colour_round_trip.rs"
 
 [[test]]
 name = "level3_error_handling"
-path = "tests/level3_error_handling.rs"
+path = "tests/level3/mod.rs"
 
 [[bench]]
 name = "parsing"

@@ -60,6 +60,10 @@ path = "tests/session_recovery.rs"
 name = "colour_round_trip"
 path = "tests/colour_round_trip.rs"
 
+[[test]]
+name = "level3_error_handling"
+path = "tests/level3_error_handling.rs"
+
 [[bench]]
 name = "parsing"
 harness = false

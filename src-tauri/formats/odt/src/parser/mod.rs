@@ -21,6 +21,72 @@ use crate::parser::blocks::parse_blocks;
 use crate::parser::metadata::parse_metadata;
 use crate::parser::styles::{parse_styles, parse_styles_node};
 
+/// Maximum XML element nesting depth accepted before parsing is aborted.
+///
+/// This guards against adversarial inputs that would cause a stack overflow
+/// inside roxmltree or the recursive block parser.  No legitimate ODT
+/// document approaches this depth.
+const MAX_XML_NESTING_DEPTH: usize = 300;
+
+/// Scans `xml` bytes and returns `Err` if the element nesting depth exceeds
+/// `max`.  This is a lightweight pre-check that runs before the full XML
+/// tree is built, protecting both roxmltree and our recursive parser.
+fn check_nesting_depth(xml: &str, max: usize) -> Result<(), String> {
+    let b = xml.as_bytes();
+    let mut depth: usize = 0;
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'<' {
+            i += 1;
+            continue;
+        }
+        i += 1;
+        if i >= b.len() {
+            break;
+        }
+        if b[i] == b'/' {
+            // Closing tag — consume to '>'
+            depth = depth.saturating_sub(1);
+            while i < b.len() && b[i] != b'>' {
+                i += 1;
+            }
+        } else if b[i] == b'!' || b[i] == b'?' {
+            // Comment, DTD, or PI — consume to '>'
+            while i < b.len() && b[i] != b'>' {
+                i += 1;
+            }
+        } else {
+            // Opening tag: scan to '>' tracking quoted attribute values
+            depth += 1;
+            if depth > max {
+                return Err(format!("XML nesting depth exceeds maximum of {max}"));
+            }
+            let mut in_quote = false;
+            let mut qchar = b'"';
+            while i < b.len() {
+                if in_quote {
+                    if b[i] == qchar {
+                        in_quote = false;
+                    }
+                } else if b[i] == b'"' || b[i] == b'\'' {
+                    in_quote = true;
+                    qchar = b[i];
+                } else if b[i] == b'/' && i + 1 < b.len() && b[i + 1] == b'>' {
+                    // Self-closing: undo the increment
+                    depth -= 1;
+                    i += 1; // skip '>'
+                    break;
+                } else if b[i] == b'>' {
+                    break;
+                }
+                i += 1;
+            }
+        }
+        i += 1; // skip past '>'
+    }
+    Ok(())
+}
+
 /// Parses an ODT or FODT XML string into a [`Document`].
 ///
 /// Accepts `office:document` (FODT), `office:document-content`,
@@ -28,8 +94,9 @@ use crate::parser::styles::{parse_styles, parse_styles_node};
 ///
 /// # Errors
 ///
-/// Returns a `String` error if the XML is invalid or the root element
-/// is not a recognized ODT document type.
+/// Returns a `String` error if the XML is invalid, the nesting depth
+/// exceeds the safety limit, or the root element is not a recognized
+/// ODT document type.
 ///
 /// # Examples
 ///
@@ -41,6 +108,7 @@ use crate::parser::styles::{parse_styles, parse_styles_node};
 /// println!("Blocks: {}", doc.blocks.len());
 /// ```
 pub fn parse_document(xml: &str) -> Result<Document, String> {
+    check_nesting_depth(xml, MAX_XML_NESTING_DEPTH)?;
     let ns = Ns::default();
     let doc = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
     let root = doc.root_element();
@@ -91,6 +159,7 @@ pub fn parse_document(xml: &str) -> Result<Document, String> {
 /// Returns a `String` error if the XML is invalid or required elements
 /// are missing.
 pub fn add_styles_from_xml(doc: &mut Document, xml: &str) -> Result<(), String> {
+    check_nesting_depth(xml, MAX_XML_NESTING_DEPTH)?;
     let ns = Ns::default();
     let parsed = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
 

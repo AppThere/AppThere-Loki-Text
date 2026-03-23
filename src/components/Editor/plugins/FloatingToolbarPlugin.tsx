@@ -55,6 +55,18 @@ export function FloatingToolbarPlugin() {
         );
     }, [editor, updateToolbar]);
 
+    // Suppress the Android system text selection toolbar (ActionMode) so only
+    // the app's custom floating toolbar is displayed when text is selected.
+    useEffect(() => {
+        const preventContextMenu = (e: MouseEvent) => {
+            e.preventDefault();
+        };
+        return editor.registerRootListener((rootElement, prevRootElement) => {
+            prevRootElement?.removeEventListener('contextmenu', preventContextMenu);
+            rootElement?.addEventListener('contextmenu', preventContextMenu);
+        });
+    }, [editor]);
+
     // Position calculation
     useEffect(() => {
         const handleSelectionChange = () => {

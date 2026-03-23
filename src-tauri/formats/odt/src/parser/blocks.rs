@@ -10,6 +10,13 @@ use common_core::{Block, TiptapMark};
 
 use crate::parser::inlines::parse_inlines;
 
+/// Maximum nesting depth for lists and tables before recursion is cut off.
+///
+/// This guard prevents a stack overflow when processing adversarially deep
+/// XML (e.g. 500+ nested `text:list` elements).  Legitimate documents never
+/// approach this limit.
+const MAX_NESTING_DEPTH: usize = 64;
+
 /// Parses block-level content from an ODT `office:text` (or list-item) node.
 ///
 /// # Arguments
@@ -28,6 +35,22 @@ pub fn parse_blocks(
     ns_xlink: &str,
     style_map: &HashMap<String, (String, Vec<TiptapMark>)>,
 ) -> Vec<Block> {
+    parse_blocks_depth(node, ns_text, ns_table, ns_draw, ns_xlink, style_map, 0)
+}
+
+/// Inner recursive implementation with explicit depth tracking.
+fn parse_blocks_depth(
+    node: roxmltree::Node,
+    ns_text: &str,
+    ns_table: &str,
+    ns_draw: &str,
+    ns_xlink: &str,
+    style_map: &HashMap<String, (String, Vec<TiptapMark>)>,
+    depth: usize,
+) -> Vec<Block> {
+    if depth >= MAX_NESTING_DEPTH {
+        return Vec::new();
+    }
     let mut blocks = Vec::new();
     for child in node.children() {
         if child.has_tag_name((ns_text, "p")) {
@@ -42,6 +65,7 @@ pub fn parse_blocks(
                 ns_draw,
                 ns_xlink,
                 style_map,
+                depth,
                 &mut blocks,
             );
         } else if child.has_tag_name((ns_table, "table")) {
@@ -52,6 +76,7 @@ pub fn parse_blocks(
                 ns_draw,
                 ns_xlink,
                 style_map,
+                depth,
                 &mut blocks,
             );
         }
@@ -129,6 +154,7 @@ fn parse_heading(
 }
 
 /// Parses a `text:list` element into a `BulletList`.
+#[allow(clippy::too_many_arguments)]
 fn parse_list(
     child: &roxmltree::Node,
     ns_text: &str,
@@ -136,6 +162,7 @@ fn parse_list(
     ns_draw: &str,
     ns_xlink: &str,
     style_map: &HashMap<String, (String, Vec<TiptapMark>)>,
+    depth: usize,
     blocks: &mut Vec<Block>,
 ) {
     let mut items = Vec::new();
@@ -143,13 +170,22 @@ fn parse_list(
         .children()
         .filter(|n| n.has_tag_name((ns_text, "list-item")))
     {
-        let content = parse_blocks(item, ns_text, ns_table, ns_draw, ns_xlink, style_map);
+        let content = parse_blocks_depth(
+            item,
+            ns_text,
+            ns_table,
+            ns_draw,
+            ns_xlink,
+            style_map,
+            depth + 1,
+        );
         items.push(Block::ListItem { content });
     }
     blocks.push(Block::BulletList { content: items });
 }
 
 /// Parses a `table:table` element.
+#[allow(clippy::too_many_arguments)]
 fn parse_table(
     child: &roxmltree::Node,
     ns_text: &str,
@@ -157,6 +193,7 @@ fn parse_table(
     ns_draw: &str,
     ns_xlink: &str,
     style_map: &HashMap<String, (String, Vec<TiptapMark>)>,
+    depth: usize,
     blocks: &mut Vec<Block>,
 ) {
     let mut rows = Vec::new();
@@ -167,7 +204,15 @@ fn parse_table(
         let mut cells = Vec::new();
         for cell in row.children() {
             if cell.has_tag_name((ns_table, "table-cell")) {
-                let content = parse_blocks(cell, ns_text, ns_table, ns_draw, ns_xlink, style_map);
+                let content = parse_blocks_depth(
+                    cell,
+                    ns_text,
+                    ns_table,
+                    ns_draw,
+                    ns_xlink,
+                    style_map,
+                    depth + 1,
+                );
                 let col_span = cell
                     .attribute((ns_table, "number-columns-spanned"))
                     .and_then(|v| v.parse::<u32>().ok())

@@ -1,6 +1,21 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/odt';
 
+/**
+ * Android only: persist a content:// URI permission across app restarts.
+ *
+ * After the user picks a file through the SAF file picker, Android grants a
+ * temporary permission for that URI. Calling this command calls
+ * `ContentResolver.takePersistableUriPermission()` so the app can still read
+ * (and write) the file in future sessions — fixing the Recents open-after-
+ * restart permission error.
+ *
+ * On non-Android platforms this will reject; callers must swallow the error.
+ */
+export async function takePersistableUriPermission(uri: string): Promise<void> {
+    await invoke('plugin:uriPermission|takePersistablePermission', { uri });
+}
+
 /** Response from `open_document`: native Lexical editor state + styles + metadata. */
 export interface LexicalResponse {
     content: LexicalDocumentData;

@@ -61,51 +61,53 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
 
     return (
         <div className="flex flex-col h-full bg-background overflow-hidden">
-            {/* Top bar */}
-            <div className="flex items-center gap-2 px-3 h-10 border-b border-border shrink-0 bg-background safe-pt">
-                <span className="text-sm font-medium truncate flex-1">{title}</span>
-                <span title={isDirty ? 'Unsaved changes' : 'Saved'}>
-                    {isDirty ? (
-                        <CloudOff className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : (
-                        <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                </span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setNewDocDialogOpen(true)} title="New">
-                    <FileText className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleOpen} title="Open">
-                    <FolderOpen className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSave} title="Save">
-                    <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setColourModeOpen(true)}
-                    title="Document Colour Mode…"
-                    disabled={!doc}
-                >
-                    <Palette className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setExportPdfOpen(true)}
-                    title="Export PDF/X…"
-                    disabled={!doc}
-                >
-                    <FileOutput className="h-4 w-4" />
-                </Button>
-                <SoftProofToggle className="hidden sm:flex" />
-                {onClose && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Close">
-                        <X className="h-4 w-4" />
+            {/* Top bar — outer div owns safe-pt so the bar grows to cover the status bar */}
+            <div className="shrink-0 bg-background border-b border-border safe-pt">
+                <div className="flex items-center gap-2 px-3 h-10">
+                    <span className="text-sm font-medium truncate flex-1">{title}</span>
+                    <span title={isDirty ? 'Unsaved changes' : 'Saved'}>
+                        {isDirty ? (
+                            <CloudOff className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                            <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setNewDocDialogOpen(true)} title="New">
+                        <FileText className="h-4 w-4" />
                     </Button>
-                )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleOpen} title="Open">
+                        <FolderOpen className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSave} title="Save">
+                        <Save className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setColourModeOpen(true)}
+                        title="Document Colour Mode…"
+                        disabled={!doc}
+                    >
+                        <Palette className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setExportPdfOpen(true)}
+                        title="Export PDF/X…"
+                        disabled={!doc}
+                    >
+                        <FileOutput className="h-4 w-4" />
+                    </Button>
+                    <SoftProofToggle className="hidden sm:flex" />
+                    {onClose && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} title="Close">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Main layout area */}
@@ -116,7 +118,7 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
                 </div>
 
                 {/* Canvas area */}
-                <div ref={containerRef} className="flex-1 min-w-0 relative overflow-hidden">
+                <div ref={containerRef} className="flex-1 min-w-0 min-h-0 relative overflow-hidden">
                     {containerSize.width > 0 && containerSize.height > 0 && (
                         <VectorCanvas
                             width={containerSize.width}
@@ -139,7 +141,7 @@ export function VectorEditor({ onClose }: VectorEditorProps) {
                     <PropertiesPanel variant="bottomsheet" />
                 </div>
                 {/* Tool palette at bottom on mobile */}
-                <div className="safe-pb">
+                <div className="safe-pb bg-background">
                     <ToolPalette variant="bottombar" />
                 </div>
             </div>

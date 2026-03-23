@@ -78,7 +78,7 @@ export function ToolPalette({ variant }: ToolPaletteProps) {
     }
 
     return (
-        <div className={cn('flex h-14 bg-background border-t border-border safe-pb')}>
+        <div className={cn('flex h-14 bg-background border-t border-border')}>
             {TOOLS.map((t) => (
                 <ToolPaletteItem
                     key={t.tool}

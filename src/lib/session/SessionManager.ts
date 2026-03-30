@@ -134,14 +134,10 @@ export class SessionManager {
         // Write to original file. On Android, plugin-fs uses Rust's std::fs which
         // cannot write to content:// URIs; use the native ContentResolver command
         // for those paths instead.
-        const { isAndroid } = await import('../utils/platform');
-        if (isAndroid() && this.meta.originalPath.startsWith('content://')) {
-            const { writeContentUri } = await import('../tauri/commands');
-            await writeContentUri(this.meta.originalPath, bytes);
-        } else {
-            const { writeFile } = await import('@tauri-apps/plugin-fs');
-            await writeFile(this.meta.originalPath, bytes);
-        }
+        // plugin-fs writeFile uses Android's ContentResolver for content:// URIs,
+        // so it handles both regular paths and SAF content:// URIs correctly.
+        const { writeFile } = await import('@tauri-apps/plugin-fs');
+        await writeFile(this.meta.originalPath, bytes);
         // Keep session current in sync
         await writeCurrentOdt(this.meta.sessionId, bytes);
         this.meta.lastModified = new Date().toISOString();

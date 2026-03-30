@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { readFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument, takePersistableUriPermission, readContentUri, writeContentUri } from '../tauri/commands';
+import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { openDocument, saveDocument, takePersistableUriPermission } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
 import { notifyError } from '@/lib/utils/notifyError';
-import { isAndroid } from '@/lib/utils/platform';
 import { useFileSession } from './useFileSession';
 import { useFileExport } from './useFileExport';
 
@@ -74,7 +73,9 @@ export function useFileOperations() {
 
             // On Android, persist the content:// URI permission so the file can
             // be re-opened after the app process is killed (e.g. from Recents).
-            // This is a no-op on desktop; errors are swallowed intentionally.
+            // This is also handled automatically by MainActivity.onActivityResult,
+            // but we keep this call as a belt-and-suspenders fallback.
+            // On desktop this will reject; the error is swallowed intentionally.
             if (path.startsWith('content://')) {
                 try {
                     await takePersistableUriPermission(path);
@@ -83,12 +84,9 @@ export function useFileOperations() {
                 }
             }
 
-            // On Android, plugin-fs uses Rust's std::fs which cannot open content://
-            // URIs. Use the native ContentResolver command for those paths instead.
-            // The isAndroid() guard prevents calling the Android-only plugin on desktop.
-            const fileBytes = (isAndroid() && path.startsWith('content://'))
-                ? await readContentUri(path)
-                : await readFile(path);
+            // plugin-fs readFile uses Android's ContentResolver for content:// URIs,
+            // so it works for both regular paths and SAF content:// URIs.
+            const fileBytes = await readFile(path);
             const response = await openDocument(path, fileBytes);
 
             setPath(path);
@@ -189,6 +187,9 @@ export function useFileOperations() {
                     metadata,
                 });
             } else {
+                // No active session: serialize and write directly.
+                // save_document returns bytes for content:// paths instead of
+                // writing to disk; writeFile (plugin-fs) handles both cases.
                 const bytes = await saveDocument(
                     currentPath,
                     JSON.stringify(currentContent),
@@ -196,8 +197,8 @@ export function useFileOperations() {
                     metadata,
                     currentPath,
                 );
-                if (bytes && isAndroid() && currentPath.startsWith('content://')) {
-                    await writeContentUri(currentPath, bytes);
+                if (bytes && currentPath.startsWith('content://')) {
+                    await writeFile(currentPath, bytes);
                 }
             }
 
@@ -240,20 +241,20 @@ export function useFileOperations() {
                 metadata,
                 currentPath || undefined,
             );
-            if (bytes) {
+            if (bytes && path.startsWith('content://')) {
                 // content:// URI (Android): backend returned bytes instead of writing
-                // to disk. Write them via ContentResolver and persist the permission.
-                if (isAndroid() && path.startsWith('content://')) {
-                    try {
-                        await takePersistableUriPermission(path);
-                    } catch {
-                        // Non-fatal: swallow on desktop and non-persistable URIs.
-                    }
-                    await writeContentUri(path, bytes);
+                // to disk. Persist the permission before writing.
+                try {
+                    await takePersistableUriPermission(path);
+                } catch {
+                    // Non-fatal: swallow on desktop and non-persistable URIs.
                 }
-                // else: non-content:// path — backend already wrote to disk.
+                await writeFile(path, bytes);
             }
-            // Update app state regardless of which write path was taken.
+
+            // Update app state regardless of whether bytes were returned.
+            // For non-content:// (desktop) paths, saveDocument writes to disk and
+            // returns null — state must still be updated.
             setPath(path);
             await endSession();
             await startSession(path);

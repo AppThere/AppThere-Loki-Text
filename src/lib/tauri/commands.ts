@@ -16,6 +16,34 @@ export async function takePersistableUriPermission(uri: string): Promise<void> {
     await invoke('plugin:uriPermission|takePersistablePermission', { uri });
 }
 
+/**
+ * Android only: read all bytes from a content:// URI via Android ContentResolver.
+ *
+ * Tauri's plugin-fs uses Rust's std::fs, which cannot open content:// URIs on
+ * Android. This command goes through the UriPermissionPlugin Kotlin layer which
+ * calls ContentResolver.openInputStream, guaranteeing SAF URI access works.
+ *
+ * On non-Android platforms this will reject; callers must use readFile instead.
+ */
+export async function readContentUri(uri: string): Promise<Uint8Array> {
+    const result: { bytes: number[] } = await invoke('plugin:uriPermission|readUri', { uri });
+    return new Uint8Array(result.bytes);
+}
+
+/**
+ * Android only: write bytes to a content:// URI via Android ContentResolver.
+ *
+ * Tauri's plugin-fs uses Rust's std::fs, which cannot write content:// URIs on
+ * Android. This command goes through the UriPermissionPlugin Kotlin layer which
+ * calls ContentResolver.openOutputStream in write-truncate mode, guaranteeing
+ * SAF URI writes work.
+ *
+ * On non-Android platforms this will reject; callers must use writeFile instead.
+ */
+export async function writeContentUri(uri: string, bytes: Uint8Array): Promise<void> {
+    await invoke('plugin:uriPermission|writeUri', { uri, bytes: Array.from(bytes) });
+}
+
 /** Response from `open_document`: native Lexical editor state + styles + metadata. */
 export interface LexicalResponse {
     content: LexicalDocumentData;

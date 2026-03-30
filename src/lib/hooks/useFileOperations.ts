@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument } from '../tauri/commands';
+import { openDocument, saveDocument, takePersistableUriPermission } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -70,6 +70,17 @@ export function useFileOperations() {
         setIsLoading(true);
         try {
             await endSession();
+
+            // On Android, persist the content:// URI permission so the file can
+            // be re-opened after the app process is killed (e.g. from Recents).
+            // This is a no-op on desktop; errors are swallowed intentionally.
+            if (path.startsWith('content://')) {
+                try {
+                    await takePersistableUriPermission(path);
+                } catch {
+                    // Non-fatal: the URI may not support persistable permissions.
+                }
+            }
 
             const fileBytes = await readFile(path);
             const response = await openDocument(path, fileBytes);
@@ -224,7 +235,16 @@ export function useFileOperations() {
                 currentPath || undefined,
             );
             if (bytes) {
-                if (path.startsWith('content://')) await writeFile(path, bytes);
+                if (path.startsWith('content://')) {
+                    // Persist the permission before writing so future sessions can
+                    // still open this file from Recents without a permissions error.
+                    try {
+                        await takePersistableUriPermission(path);
+                    } catch {
+                        // Non-fatal: swallow on desktop and non-persistable URIs.
+                    }
+                    await writeFile(path, bytes);
+                }
                 setPath(path);
                 await endSession();
                 await startSession(path);

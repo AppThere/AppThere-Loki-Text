@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { readFile, writeFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument, takePersistableUriPermission } from '../tauri/commands';
+import { readFile } from '@tauri-apps/plugin-fs';
+import { openDocument, saveDocument, takePersistableUriPermission, readContentUri, writeContentUri } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -82,7 +82,11 @@ export function useFileOperations() {
                 }
             }
 
-            const fileBytes = await readFile(path);
+            // On Android, plugin-fs uses Rust's std::fs which cannot open content://
+            // URIs. Use the native ContentResolver command for those paths instead.
+            const fileBytes = path.startsWith('content://')
+                ? await readContentUri(path)
+                : await readFile(path);
             const response = await openDocument(path, fileBytes);
 
             setPath(path);
@@ -191,7 +195,7 @@ export function useFileOperations() {
                     currentPath,
                 );
                 if (bytes && currentPath.startsWith('content://')) {
-                    await writeFile(currentPath, bytes);
+                    await writeContentUri(currentPath, bytes);
                 }
             }
 
@@ -235,26 +239,28 @@ export function useFileOperations() {
                 currentPath || undefined,
             );
             if (bytes) {
+                // content:// URI (Android): backend returned bytes instead of writing
+                // to disk. Write them via ContentResolver and persist the permission.
                 if (path.startsWith('content://')) {
-                    // Persist the permission before writing so future sessions can
-                    // still open this file from Recents without a permissions error.
                     try {
                         await takePersistableUriPermission(path);
                     } catch {
                         // Non-fatal: swallow on desktop and non-persistable URIs.
                     }
-                    await writeFile(path, bytes);
+                    await writeContentUri(path, bytes);
                 }
-                setPath(path);
-                await endSession();
-                await startSession(path);
-                addDocument({
-                    path,
-                    name: metadata.title || path.split('/').pop() || 'Untitled',
-                    type: 'text',
-                });
-                markClean();
+                // else: non-content:// path — backend already wrote to disk.
             }
+            // Update app state regardless of which write path was taken.
+            setPath(path);
+            await endSession();
+            await startSession(path);
+            addDocument({
+                path,
+                name: metadata.title || path.split('/').pop() || 'Untitled',
+                type: 'text',
+            });
+            markClean();
         } catch (error) {
             console.error('Failed handling save as dialog:', error);
             notifyError('Failed to save document', error);

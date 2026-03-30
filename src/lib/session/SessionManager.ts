@@ -131,9 +131,6 @@ export class SessionManager {
      */
     async saveToOriginal(state: DocState): Promise<void> {
         const bytes = await serializeToBytes(state);
-        // Write to original file. On Android, plugin-fs uses Rust's std::fs which
-        // cannot write to content:// URIs; use the native ContentResolver command
-        // for those paths instead.
         // plugin-fs writeFile uses Android's ContentResolver for content:// URIs,
         // so it handles both regular paths and SAF content:// URIs correctly.
         const { writeFile } = await import('@tauri-apps/plugin-fs');

@@ -16,10 +16,9 @@ import app.tauri.plugin.Plugin
  * the app process is killed. Calling takePersistablePermission saves the permission
  * durably so subsequent sessions can still read the file (e.g., from Recents).
  *
- * Note: this command is registered in the Kotlin plugin manager but NOT in the Rust
- * IPC router, so invoking it from JavaScript via plugin:uriPermission|* will be
- * silently rejected by the Rust capability system. Permission persistence is handled
- * automatically by MainActivity.onActivityResult instead.
+ * This plugin is registered on the Rust side via tauri::plugin::Builder in lib.rs,
+ * which connects the Rust IPC router to this Kotlin implementation. JavaScript can
+ * invoke commands via plugin:uriPermission|takePersistablePermission.
  */
 @TauriPlugin
 class UriPermissionPlugin(private val activity: Activity) : Plugin(activity) {

@@ -10,7 +10,9 @@ import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/od
  * (and write) the file in future sessions — fixing the Recents open-after-
  * restart permission error.
  *
- * On non-Android platforms this will reject; callers must swallow the error.
+ * The UriPermissionPlugin is registered on the Rust side (lib.rs) so this IPC
+ * call is properly routed. On non-Android platforms this will reject; callers
+ * must swallow the error.
  */
 export async function takePersistableUriPermission(uri: string): Promise<void> {
     await invoke('plugin:uriPermission|takePersistablePermission', { uri });

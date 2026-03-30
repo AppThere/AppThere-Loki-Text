@@ -10,7 +10,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
-            tauri::plugin::Builder::new("uriPermission")
+            tauri::plugin::Builder::<_, ()>::new("uriPermission")
                 .setup(|_app, api| {
                     #[cfg(target_os = "android")]
                     api.register_android_plugin("com.appthere.loki", "UriPermissionPlugin")?;

@@ -8,6 +8,7 @@ import { useSessionPersistence } from './useSessionPersistence';
 import { FileType } from '@/components/Dialogs/FileTypeDialog';
 import standardTemplate from '@/assets/templates/standard.fodt?raw';
 import { notifyError } from '@/lib/utils/notifyError';
+import { isAndroid } from '@/lib/utils/platform';
 import { useFileSession } from './useFileSession';
 import { useFileExport } from './useFileExport';
 
@@ -84,7 +85,8 @@ export function useFileOperations() {
 
             // On Android, plugin-fs uses Rust's std::fs which cannot open content://
             // URIs. Use the native ContentResolver command for those paths instead.
-            const fileBytes = path.startsWith('content://')
+            // The isAndroid() guard prevents calling the Android-only plugin on desktop.
+            const fileBytes = (isAndroid() && path.startsWith('content://'))
                 ? await readContentUri(path)
                 : await readFile(path);
             const response = await openDocument(path, fileBytes);
@@ -194,7 +196,7 @@ export function useFileOperations() {
                     metadata,
                     currentPath,
                 );
-                if (bytes && currentPath.startsWith('content://')) {
+                if (bytes && isAndroid() && currentPath.startsWith('content://')) {
                     await writeContentUri(currentPath, bytes);
                 }
             }
@@ -241,7 +243,7 @@ export function useFileOperations() {
             if (bytes) {
                 // content:// URI (Android): backend returned bytes instead of writing
                 // to disk. Write them via ContentResolver and persist the permission.
-                if (path.startsWith('content://')) {
+                if (isAndroid() && path.startsWith('content://')) {
                     try {
                         await takePersistableUriPermission(path);
                     } catch {

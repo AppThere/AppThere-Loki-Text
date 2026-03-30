@@ -2,7 +2,7 @@
 members = ["epub-logic", "formats/common-core", "formats/odt", "formats/pdf", "formats/vector-core"]
 
 [package]
-name = "AppThere-Loki"
+name = "appthere-loki"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]

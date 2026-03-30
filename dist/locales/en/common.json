@@ -1,0 +1,36 @@
+{
+  "toolbar": {
+    "save": "Save",
+    "open": "Open",
+    "newFile": "New File",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
+  },
+  "menu": {
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "insert": "Insert",
+    "format": "Format",
+    "tools": "Tools",
+    "help": "Help"
+  },
+  "status": {
+    "ready": "Ready",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "error": "Error"
+  },
+  "dialog": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "apply": "Apply"
+  },
+  "pagination": {
+    "pageOf": "Page {{current}} of {{total}}"
+  }
+}

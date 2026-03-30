@@ -8,6 +8,6 @@ class MainActivity : TauriActivity() {
     setTheme(R.style.Theme_appthere_loki)
     super.onCreate(savedInstanceState)
     WindowCompat.setDecorFitsSystemWindows(window, true)
-    registerPlugin(UriPermissionPlugin::class.java)
+    pluginManager.load(null, "uriPermission", UriPermissionPlugin(this), "{}")
   }
 }

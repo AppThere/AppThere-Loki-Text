@@ -16,13 +16,13 @@ import app.tauri.plugin.Plugin
  * the app process is killed. Calling takePersistablePermission saves the permission
  * durably so subsequent sessions can still read the file (e.g., from Recents).
  */
-@TauriPlugin(name = "uriPermission")
+@TauriPlugin
 class UriPermissionPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun takePersistablePermission(invoke: Invoke) {
-        val uri = invoke.getString("uri")
-        if (uri == null) {
+        val uri = invoke.getArgs().getString("uri")
+        if (uri.isEmpty()) {
             invoke.reject("Missing uri parameter")
             return
         }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
-import { openDocument, saveDocument, takePersistableUriPermission } from '../tauri/commands';
+import { openDocument, saveDocument, takePersistableUriPermission, openFilePicker } from '../tauri/commands';
 import { useDocumentStore } from '../stores/documentStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -71,11 +71,10 @@ export function useFileOperations() {
         try {
             await endSession();
 
-            // On Android, persist the content:// URI permission so the file can
-            // be re-opened after the app process is killed (e.g. from Recents).
-            // This is also handled automatically by MainActivity.onActivityResult,
-            // but we keep this call as a belt-and-suspenders fallback.
-            // On desktop this will reject; the error is swallowed intentionally.
+            // For Save As paths (ACTION_CREATE_DOCUMENT), persist the permission
+            // so the file can be re-opened after the app process is killed.
+            // Files opened via handleOpen already have the permission persisted
+            // inside FilePickerPlugin's activity result callback.
             if (path.startsWith('content://')) {
                 try {
                     await takePersistableUriPermission(path);
@@ -119,14 +118,25 @@ export function useFileOperations() {
 
     const handleOpen = async () => {
         try {
-            const selected = await open({
-                title: 'Open AppThere Document',
-                filters: [{ name: 'Document', extensions: ['odt', 'fodt'] }],
-            });
-            if (selected) {
-                const path = typeof selected === 'string' ? selected : (selected as any).path;
-                if (path) await loadDocument(path);
+            let path: string | null = null;
+            if (/android/i.test(navigator.userAgent)) {
+                // FilePickerPlugin uses ACTION_OPEN_DOCUMENT which grants a
+                // persistable permission and calls takePersistableUriPermission
+                // inside the activity result callback before returning the URI.
+                try {
+                    path = await openFilePicker();
+                } catch (err: unknown) {
+                    if (String(err).includes('cancelled')) return;
+                    throw err;
+                }
+            } else {
+                const selected = await open({
+                    title: 'Open AppThere Document',
+                    filters: [{ name: 'Document', extensions: ['odt', 'fodt'] }],
+                });
+                if (selected) path = typeof selected === 'string' ? selected : (selected as any).path;
             }
+            if (path) await loadDocument(path);
         } catch (error) {
             console.error('Failed handling open dialog:', error);
             notifyError('Failed to open document', error);

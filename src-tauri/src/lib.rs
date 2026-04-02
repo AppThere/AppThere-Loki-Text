@@ -18,6 +18,15 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(
+            tauri::plugin::Builder::<_, ()>::new("filePicker")
+                .setup(|_app, api| {
+                    #[cfg(target_os = "android")]
+                    api.register_android_plugin("com.appthere.loki", "FilePickerPlugin")?;
+                    Ok(())
+                })
+                .build(),
+        )
         .setup(|app| {
             #[cfg(desktop)]
             {

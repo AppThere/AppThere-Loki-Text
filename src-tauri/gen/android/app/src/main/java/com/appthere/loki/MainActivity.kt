@@ -10,6 +10,7 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
     WindowCompat.setDecorFitsSystemWindows(window, true)
     pluginManager.load(null, "uriPermission", UriPermissionPlugin(this), "{}")
+    pluginManager.load(null, "filePicker", FilePickerPlugin(this), "{}")
   }
 
   /**

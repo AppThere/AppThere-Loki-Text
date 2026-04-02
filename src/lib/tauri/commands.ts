@@ -19,6 +19,20 @@ export async function takePersistableUriPermission(uri: string): Promise<void> {
 }
 
 
+/**
+ * Android only: open a file using ACTION_OPEN_DOCUMENT, which grants a
+ * persistable content:// URI permission so the file can be reopened from
+ * the Recents list after the app process is killed.
+ *
+ * Returns the selected content:// URI string, or rejects with "cancelled"
+ * if the user dismissed the picker. Must not be called on desktop (the
+ * plugin is only registered for Android).
+ */
+export async function openFilePicker(): Promise<string> {
+    const result = await invoke<{ uri: string }>('plugin:filePicker|openFile');
+    return result.uri;
+}
+
 /** Response from `open_document`: native Lexical editor state + styles + metadata. */
 export interface LexicalResponse {
     content: LexicalDocumentData;

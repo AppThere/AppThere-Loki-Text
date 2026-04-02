@@ -1,6 +1,8 @@
 mod commands;
 mod fonts;
 
+use commands::android::{FilePickerHandle, UriPermissionHandle};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     eprintln!("DEBUG: run() starting");
@@ -11,18 +13,26 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri::plugin::Builder::<_, ()>::new("uriPermission")
-                .setup(|_app, api| {
+                .setup(|app, api| {
                     #[cfg(target_os = "android")]
-                    api.register_android_plugin("com.appthere.loki", "UriPermissionPlugin")?;
+                    {
+                        let handle = api
+                            .register_android_plugin("com.appthere.loki", "UriPermissionPlugin")?;
+                        app.manage(UriPermissionHandle(handle));
+                    }
                     Ok(())
                 })
                 .build(),
         )
         .plugin(
             tauri::plugin::Builder::<_, ()>::new("filePicker")
-                .setup(|_app, api| {
+                .setup(|app, api| {
                     #[cfg(target_os = "android")]
-                    api.register_android_plugin("com.appthere.loki", "FilePickerPlugin")?;
+                    {
+                        let handle =
+                            api.register_android_plugin("com.appthere.loki", "FilePickerPlugin")?;
+                        app.manage(FilePickerHandle(handle));
+                    }
                     Ok(())
                 })
                 .build(),
@@ -153,7 +163,9 @@ pub fn run() {
             commands::pdf::validate_pdf_x_conformance,
             commands::pdf::export_pdf_x,
             commands::pdf::validate_text_pdf_x_conformance,
-            commands::pdf::export_text_pdf_x
+            commands::pdf::export_text_pdf_x,
+            commands::android::pick_file_to_open,
+            commands::android::take_persistable_uri_permission
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

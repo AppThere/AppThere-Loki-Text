@@ -4,33 +4,27 @@ import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/od
 /**
  * Android only: persist a content:// URI permission across app restarts.
  *
- * After the user picks a file through the SAF file picker, Android grants a
- * temporary permission for that URI. Calling this command calls
- * `ContentResolver.takePersistableUriPermission()` so the app can still read
- * (and write) the file in future sessions — fixing the Recents open-after-
- * restart permission error.
- *
- * The UriPermissionPlugin is registered on the Rust side (lib.rs) so this IPC
- * call is properly routed. On non-Android platforms this will reject; callers
- * must swallow the error.
+ * Routes through a regular Rust command (`take_persistable_uri_permission`)
+ * which calls `PluginHandle::run_mobile_plugin_async` via JNI — bypassing the
+ * Tauri ACL system that blocks direct `plugin:name|command` IPC from JS.
+ * No-ops on desktop.
  */
 export async function takePersistableUriPermission(uri: string): Promise<void> {
-    await invoke('plugin:uriPermission|takePersistablePermission', { uri });
+    await invoke('take_persistable_uri_permission', { uri });
 }
-
 
 /**
  * Android only: open a file using ACTION_OPEN_DOCUMENT, which grants a
  * persistable content:// URI permission so the file can be reopened from
  * the Recents list after the app process is killed.
  *
- * Returns the selected content:// URI string, or rejects with "cancelled"
- * if the user dismissed the picker. Must not be called on desktop (the
- * plugin is only registered for Android).
+ * Routes through a regular Rust command (`pick_file_to_open`) which calls
+ * `PluginHandle::run_mobile_plugin_async` via JNI — bypassing the Tauri ACL
+ * system that blocks direct `plugin:name|command` IPC from JS.
+ * Returns the selected content:// URI string, or rejects with "cancelled".
  */
 export async function openFilePicker(): Promise<string> {
-    const result = await invoke<{ uri: string }>('plugin:filePicker|openFile');
-    return result.uri;
+    return invoke<string>('pick_file_to_open');
 }
 
 /** Response from `open_document`: native Lexical editor state + styles + metadata. */

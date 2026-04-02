@@ -2,6 +2,7 @@ mod commands;
 mod fonts;
 
 use commands::android::{FilePickerHandle, UriPermissionHandle};
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

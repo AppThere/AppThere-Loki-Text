@@ -4,44 +4,27 @@ import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/od
 /**
  * Android only: persist a content:// URI permission across app restarts.
  *
- * After the user picks a file through the SAF file picker, Android grants a
- * temporary permission for that URI. Calling this command calls
- * `ContentResolver.takePersistableUriPermission()` so the app can still read
- * (and write) the file in future sessions — fixing the Recents open-after-
- * restart permission error.
- *
- * On non-Android platforms this will reject; callers must swallow the error.
+ * Routes through a regular Rust command (`take_persistable_uri_permission`)
+ * which calls `PluginHandle::run_mobile_plugin_async` via JNI — bypassing the
+ * Tauri ACL system that blocks direct `plugin:name|command` IPC from JS.
+ * No-ops on desktop.
  */
 export async function takePersistableUriPermission(uri: string): Promise<void> {
-    await invoke('plugin:uriPermission|takePersistablePermission', { uri });
+    await invoke('take_persistable_uri_permission', { uri });
 }
 
 /**
- * Android only: read all bytes from a content:// URI via Android ContentResolver.
+ * Android only: open a file using ACTION_OPEN_DOCUMENT, which grants a
+ * persistable content:// URI permission so the file can be reopened from
+ * the Recents list after the app process is killed.
  *
- * Tauri's plugin-fs uses Rust's std::fs, which cannot open content:// URIs on
- * Android. This command goes through the UriPermissionPlugin Kotlin layer which
- * calls ContentResolver.openInputStream, guaranteeing SAF URI access works.
- *
- * On non-Android platforms this will reject; callers must use readFile instead.
+ * Routes through a regular Rust command (`pick_file_to_open`) which calls
+ * `PluginHandle::run_mobile_plugin_async` via JNI — bypassing the Tauri ACL
+ * system that blocks direct `plugin:name|command` IPC from JS.
+ * Returns the selected content:// URI string, or rejects with "cancelled".
  */
-export async function readContentUri(uri: string): Promise<Uint8Array> {
-    const result: { bytes: number[] } = await invoke('plugin:uriPermission|readUri', { uri });
-    return new Uint8Array(result.bytes);
-}
-
-/**
- * Android only: write bytes to a content:// URI via Android ContentResolver.
- *
- * Tauri's plugin-fs uses Rust's std::fs, which cannot write content:// URIs on
- * Android. This command goes through the UriPermissionPlugin Kotlin layer which
- * calls ContentResolver.openOutputStream in write-truncate mode, guaranteeing
- * SAF URI writes work.
- *
- * On non-Android platforms this will reject; callers must use writeFile instead.
- */
-export async function writeContentUri(uri: string, bytes: Uint8Array): Promise<void> {
-    await invoke('plugin:uriPermission|writeUri', { uri, bytes: Array.from(bytes) });
+export async function openFilePicker(): Promise<string> {
+    return invoke<string>('pick_file_to_open');
 }
 
 /** Response from `open_document`: native Lexical editor state + styles + metadata. */

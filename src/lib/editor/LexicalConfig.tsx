@@ -9,6 +9,7 @@ import { ImageNode } from './nodes/ImageNode';
 import { PageBreakNode } from './nodes/PageBreakNode';
 import { ParagraphStyleNode } from './nodes/ParagraphStyleNode';
 import { HeadingStyleNode } from './nodes/HeadingStyleNode';
+import { FootnoteReferenceNode } from './nodes/FootnoteReferenceNode';
 
 export const editorConfig: InitialConfigType = {
     namespace: 'AppThereLoki',
@@ -45,6 +46,7 @@ export const editorConfig: InitialConfigType = {
         LinkNode,
         ImageNode,
         PageBreakNode,
+        FootnoteReferenceNode,
         {
             replace: ParagraphNode,
             with: (_node: ParagraphNode) => {

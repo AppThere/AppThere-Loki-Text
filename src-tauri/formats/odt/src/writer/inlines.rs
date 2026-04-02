@@ -47,6 +47,8 @@ pub fn write_inlines_with_style(inlines: &[Inline], writer: &mut XmlWriter) -> R
                     .write_event(Event::Empty(BytesStart::new("text:line-break")))
                     .map_err(|e| e.to_string())?;
             }
+            // Footnote references are not yet supported in ODT output; skip.
+            Inline::FootnoteRef { .. } => {}
         }
     }
     Ok(())
@@ -71,6 +73,8 @@ pub fn write_inlines_with_marks(inlines: &[Inline], writer: &mut XmlWriter) -> R
                     .write_event(Event::Empty(BytesStart::new("text:line-break")))
                     .map_err(|e| e.to_string())?;
             }
+            // Footnote references are not yet supported in ODT output; skip.
+            Inline::FootnoteRef { .. } => {}
         }
     }
     Ok(())

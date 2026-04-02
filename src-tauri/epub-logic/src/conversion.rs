@@ -113,6 +113,9 @@ pub(crate) fn tiptap_content_to_inlines(nodes: Vec<TiptapNode>) -> Vec<Inline> {
             TiptapNode::HardBreak => {
                 inlines.push(Inline::LineBreak);
             }
+            TiptapNode::FootnoteRef { id } => {
+                inlines.push(Inline::FootnoteRef { id });
+            }
             _ => {}
         }
     }

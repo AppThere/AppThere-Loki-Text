@@ -32,5 +32,44 @@
   },
   "pagination": {
     "pageOf": "Page {{current}} of {{total}}"
+  },
+  "pageStyle": {
+    "title": "Page Style",
+    "tabPage": "Page",
+    "tabMargins": "Margins",
+    "paperFormat": "Paper format",
+    "orientation": "Orientation",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "width": "Width",
+    "height": "Height",
+    "marginTop": "Top",
+    "marginBottom": "Bottom",
+    "marginLeft": "Left",
+    "marginRight": "Right",
+    "marginInner": "Inner",
+    "marginOuter": "Outer",
+    "duplexLabel": "Mirrored margins (duplex / book binding)",
+    "duplexTooltip": "Inner margin is on the binding side. It alternates left/right on facing pages.",
+    "reset": "Reset",
+    "size": {
+      "A4": "A4 (210 × 297 mm)",
+      "A5": "A5 (148 × 210 mm)",
+      "A3": "A3 (297 × 420 mm)",
+      "Letter": "Letter (8.5 × 11 in)",
+      "Legal": "Legal (8.5 × 14 in)",
+      "Tabloid": "Tabloid (11 × 17 in)",
+      "custom": "Custom…"
+    },
+    "preset": {
+      "narrow": "Narrow",
+      "normal": "Normal",
+      "wide": "Wide"
+    }
+  },
+  "footnote": {
+    "insertLabel": "Footnote",
+    "footnotesHeading": "Footnotes",
+    "endnotesHeading": "Notes"
   }
 }

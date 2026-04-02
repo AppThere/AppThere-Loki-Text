@@ -4,7 +4,7 @@ use common_core::{Block, CellAttrs, StyleDefinition};
 
 use crate::ImageAsset;
 
-use super::html::block_to_html;
+use super::html::{block_to_html, FootnoteSeqMap};
 
 /// Returns `true` when every cell in a `TableRow` block is a `TableHeader`.
 pub(crate) fn is_header_row(row: &Block) -> bool {
@@ -25,6 +25,7 @@ pub(crate) fn render_table(
     rows: &[Block],
     styles: &HashMap<String, StyleDefinition>,
     images: &[ImageAsset],
+    fn_seq: &FootnoteSeqMap,
 ) -> String {
     let header_end = rows.iter().take_while(|r| is_header_row(r)).count();
     let mut html = String::from("  <table>\n");
@@ -32,14 +33,14 @@ pub(crate) fn render_table(
     if header_end > 0 {
         html.push_str("    <thead>\n");
         for row in &rows[..header_end] {
-            html.push_str(&block_to_html(row, styles, images));
+            html.push_str(&block_to_html(row, styles, images, fn_seq));
         }
         html.push_str("    </thead>\n");
     }
 
     html.push_str("    <tbody>\n");
     for row in &rows[header_end..] {
-        html.push_str(&block_to_html(row, styles, images));
+        html.push_str(&block_to_html(row, styles, images, fn_seq));
     }
     html.push_str("    </tbody>\n");
     html.push_str("  </table>\n");
@@ -54,6 +55,7 @@ pub(crate) fn render_table_cell(
     content: &[Block],
     styles: &HashMap<String, StyleDefinition>,
     images: &[ImageAsset],
+    fn_seq: &FootnoteSeqMap,
 ) -> String {
     let mut attr_str = String::new();
     if let Some(a) = attrs {
@@ -66,7 +68,7 @@ pub(crate) fn render_table_cell(
     }
     let mut html = format!("        <{}{}>\n", tag, attr_str);
     for b in content {
-        html.push_str(&block_to_html(b, styles, images));
+        html.push_str(&block_to_html(b, styles, images, fn_seq));
     }
     html.push_str(&format!("        </{}>\n", tag));
     html

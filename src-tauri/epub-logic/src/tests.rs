@@ -31,7 +31,15 @@ fn test_epub_from_tiptap() {
     let metadata = Metadata::default();
     let fonts = Vec::new();
 
-    let epub = EpubDocument::from_tiptap(create_mock_tiptap_doc(), styles, metadata, fonts, vec![]);
+    let epub = EpubDocument::from_tiptap(
+        create_mock_tiptap_doc(),
+        styles,
+        metadata,
+        fonts,
+        vec![],
+        vec![],
+        FootnotePlacement::Footnote,
+    );
 
     // Should have at least one section
     assert!(!epub.sections.is_empty());
@@ -58,7 +66,7 @@ fn test_block_to_html() {
         }],
     };
 
-    let html = crate::html::block_to_html(&block, &HashMap::new(), &[]);
+    let html = crate::html::block_to_html(&block, &HashMap::new(), &[], &HashMap::new());
     assert!(html.contains("<p>"));
     assert!(html.contains("<strong>test</strong>"));
     assert!(html.contains("</p>"));
@@ -80,6 +88,9 @@ fn test_opf_generation() {
         metadata,
         fonts: vec![],
         images: vec![],
+        footnotes: vec![],
+        footnote_placement: FootnotePlacement::Footnote,
+        footnote_seq_map: HashMap::new(),
     };
 
     let opf = doc.to_package_opf();
@@ -131,7 +142,15 @@ fn test_page_break_splitting() {
         ],
     };
 
-    let epub = EpubDocument::from_tiptap(root, styles, Metadata::default(), vec![], vec![]);
+    let epub = EpubDocument::from_tiptap(
+        root,
+        styles,
+        Metadata::default(),
+        vec![],
+        vec![],
+        vec![],
+        FootnotePlacement::Footnote,
+    );
     // Should be split into 2 sections because of break-before
     assert_eq!(epub.sections.len(), 2);
 }

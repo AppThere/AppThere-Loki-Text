@@ -243,6 +243,8 @@ pub fn inlines_to_nodes(inlines: &[Inline]) -> Vec<LexicalNode> {
                 }
             }
             Inline::LineBreak => out.push(LexicalNode::LineBreak { version: 1 }),
+            // Footnote references are not yet round-tripped via ODT/Lexical; skip.
+            Inline::FootnoteRef { .. } => {}
         }
     }
     out

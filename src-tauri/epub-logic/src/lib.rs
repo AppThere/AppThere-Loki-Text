@@ -10,8 +10,11 @@ mod conversion;
 mod css;
 mod html;
 mod nav;
+mod notes;
 mod opf;
 mod table;
+
+pub use notes::{FootnoteContent, FootnotePlacement};
 
 #[cfg(test)]
 mod tests;
@@ -93,6 +96,12 @@ pub struct EpubDocument {
     pub fonts: Vec<FontAsset>,
     /// Images decoded from data-URI `src` values found in the document.
     pub images: Vec<ImageAsset>,
+    /// Footnote/endnote content entries in store order.
+    pub footnotes: Vec<FootnoteContent>,
+    /// Placement mode for notes (footnote or endnote).
+    pub footnote_placement: FootnotePlacement,
+    /// Pre-computed mapping: footnote UUID → (1-based seq, section id).
+    pub(crate) footnote_seq_map: notes::FootnoteSeqMap,
 }
 
 impl EpubDocument {
@@ -107,6 +116,8 @@ impl EpubDocument {
         metadata: Metadata,
         fonts: Vec<FontAsset>,
         mut images: Vec<ImageAsset>,
+        footnotes: Vec<FootnoteContent>,
+        footnote_placement: FootnotePlacement,
     ) -> Self {
         let mut sections = Vec::new();
         let mut current_blocks: Vec<Block> = Vec::new();
@@ -199,12 +210,17 @@ impl EpubDocument {
             });
         }
 
+        let footnote_seq_map = notes::build_seq_map(&sections);
+
         EpubDocument {
             sections,
             styles,
             metadata,
             fonts,
             images,
+            footnotes,
+            footnote_placement,
+            footnote_seq_map,
         }
     }
 
@@ -229,7 +245,12 @@ impl EpubDocument {
         out.push_str("</head>\n");
         out.push_str("<body>\n");
         for block in &section.blocks {
-            out.push_str(&html::block_to_html(block, &self.styles, &self.images));
+            out.push_str(&html::block_to_html(
+                block,
+                &self.styles,
+                &self.images,
+                &self.footnote_seq_map,
+            ));
         }
         out.push_str("</body>\n");
         out.push_str("</html>\n");
@@ -238,7 +259,32 @@ impl EpubDocument {
 
     /// Generate the OPF 3.0 package document.
     pub fn to_package_opf(&self) -> String {
-        opf::generate_package_opf(&self.metadata, &self.sections, &self.fonts, &self.images)
+        opf::generate_package_opf(
+            &self.metadata,
+            &self.sections,
+            &self.fonts,
+            &self.images,
+            !self.footnotes.is_empty(),
+        )
+    }
+
+    /// Generate the `notes.xhtml` document, or `None` if there are no footnotes.
+    pub fn to_notes_xhtml(&self) -> Option<String> {
+        if self.footnotes.is_empty() {
+            return None;
+        }
+        let lang = self.metadata.language.as_deref().unwrap_or("en");
+        let heading = match self.footnote_placement {
+            FootnotePlacement::Endnote => "Notes",
+            FootnotePlacement::Footnote => "Footnotes",
+        };
+        Some(notes::generate_notes_xhtml(
+            &self.footnotes,
+            &self.footnote_seq_map,
+            &self.footnote_placement,
+            lang,
+            heading,
+        ))
     }
 
     /// Generate the EPUB 3 Navigation Document (nav.xhtml).

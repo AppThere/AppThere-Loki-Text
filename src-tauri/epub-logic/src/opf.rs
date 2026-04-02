@@ -8,6 +8,7 @@ pub(crate) fn generate_package_opf(
     sections: &[ContentSection],
     fonts: &[FontAsset],
     images: &[ImageAsset],
+    has_notes: bool,
 ) -> String {
     let mut opf = String::new();
 
@@ -90,6 +91,13 @@ pub(crate) fn generate_package_opf(
         ));
     }
 
+    if has_notes {
+        opf.push_str(
+            "    <item id=\"notes\" href=\"Text/notes.xhtml\" \
+             media-type=\"application/xhtml+xml\"/>\n",
+        );
+    }
+
     for (idx, font) in fonts.iter().enumerate() {
         opf.push_str(&format!(
             "    <item id=\"font-{}\" href=\"Fonts/{}\" media-type=\"{}\"/>\n",
@@ -115,6 +123,9 @@ pub(crate) fn generate_package_opf(
     opf.push_str("  <spine>\n");
     for section in sections {
         opf.push_str(&format!("    <itemref idref=\"{}\"/>\n", section.id));
+    }
+    if has_notes {
+        opf.push_str("    <itemref idref=\"notes\"/>\n");
     }
     opf.push_str("  </spine>\n");
 

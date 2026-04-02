@@ -119,6 +119,14 @@ pub enum TiptapNode {
     PageBreak,
     /// A hard line break within a paragraph.
     HardBreak,
+    /// An inline footnote reference anchor produced by `FootnoteReferenceNode`.
+    ///
+    /// The `id` field matches `FootnoteReferenceNode.__id` in the Lexical editor.
+    #[serde(rename = "footnote-ref")]
+    FootnoteRef {
+        /// Stable UUID linking this anchor to its note content in the store.
+        id: String,
+    },
 }
 
 /// The response payload sent to the frontend when opening a document.

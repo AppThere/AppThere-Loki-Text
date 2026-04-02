@@ -1,0 +1,16 @@
+.footnote-anchor {
+  display: inline;
+}
+
+.footnote-anchor sup {
+  font-size: 0.75em;
+  line-height: 0;
+  vertical-align: super;
+  cursor: pointer;
+  color: var(--color-accent, #0070c0);
+  user-select: none;
+}
+
+.footnote-anchor sup:hover {
+  text-decoration: underline;
+}

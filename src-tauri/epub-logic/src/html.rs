@@ -2,6 +2,9 @@ use std::collections::HashMap;
 
 use common_core::{Block, BlockAttrs, Inline, StyleDefinition, TiptapMark};
 
+/// Mapping from footnote UUID to 1-based sequence number and source section id.
+pub(crate) type FootnoteSeqMap = HashMap<String, (usize, String)>;
+
 use crate::{table, ImageAsset};
 
 // ---------------------------------------------------------------------------
@@ -48,7 +51,7 @@ fn build_style_attr(attrs: Option<&BlockAttrs>) -> String {
 // ---------------------------------------------------------------------------
 
 /// Render a slice of `Inline` elements to an XHTML fragment.
-pub(crate) fn inlines_to_html(inlines: &[Inline]) -> String {
+pub(crate) fn inlines_to_html(inlines: &[Inline], fn_seq: &FootnoteSeqMap) -> String {
     let mut html = String::new();
     for inline in inlines {
         match inline {
@@ -102,6 +105,18 @@ pub(crate) fn inlines_to_html(inlines: &[Inline]) -> String {
             Inline::LineBreak => {
                 html.push_str("<br/>");
             }
+            Inline::FootnoteRef { id } => {
+                if let Some((seq, section_id)) = fn_seq.get(id) {
+                    html.push_str(&format!(
+                        "<a href=\"notes.xhtml#fn-{seq}\" epub:type=\"noteref\" \
+                         role=\"doc-noteref\" id=\"fnref-{seq}\">\
+                         <sup>{seq}</sup></a>"
+                    ));
+                    let _ = section_id; // used in backlinks inside notes.xhtml
+                } else {
+                    html.push_str("<sup>?</sup>");
+                }
+            }
         }
     }
     html
@@ -116,6 +131,7 @@ pub(crate) fn block_to_html(
     block: &Block,
     styles: &HashMap<String, StyleDefinition>,
     images: &[ImageAsset],
+    fn_seq: &FootnoteSeqMap,
 ) -> String {
     match block {
         // ---- Paragraph (G6, G7) ----
@@ -143,7 +159,7 @@ pub(crate) fn block_to_html(
                 tag,
                 class,
                 style_attr,
-                inlines_to_html(content),
+                inlines_to_html(content, fn_seq),
                 tag
             )
         }
@@ -166,7 +182,7 @@ pub(crate) fn block_to_html(
                 tag,
                 class,
                 style_attr,
-                inlines_to_html(content),
+                inlines_to_html(content, fn_seq),
                 tag
             )
         }
@@ -197,7 +213,7 @@ pub(crate) fn block_to_html(
         Block::BulletList { content } => {
             let mut html = String::from("  <ul>\n");
             for item in content {
-                html.push_str(&block_to_html(item, styles, images));
+                html.push_str(&block_to_html(item, styles, images, fn_seq));
             }
             html.push_str("  </ul>\n");
             html
@@ -205,7 +221,7 @@ pub(crate) fn block_to_html(
         Block::OrderedList { content } => {
             let mut html = String::from("  <ol>\n");
             for item in content {
-                html.push_str(&block_to_html(item, styles, images));
+                html.push_str(&block_to_html(item, styles, images, fn_seq));
             }
             html.push_str("  </ol>\n");
             html
@@ -213,7 +229,7 @@ pub(crate) fn block_to_html(
         Block::ListItem { content } => {
             let mut html = String::from("    <li>");
             for b in content {
-                html.push_str(block_to_html(b, styles, images).trim());
+                html.push_str(block_to_html(b, styles, images, fn_seq).trim());
             }
             html.push_str("</li>\n");
             html
@@ -223,29 +239,29 @@ pub(crate) fn block_to_html(
         Block::Blockquote { content } => {
             let mut html = String::from("  <blockquote>\n");
             for b in content {
-                html.push_str(&block_to_html(b, styles, images));
+                html.push_str(&block_to_html(b, styles, images, fn_seq));
             }
             html.push_str("  </blockquote>\n");
             html
         }
 
         // ---- Table (G2) ----
-        Block::Table { content } => table::render_table(content, styles, images),
+        Block::Table { content } => table::render_table(content, styles, images, fn_seq),
 
         Block::TableRow { content } => {
             let mut html = String::from("      <tr>\n");
             for cell in content {
-                html.push_str(&block_to_html(cell, styles, images));
+                html.push_str(&block_to_html(cell, styles, images, fn_seq));
             }
             html.push_str("      </tr>\n");
             html
         }
 
         Block::TableHeader { attrs, content } => {
-            table::render_table_cell("th", attrs.as_ref(), content, styles, images)
+            table::render_table_cell("th", attrs.as_ref(), content, styles, images, fn_seq)
         }
         Block::TableCell { attrs, content } => {
-            table::render_table_cell("td", attrs.as_ref(), content, styles, images)
+            table::render_table_cell("td", attrs.as_ref(), content, styles, images, fn_seq)
         }
 
         Block::HorizontalRule => String::from("  <hr/>\n"),

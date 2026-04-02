@@ -53,6 +53,14 @@ pub enum Inline {
     },
     /// A hard line break (`text:line-break` in ODT).
     LineBreak,
+    /// An inline footnote or endnote reference anchor.
+    ///
+    /// The `id` is the stable UUID matching the `FootnoteReferenceNode.__id`
+    /// in the Lexical editor. Sequence numbers are computed during export.
+    FootnoteRef {
+        /// Stable UUID that links this anchor to its note content.
+        id: String,
+    },
 }
 
 #[cfg(test)]

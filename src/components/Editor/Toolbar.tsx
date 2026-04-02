@@ -6,6 +6,7 @@ import { TOGGLE_LINK_COMMAND, $isLinkNode } from '@lexical/link';
 import { mergeRegister, $insertNodeToNearestRoot } from '@lexical/utils';
 import { $createPageBreakNode } from '@/lib/editor/nodes/PageBreakNode';
 import { $createParagraphStyleNode } from '@/lib/editor/nodes/ParagraphStyleNode';
+import { INSERT_FOOTNOTE_COMMAND } from '@/editor/commands/footnoteCommands';
 import { useState, useEffect, useCallback } from 'react';
 
 import {
@@ -31,6 +32,8 @@ import { LinkDialog } from '../Dialogs/LinkDialog';
 import { ImageDialog } from '../Dialogs/ImageDialog';
 import { INSERT_IMAGE_COMMAND } from './plugins/ImagePlugin';
 import { ToolbarStyleSelector } from './ToolbarStyleSelector';
+import { PageStyleDialog } from '@/editor/dialogs/PageStyleDialog';
+import { Settings } from 'lucide-react';
 
 import type { StyleDefinition } from '@/lib/types/odt';
 
@@ -48,6 +51,7 @@ export function Toolbar({ styles, currentStyle, onStyleChange, onStylesClick }: 
     const [isStylePopoverOpen, setIsStylePopoverOpen] = useState(false);
     const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
     const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+    const [isPageStyleOpen, setIsPageStyleOpen] = useState(false);
     const [isLink, setIsLink] = useState(false);
     const [linkUrl, setLinkUrl] = useState("");
 
@@ -229,6 +233,9 @@ export function Toolbar({ styles, currentStyle, onStyleChange, onStylesClick }: 
                         <DropdownMenuItem onClick={() => setIsImageDialogOpen(true)}>
                             Image...
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => editor.dispatchCommand(INSERT_FOOTNOTE_COMMAND, undefined)}>
+                            Footnote
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -240,6 +247,19 @@ export function Toolbar({ styles, currentStyle, onStyleChange, onStylesClick }: 
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-700 dark:text-slate-200" onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)} title="Numbered List">
                     <ListOrdered className="h-4 w-4" />
+                </Button>
+
+                <div className="h-6 w-px bg-gray-300 mx-1" />
+
+                {/* Document-level controls */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-700 dark:text-slate-200"
+                    onClick={() => setIsPageStyleOpen(true)}
+                    title="Page Style"
+                >
+                    <Settings className="h-4 w-4" />
                 </Button>
 
             </div>
@@ -255,6 +275,11 @@ export function Toolbar({ styles, currentStyle, onStyleChange, onStylesClick }: 
                 open={isImageDialogOpen}
                 onOpenChange={setIsImageDialogOpen}
                 onSave={handleSaveImage}
+            />
+
+            <PageStyleDialog
+                open={isPageStyleOpen}
+                onOpenChange={setIsPageStyleOpen}
             />
         </div>
     );

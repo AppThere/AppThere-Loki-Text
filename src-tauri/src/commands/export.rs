@@ -14,6 +14,8 @@ pub async fn save_epub<R: Runtime>(
     styles: HashMap<String, StyleDefinition>,
     metadata: Metadata,
     font_paths: Vec<String>,
+    footnotes: Option<Vec<epub_logic::FootnoteContent>>,
+    footnote_placement: Option<epub_logic::FootnotePlacement>,
 ) -> CommandResult<Option<Vec<u8>>> {
     app.emit("debug_log", format!("Exporting EPUB to: {}", path))
         .ok();
@@ -58,8 +60,15 @@ pub async fn save_epub<R: Runtime>(
     // Create EPUB document (epub_logic now uses common_core types directly).
     // Pre-loaded images (file-path srcs) would be passed here; data-URI images
     // are decoded automatically inside from_tiptap.
-    let epub_doc =
-        epub_logic::EpubDocument::from_tiptap(common_node, styles, metadata, fonts, vec![]);
+    let epub_doc = epub_logic::EpubDocument::from_tiptap(
+        common_node,
+        styles,
+        metadata,
+        fonts,
+        vec![],
+        footnotes.unwrap_or_default(),
+        footnote_placement.unwrap_or(epub_logic::FootnotePlacement::Footnote),
+    );
 
     // Write EPUB
     if path.starts_with("content://") {
@@ -149,6 +158,16 @@ fn write_epub_zip<W: std::io::Write + std::io::Seek>(
             .map_err(|e| e.to_string())?;
         zip_writer
             .write_all(epub_doc.section_to_xhtml(section).as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
+
+    // 5b. OEBPS/Text/notes.xhtml (when footnotes are present)
+    if let Some(notes_xhtml) = epub_doc.to_notes_xhtml() {
+        zip_writer
+            .start_file("OEBPS/Text/notes.xhtml", deflated_options)
+            .map_err(|e| e.to_string())?;
+        zip_writer
+            .write_all(notes_xhtml.as_bytes())
             .map_err(|e| e.to_string())?;
     }
 

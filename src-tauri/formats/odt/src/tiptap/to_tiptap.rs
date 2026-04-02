@@ -102,6 +102,7 @@ pub fn inlines_to_tiptap(inlines: &[Inline]) -> Vec<TiptapNode> {
                 marks: Some(marks.clone()),
             },
             Inline::LineBreak => TiptapNode::HardBreak,
+            Inline::FootnoteRef { id } => TiptapNode::FootnoteRef { id: id.clone() },
         })
         .collect()
 }

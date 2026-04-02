@@ -25,6 +25,9 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { StyleDefinition } from '@/lib/types/odt';
 import { FindReplacePlugin, type FindReplaceHandle } from './plugins/FindReplacePlugin';
 import { FindReplaceBar } from '../FindReplaceBar';
+import { PagedEditorContainer } from '@/editor/page/PagedEditorContainer';
+import { FootnotePanel } from '@/editor/page/FootnotePanel';
+import { FootnotePlugin } from '@/editor/plugins/FootnotePlugin';
 
 interface EditorProps {
     initialContent?: string;
@@ -154,7 +157,7 @@ function EditorInner({
     }, [onFindOpen]);
 
     return (
-        <div className="editor-container h-full flex flex-col relative w-full bg-slate-200 dark:bg-stone-900 min-h-0">
+        <div className="editor-container h-full flex flex-col relative w-full min-h-0">
             <FindReplaceBar
                 open={findOpen}
                 searchTerm={searchTerm}
@@ -174,7 +177,7 @@ function EditorInner({
                 onClose={onFindClose}
             />
 
-            <div className="editor-inner relative flex-1 px-8 lg:px-24 pt-5 pb-32 overflow-y-auto max-w-4xl mx-auto w-full min-h-0 bg-background shadow-md border-x text-foreground">
+            <PagedEditorContainer>
                 <RichTextPlugin
                     contentEditable={
                         <ContentEditable className="editor-input min-h-[200px] outline-none font-serif" />
@@ -211,7 +214,10 @@ function EditorInner({
                         _onContentChange(JSON.stringify(editorState.toJSON()));
                     }
                 }} />
-            </div>
+                <FootnotePlugin />
+            </PagedEditorContainer>
+
+            <FootnotePanel />
 
             <Toolbar
                 styles={styles}

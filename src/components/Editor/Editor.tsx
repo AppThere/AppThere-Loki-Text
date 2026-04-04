@@ -25,9 +25,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { StyleDefinition } from '@/lib/types/odt';
 import { FindReplacePlugin, type FindReplaceHandle } from './plugins/FindReplacePlugin';
 import { FindReplaceBar } from '../FindReplaceBar';
-import { PagedEditorContainer } from '@/editor/page/PagedEditorContainer';
-import { FootnotePanel } from '@/editor/page/FootnotePanel';
 import { FootnotePlugin } from '@/editor/plugins/FootnotePlugin';
+import { DocumentViewProvider } from '@/editor/views/DocumentViewProvider';
 
 interface EditorProps {
     initialContent?: string;
@@ -177,7 +176,7 @@ function EditorInner({
                 onClose={onFindClose}
             />
 
-            <PagedEditorContainer>
+            <DocumentViewProvider>
                 <RichTextPlugin
                     contentEditable={
                         <ContentEditable className="editor-input min-h-[200px] outline-none font-serif" />
@@ -215,9 +214,7 @@ function EditorInner({
                     }
                 }} />
                 <FootnotePlugin />
-            </PagedEditorContainer>
-
-            <FootnotePanel />
+            </DocumentViewProvider>
 
             <Toolbar
                 styles={styles}

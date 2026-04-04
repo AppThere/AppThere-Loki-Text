@@ -6,7 +6,9 @@
     "undo": "Undo",
     "redo": "Redo",
     "zoomIn": "Zoom In",
-    "zoomOut": "Zoom Out"
+    "zoomOut": "Zoom Out",
+    "previewMode": "Preview",
+    "editMode": "Edit"
   },
   "menu": {
     "file": "File",
@@ -71,5 +73,12 @@
     "insertLabel": "Footnote",
     "footnotesHeading": "Footnotes",
     "endnotesHeading": "Notes"
+  },
+  "preview": {
+    "editingDisabledBanner": "Preview mode — editing is disabled",
+    "notesHeading": "Notes",
+    "pageLabel": "Page {{current}} of {{total}}",
+    "printButton": "Print",
+    "emptyDocument": "Empty document"
   }
 }

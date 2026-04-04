@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { StyleDefinition, Metadata, LexicalDocumentData } from '../types/odt';
 import type { SessionManager } from '../session/SessionManager';
+import type { DocumentViewMode } from '@/editor/views/DocumentView';
 
 interface DocumentState {
     currentPath: string | null;
@@ -13,6 +14,7 @@ interface DocumentState {
     lastSaved: Date | null;
     /** Active session manager — null when no document is open. */
     session: SessionManager | null;
+    viewMode: DocumentViewMode;
 
     setPath: (path: string) => void;
     setContent: (content: LexicalDocumentData) => void;
@@ -20,6 +22,7 @@ interface DocumentState {
     setMetadata: (metadata: Metadata) => void;
     setStyle: (style: string) => void;
     setSession: (session: SessionManager | null) => void;
+    setViewMode: (mode: DocumentViewMode) => void;
     markDirty: () => void;
     markClean: () => void;
     markSaving: () => void;
@@ -47,6 +50,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     isSaving: false,
     lastSaved: null,
     session: null,
+    viewMode: 'scroll',
 
     setPath: (path) => set({ currentPath: path }),
     setContent: (content) => set({ currentContent: content, isDirty: true }),
@@ -54,6 +58,7 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     setMetadata: (metadata) => set({ metadata, isDirty: true }),
     setStyle: (style) => set({ currentStyle: style }),
     setSession: (session) => set({ session }),
+    setViewMode: (viewMode) => set({ viewMode }),
     markDirty: () => set({ isDirty: true }),
     markClean: () => set({ isDirty: false, isSaving: false }),
     markSaving: () => set({ isSaving: true, isDirty: false }),
@@ -70,5 +75,6 @@ export const useDocumentStore = create<DocumentState>((set) => ({
         isSaving: false,
         lastSaved: null,
         session: null,
+        viewMode: 'scroll',
     }),
 }));

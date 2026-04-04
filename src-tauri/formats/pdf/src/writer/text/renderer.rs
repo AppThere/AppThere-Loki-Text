@@ -137,6 +137,7 @@ fn is_finished(
                     .map(|i| match i {
                         Inline::Text { text, .. } => text.as_str(),
                         Inline::LineBreak => "\n",
+                        Inline::FootnoteRef { .. } => "",
                     })
                     .collect();
                 let font_size = props.font_size;

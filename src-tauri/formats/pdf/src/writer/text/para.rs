@@ -200,6 +200,7 @@ fn collect_text(content: &[Inline]) -> String {
         .map(|i| match i {
             Inline::Text { text, .. } => text.as_str(),
             Inline::LineBreak => "\n",
+            Inline::FootnoteRef { .. } => "",
         })
         .collect()
 }

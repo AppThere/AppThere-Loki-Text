@@ -13,6 +13,18 @@ interface PagedEditorContainerProps {
     currentPageIsOdd?: boolean;
 }
 
+/**
+ * Band height for the inter-page gap: sum of bottom margin of the ending page
+ * and top margin of the starting page.  This makes the band occupy exactly the
+ * margin whitespace that would surround the break in a real paginated renderer,
+ * and its background colour matches the outer grey workspace so the two merge
+ * visually.
+ *
+ * Note — this is still the CSS illusion: the band overlays continuous content
+ * rather than pushing it.  Content that overflows into the margin area (e.g. a
+ * large table) will be hidden behind the band.  That is an accepted trade-off
+ * of the single-Lexical-instance approach.
+ */
 export function PagedEditorContainer({
     children,
     currentPageIsOdd = false,
@@ -23,7 +35,6 @@ export function PagedEditorContainer({
     const { width: pageWidthMm, height: pageHeightMm } = effectivePageDimensions(pageStyle);
     const { margins, duplex } = pageStyle;
 
-    // Simplex vs duplex: for duplex, odd pages get inner on the left.
     const paddingLeft = duplex
         ? (currentPageIsOdd ? margins.inner : margins.outer)
         : margins.inner;
@@ -32,9 +43,15 @@ export function PagedEditorContainer({
         : margins.outer;
 
     const bodyHeightMm = pageHeightMm - margins.top - margins.bottom;
-    const { breaks } = usePageBreaks(contentRef, bodyHeightMm, margins.top);
+    const { breaks, forcedBreaks } = usePageBreaks(contentRef, bodyHeightMm, margins.top);
 
-    // Apply dark mode CSS variables via style element
+    // Band geometry: covers the bottom margin of page N and the top margin of
+    // page N+1.  Centered on the break position (which sits at the end of the
+    // body-content area, i.e. the start of the bottom margin).
+    const bandHeightPx = Math.max(mmToPx(margins.top + margins.bottom), 24);
+    const bottomMarginPx = mmToPx(margins.bottom);
+
+    // Inject dark-mode CSS custom properties once.
     useEffect(() => {
         const styleId = 'paged-editor-vars';
         let el = document.getElementById(styleId) as HTMLStyleElement | null;
@@ -48,16 +65,43 @@ export function PagedEditorContainer({
   :root {
     --page-gap-bg: #2a2a2a;
     --page-surface: #1e1e1e;
-    --page-break-color: #3a4050;
   }
 }`;
-        return () => {
-            el?.remove();
-        };
+        return () => { el?.remove(); };
     }, []);
 
     const pageWidthPx = mmToPx(pageWidthMm);
     const pageHeightPx = mmToPx(pageHeightMm);
+
+    // Render an inter-page gap band at a given break position.
+    // `pos` is the top of where the bottom margin begins (end of body content).
+    const renderBand = (pos: number, key: string, isForced: boolean) => (
+        <div
+            key={key}
+            aria-hidden="true"
+            title={isForced ? 'Manual page break' : undefined}
+            style={{
+                position: 'absolute',
+                // Align the top of the band with the start of the bottom margin
+                top: pos - bottomMarginPx,
+                // Bleed 32 px into the outer grey area on both sides so the band
+                // merges seamlessly with the workspace background.
+                left: -32,
+                right: -32,
+                height: bandHeightPx,
+                // Same colour as the outer grey workspace — this is what makes
+                // the illusion convincing in light mode.
+                background: 'var(--page-gap-bg, #c8c8c8)',
+                // Hairline borders mark the page edges inside the band.
+                borderTop: isForced
+                    ? '2px dashed rgba(0,0,0,0.25)'
+                    : '1px solid rgba(0,0,0,0.12)',
+                borderBottom: '1px solid rgba(0,0,0,0.12)',
+                pointerEvents: 'none',
+                zIndex: 1,
+            }}
+        />
+    );
 
     return (
         <div
@@ -84,22 +128,11 @@ export function PagedEditorContainer({
             >
                 {children}
 
-                {/* Page break indicators */}
-                {breaks.map((pos) => (
-                    <div
-                        key={pos}
-                        aria-hidden="true"
-                        style={{
-                            position: 'absolute',
-                            top: pos,
-                            left: -32,
-                            right: -32,
-                            height: 2,
-                            background: 'var(--page-break-color, #b0b8c8)',
-                            pointerEvents: 'none',
-                        }}
-                    />
-                ))}
+                {/* Regular page-height interval bands */}
+                {breaks.map((pos) => renderBand(pos, `interval-${pos}`, false))}
+
+                {/* Forced page breaks from PageBreakNode */}
+                {forcedBreaks.map((pos) => renderBand(pos, `forced-${pos}`, true))}
             </div>
         </div>
     );
